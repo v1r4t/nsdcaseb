@@ -21,10 +21,10 @@ void main() {
   // scattered start state -> assembled sphere
   vec3 scattered = base + aSeed * (1.0 - uProgress) * 1.8;
   // noise displacement in shader (grows as globe assembles)
-  float n = sin(base.x * 6.0 + uTime * 0.35)
-          * sin(base.y * 6.0 - uTime * 0.28)
-          * sin(base.z * 6.0 + uTime * 0.30);
-  float n2 = hash(floor(base * 14.0) + floor(uTime * 2.0) * 0.02) - 0.5;
+  float n = sin(base.x * 6.0 + uTime * 0.18)
+          * sin(base.y * 6.0 - uTime * 0.14)
+          * sin(base.z * 6.0 + uTime * 0.15);
+  float n2 = hash(floor(base * 14.0)) - 0.5;
   vec3 dir = normalize(base);
   vec3 displaced = scattered + dir * (n * 0.07 + n2 * 0.05) * uProgress;
   vec4 mv = modelViewMatrix * vec4(displaced, 1.0);
@@ -346,10 +346,10 @@ export class DataGlobe {
 
     if (!this.reducedMotion) {
       // slow auto-rotate
-      this.group.rotation.y += dt * 0.12;
-      if (this.rings[0]) this.rings[0].rotation.z += dt * 0.05;
-      if (this.rings[1]) this.rings[1].rotation.z -= dt * 0.04;
-      this.dust.rotation.y -= dt * 0.008;
+      this.group.rotation.y += dt * 0.05;
+      if (this.rings[0]) this.rings[0].rotation.z += dt * 0.02;
+      if (this.rings[1]) this.rings[1].rotation.z -= dt * 0.015;
+      this.dust.rotation.y -= dt * 0.004;
       // mouse parallax (lerp)
       const k = 1 - Math.pow(0.001, dt); // frame-rate independent smoothing
       this.curRX += (this.targetRX - this.curRX) * k;

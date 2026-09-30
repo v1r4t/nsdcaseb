@@ -8,7 +8,7 @@ interface HeroProps {
   onDone?: () => void;
 }
 
-const MIN_DURATION_MS = 1800;
+const MIN_DURATION_MS = 3000;
 
 function isWebGLAvailable(canvas: HTMLCanvasElement): boolean {
   try {
@@ -98,12 +98,12 @@ export default function Hero({ onDone }: HeroProps) {
         const ctx = gsap.context(() => {
           const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
           if (canvas && !webglFailed) {
-            tl.fromTo(canvas, { scale: 0.94, opacity: 0.6 }, { scale: 1, opacity: 1, duration: 1.2 }, 0);
+            tl.fromTo(canvas, { scale: 0.94, opacity: 0.6 }, { scale: 1, opacity: 1, duration: 1.6 }, 0);
           }
           tl.fromTo(
             '.hero-stagger',
             { y: 28, opacity: 0 },
-            { y: 0, opacity: 1, duration: 0.8, stagger: 0.12 },
+            { y: 0, opacity: 1, duration: 1.0, stagger: 0.15 },
             0.15,
           );
         }, root);
@@ -116,7 +116,7 @@ export default function Hero({ onDone }: HeroProps) {
       if (done) return;
       const elapsed = now - start;
       const target = assetsReady ? 1 : 0.9;
-      displayed += (target - displayed) * 0.06 + 0.002;
+      displayed += (target - displayed) * 0.035 + 0.001;
       if (displayed > target) displayed = target;
       // Enforce minimum duration: hold at ~99% until time has passed.
       if (elapsed < MIN_DURATION_MS && displayed >= 1) displayed = 0.99;
@@ -124,8 +124,11 @@ export default function Hero({ onDone }: HeroProps) {
         finish();
         return;
       }
-      setProgressState(displayed);
+      // Globe gets smooth per-frame values (cheap uniform); React state only
+      // updates on integer-% changes to avoid 60fps re-renders.
       globeRef.current?.setProgress(displayed);
+      const pct = Math.round(displayed * 100);
+      setProgressState((prev) => (Math.round(prev * 100) === pct ? prev : displayed));
       raf = requestAnimationFrame(tick);
     };
 
