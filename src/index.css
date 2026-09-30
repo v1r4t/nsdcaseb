@@ -2,13 +2,88 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   background: #050810;
   color: #e2e8f0;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   overflow: hidden;
 }
 
-canvas { display: block; }
+canvas {
+  display: block;
+}
+
+/* Cinematic vignette overlay (pointer-events: none when used) */
+.nsdc-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(3, 5, 10, 0.55) 75%,
+    rgba(2, 4, 8, 0.9) 100%
+  );
+}
+
+/* Film grain overlay — SVG turbulence at low opacity */
+.nsdc-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.06;
+}
+
+/* Cyan text selection */
+::selection {
+  background: rgba(34, 211, 238, 0.35);
+  color: #f0fdff;
+}
+
+/* Accessible focus rings */
+:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@keyframes nsdc-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes nsdc-pulse-slow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-float {
+  animation: nsdc-float 6s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: nsdc-pulse-slow 3.5s ease-in-out infinite;
+}
+
+/* Soft cyan glow for headline text */
+.text-glow {
+  text-shadow:
+    0 0 18px rgba(34, 211, 238, 0.45),
+    0 0 60px rgba(34, 211, 238, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-slow {
+    animation: none;
+  }
+}

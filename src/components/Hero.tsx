@@ -1,0 +1,188 @@
+import { useEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { DataGlobe } from '../three/DataGlobe';
+import Loader from './Loader';
+import Socials from './Socials';
+
+interface HeroProps {
+  onDone?: () => void;
+}
+
+const MIN_DURATION_MS = 1800;
+
+function isWebGLAvailable(canvas: HTMLCanvasElement): boolean {
+  try {
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    return gl !== null;
+  } catch {
+    return false;
+  }
+}
+
+export default function Hero({ onDone }: HeroProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const globeRef = useRef<DataGlobe | null>(null);
+  const gsapCtxRef = useRef<{ revert: () => void } | null>(null);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  const [progress, setProgressState] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [webglFailed, setWebglFailed] = useState(false);
+
+  // Own the DataGlobe lifecycle. Contract: constructor(canvas);
+  // setProgress(0..1); setRevealed(bool); dispose().
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isWebGLAvailable(canvas)) {
+      setWebglFailed(true);
+      return;
+    }
+    let globe: DataGlobe | null = null;
+    try {
+      globe = new DataGlobe(canvas);
+      globeRef.current = globe;
+      globe.setProgress(0);
+      globe.setRevealed(false);
+    } catch {
+      globeRef.current = null;
+      setWebglFailed(true);
+      return;
+    }
+    return () => {
+      globe?.dispose();
+      if (globeRef.current === globe) globeRef.current = null;
+    };
+  }, []);
+
+  // Fake-but-real progress: RAF-interpolate displayed progress toward
+  // asset-ready, enforce >= 1.8s, complete at 100 -> reveal + onDone.
+  useEffect(() => {
+    let raf = 0;
+    let assetsReady = false;
+    let done = false;
+    const start = performance.now();
+    let displayed = 0;
+
+    const markReady = () => {
+      assetsReady = true;
+    };
+
+    let fontsPromise: Promise<unknown> | null = null;
+    try {
+      fontsPromise = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts?.ready ?? null;
+    } catch {
+      fontsPromise = null;
+    }
+    if (fontsPromise && typeof (fontsPromise as Promise<unknown>).then === 'function') {
+      (fontsPromise as Promise<unknown>).then(markReady, markReady);
+    }
+    // Fallback: never stall longer than ~1s waiting on "assets".
+    const fallback = window.setTimeout(markReady, 1000);
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(fallback);
+      displayed = 1;
+      setProgressState(1);
+      globeRef.current?.setProgress(1);
+      globeRef.current?.setRevealed(true);
+      setRevealed(true);
+
+      // GSAP entrance: canvas scale settles, overlay copy staggers in.
+      const root = rootRef.current;
+      const canvas = canvasRef.current;
+      if (root) {
+        const ctx = gsap.context(() => {
+          const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+          if (canvas && !webglFailed) {
+            tl.fromTo(canvas, { scale: 0.94, opacity: 0.6 }, { scale: 1, opacity: 1, duration: 1.2 }, 0);
+          }
+          tl.fromTo(
+            '.hero-stagger',
+            { y: 28, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.8, stagger: 0.12 },
+            0.15,
+          );
+        }, root);
+        gsapCtxRef.current = ctx;
+      }
+      onDoneRef.current?.();
+    };
+
+    const tick = (now: number) => {
+      if (done) return;
+      const elapsed = now - start;
+      const target = assetsReady ? 1 : 0.9;
+      displayed += (target - displayed) * 0.06 + 0.002;
+      if (displayed > target) displayed = target;
+      // Enforce minimum duration: hold at ~99% until time has passed.
+      if (elapsed < MIN_DURATION_MS && displayed >= 1) displayed = 0.99;
+      if (elapsed >= MIN_DURATION_MS && displayed >= 0.999) {
+        finish();
+        return;
+      }
+      setProgressState(displayed);
+      globeRef.current?.setProgress(displayed);
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.clearTimeout(fallback);
+      cancelAnimationFrame(raf);
+      gsapCtxRef.current?.revert();
+      gsapCtxRef.current = null;
+    };
+    // webglFailed intentionally excluded: canvas element is conditionally
+    // rendered, but globe driving simply no-ops when failed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <section ref={rootRef} className="relative h-screen w-full overflow-hidden bg-void text-white">
+      {webglFailed ? (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-br from-void via-[#0a1628] to-[#0b2b3a]"
+        />
+      ) : (
+        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden="true" />
+      )}
+      <div aria-hidden="true" className="nsdc-vignette pointer-events-none absolute inset-0" />
+      <div aria-hidden="true" className="nsdc-grain pointer-events-none absolute inset-0" />
+
+      {/* Overlay */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col">
+        <div className="hero-stagger pointer-events-auto absolute left-6 top-6 text-sm font-bold tracking-[0.35em] text-white">
+          NSDC
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <p className="hero-stagger mb-6 text-xs font-medium uppercase tracking-mega text-neon md:text-sm">
+            National Student Data Corps
+          </p>
+          <h1 className="hero-stagger bg-gradient-to-b from-white to-white/60 bg-clip-text text-5xl font-extrabold uppercase leading-none tracking-mega text-transparent md:text-7xl lg:text-8xl">
+            Coming Soon
+          </h1>
+          <p className="hero-stagger mt-6 max-w-md text-base text-slate-300 md:text-lg">
+            Something data-driven is brewing.
+          </p>
+          <div className="hero-stagger pointer-events-auto mt-10">
+            <Socials />
+          </div>
+        </div>
+
+        <div
+          className={`pointer-events-auto flex justify-center px-6 pb-10 transition-opacity duration-700 ${
+            revealed ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <Loader progress={progress} />
+        </div>
+      </div>
+    </section>
+  );
+}
