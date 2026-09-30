@@ -156,6 +156,10 @@ export default function Hero({ onDone }: HeroProps) {
       )}
       <div aria-hidden="true" className="nsdc-vignette pointer-events-none absolute inset-0" />
       <div aria-hidden="true" className="nsdc-grain pointer-events-none absolute inset-0" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(5,8,16,0.78)_0%,rgba(5,8,16,0.42)_45%,transparent_70%)]"
+      />
 
       {/* Overlay */}
       <div className="pointer-events-none absolute inset-0 flex flex-col">

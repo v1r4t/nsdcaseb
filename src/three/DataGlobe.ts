@@ -52,7 +52,7 @@ void main() {
   vec3 col = mix(cyan, blue, t);
   // gentle bloom-like pulse, shader only
   col *= (1.0 + uPulse * 1.6);
-  float a = soft * vAlpha * uProgress;
+  float a = soft * vAlpha * uProgress * 0.62;
   gl_FragColor = vec4(col, a);
 }
 `;
@@ -310,7 +310,7 @@ export class DataGlobe {
     this.ringMats.forEach((m, i) => {
       m.opacity = (i === 0 ? 0.4 : 0.28) * v;
     });
-    this.dustMat.opacity = 0.15 + 0.55 * v;
+    this.dustMat.opacity = 0.1 + 0.35 * v;
   }
 
   private resize(): void {
