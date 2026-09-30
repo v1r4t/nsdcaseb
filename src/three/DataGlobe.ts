@@ -314,11 +314,17 @@ export class DataGlobe {
   }
 
   private fitDistance(w: number, h: number): void {
-    // Pull the camera back on narrow/portrait screens so the globe (and its
-    // orbit rings) fit the viewport width; ultrawide keeps the base framing.
+    // Fit the globe within the viewport on any aspect: derive the distance
+    // from the real horizontal FOV so narrow phones pull back far enough.
+    // (A fixed linear offset under-fit phones — the globe bled off-screen.)
     const aspect = w / Math.max(h, 1);
-    const z = aspect >= 1 ? 4.6 : 4.6 + (1 - aspect) * 3.4;
-    this.camera.position.z = z;
+    const vHalf = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+    if (!(hHalf > 0)) return;
+    const zForWidth = 1.85 / Math.tan(hHalf);
+    const zForHeight = 1.8 / Math.tan(vHalf);
+    const z = Math.max(4.6, zForWidth, zForHeight);
+    if (Number.isFinite(z)) this.camera.position.z = z;
   }
 
   private resize(): void {
