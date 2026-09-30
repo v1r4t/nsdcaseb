@@ -160,7 +160,7 @@ export default function Hero({ onDone }: HeroProps) {
   }, []);
 
   return (
-    <section ref={rootRef} className="relative h-screen w-full overflow-hidden bg-void text-white">
+    <section ref={rootRef} className="relative h-dvh w-full overflow-hidden bg-void text-white">
       {webglFailed ? (
         <div
           aria-hidden="true"
@@ -178,14 +178,14 @@ export default function Hero({ onDone }: HeroProps) {
 
       {/* Overlay */}
       <div className="pointer-events-none absolute inset-0 flex flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p className="hero-stagger mb-6 text-xs font-medium uppercase tracking-mega text-neon opacity-0 md:text-sm">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-6 text-center">
+          <p className="hero-stagger mb-6 text-[11px] font-medium uppercase tracking-[0.3em] text-neon opacity-0 sm:text-xs sm:tracking-mega md:text-sm">
             National Student Data Corps
           </p>
-          <h1 className="hero-stagger bg-gradient-to-b from-white to-white/60 bg-clip-text text-5xl font-extrabold uppercase leading-none tracking-mega text-transparent opacity-0 md:text-7xl lg:text-8xl">
+          <h1 className="hero-stagger bg-gradient-to-b from-white to-white/60 bg-clip-text text-transparent opacity-0 text-[clamp(1.9rem,9vw,6rem)] font-extrabold uppercase leading-[1.05] tracking-[0.12em] sm:tracking-[0.2em] md:tracking-[0.25em] xl:tracking-mega">
             Coming Soon
           </h1>
-          <p className="hero-stagger mt-6 max-w-md text-base text-slate-300 opacity-0 md:text-lg">
+          <p className="hero-stagger mt-6 max-w-md text-sm text-slate-300 opacity-0 sm:text-base md:text-lg">
             Something data-driven is brewing.
           </p>
           <div className="hero-stagger pointer-events-auto mt-10 opacity-0">

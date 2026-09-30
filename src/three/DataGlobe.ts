@@ -140,7 +140,7 @@ export class DataGlobe {
     renderer.setSize(w, h, false);
 
     this.camera = new THREE.PerspectiveCamera(42, w / Math.max(h, 1), 0.1, 100);
-    this.camera.position.set(0, 0, 4.6);
+    this.fitDistance(w, h);
 
     const isMobile = Math.min(window.innerWidth, w) < 640;
     const count = isMobile ? 4500 : 10000;
@@ -313,6 +313,14 @@ export class DataGlobe {
     this.dustMat.opacity = 0.3 + 0.5 * v;
   }
 
+  private fitDistance(w: number, h: number): void {
+    // Pull the camera back on narrow/portrait screens so the globe (and its
+    // orbit rings) fit the viewport width; ultrawide keeps the base framing.
+    const aspect = w / Math.max(h, 1);
+    const z = aspect >= 1 ? 4.6 : 4.6 + (1 - aspect) * 3.4;
+    this.camera.position.z = z;
+  }
+
   private resize(): void {
     if (this.disposed) return;
     const parent = this.canvas.parentElement ?? this.canvas;
@@ -321,6 +329,7 @@ export class DataGlobe {
     if (w === 0 || h === 0) return;
     this.camera.aspect = w / Math.max(h, 1);
     this.camera.updateProjectionMatrix();
+    this.fitDistance(w, h);
     const pr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);

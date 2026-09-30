@@ -44,7 +44,7 @@ export default function Socials() {
           aria-label={label}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-slate-400 transition-colors duration-200 hover:text-neon"
+          className="rounded p-1 text-slate-400 transition-colors duration-200 hover:text-neon"
         >
           <Icon size={20} />
         </a>
