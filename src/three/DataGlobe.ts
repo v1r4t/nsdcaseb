@@ -37,7 +37,6 @@ void main() {
 `;
 
 const FRAG = /* glsl */ `
-precision mediump float;
 uniform float uProgress;
 uniform float uPulse;
 varying float vLat;
