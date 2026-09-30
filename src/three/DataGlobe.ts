@@ -207,9 +207,9 @@ export class DataGlobe {
     this.dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
     this.dustMat = new THREE.PointsMaterial({
       color: 0x9fd8ff,
-      size: 0.02,
+      size: 0.05,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.8,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       sizeAttenuation: true,
@@ -310,7 +310,7 @@ export class DataGlobe {
     this.ringMats.forEach((m, i) => {
       m.opacity = (i === 0 ? 0.4 : 0.28) * v;
     });
-    this.dustMat.opacity = 0.1 + 0.35 * v;
+    this.dustMat.opacity = 0.3 + 0.5 * v;
   }
 
   private resize(): void {
@@ -353,8 +353,8 @@ export class DataGlobe {
       const k = 1 - Math.pow(0.001, dt); // frame-rate independent smoothing
       this.curRX += (this.targetRX - this.curRX) * k;
       this.curRY += (this.targetRY - this.curRY) * k;
-      this.camera.position.x = this.curRY * 0.6;
-      this.camera.position.y = -this.curRX * 0.4;
+      this.camera.position.x = this.curRY * 1.0;
+      this.camera.position.y = -this.curRX * 0.7;
       this.camera.lookAt(0, 0, 0);
     } else {
       this.camera.position.x = 0;

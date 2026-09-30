@@ -132,8 +132,9 @@ export default function Hero({ onDone }: HeroProps) {
       const target = assetsReady ? 1 : 0.9;
       displayed += (target - displayed) * 0.035 + 0.001;
       if (displayed > target) displayed = target;
-      // Enforce minimum duration: hold at ~99% until time has passed.
-      if (elapsed < MIN_DURATION_MS && displayed >= 1) displayed = 0.99;
+      // Hold under 100% until the minimum duration has passed — clamp the
+      // ceiling instead of resetting so the bar never bounces 99<->100.
+      if (elapsed < MIN_DURATION_MS && displayed > 0.99) displayed = 0.99;
       if (elapsed >= MIN_DURATION_MS && displayed >= 0.999) {
         finish();
         return;
