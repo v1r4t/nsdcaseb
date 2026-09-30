@@ -93,6 +93,7 @@ export class DataGlobe {
   private globe: THREE.Points;
   private dustGeo: THREE.BufferGeometry;
   private dustMat: THREE.PointsMaterial;
+  private dustTex: THREE.CanvasTexture;
   private dust: THREE.Points;
   private ringGeos: THREE.TorusGeometry[] = [];
   private ringMats: THREE.MeshBasicMaterial[] = [];
@@ -191,23 +192,38 @@ export class DataGlobe {
 
     this.group.add(this.globe);
 
-    // ~700-star dust background
+    // ~700-star dust background — round soft sprites (radial texture),
+    // so near-camera particles read as bokeh, never squares.
     const dustCount = 700;
     const dustPos = new Float32Array(dustCount * 3);
     for (let i = 0; i < dustCount; i++) {
-      // random shell radius 4..9
-      const rad = 4 + Math.random() * 5;
+      // random shell radius 6..14
+      const rad = 6 + Math.random() * 8;
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(Math.random() * 2 - 1);
       dustPos[i * 3] = rad * Math.sin(ph) * Math.cos(th);
       dustPos[i * 3 + 1] = rad * Math.sin(ph) * Math.sin(th);
       dustPos[i * 3 + 2] = rad * Math.cos(ph);
     }
+    const sprite = document.createElement('canvas');
+    sprite.width = 64;
+    sprite.height = 64;
+    const sctx = sprite.getContext('2d');
+    if (sctx) {
+      const grad = sctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.35, 'rgba(255,255,255,0.6)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      sctx.fillStyle = grad;
+      sctx.fillRect(0, 0, 64, 64);
+    }
+    this.dustTex = new THREE.CanvasTexture(sprite);
     this.dustGeo = new THREE.BufferGeometry();
     this.dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
     this.dustMat = new THREE.PointsMaterial({
       color: 0x9fd8ff,
-      size: 0.05,
+      size: 0.35,
+      map: this.dustTex,
       transparent: true,
       opacity: 0.8,
       blending: THREE.AdditiveBlending,
@@ -297,6 +313,7 @@ export class DataGlobe {
     this.globeMat.dispose();
     this.dustGeo.dispose();
     this.dustMat.dispose();
+    this.dustTex.dispose();
     this.ringGeos.forEach((g) => g.dispose());
     this.ringMats.forEach((m) => m.dispose());
     this.renderer.dispose();
@@ -360,10 +377,10 @@ export class DataGlobe {
 
     if (!this.reducedMotion) {
       // slow auto-rotate
-      this.group.rotation.y += dt * 0.05;
-      if (this.rings[0]) this.rings[0].rotation.z += dt * 0.02;
-      if (this.rings[1]) this.rings[1].rotation.z -= dt * 0.015;
-      this.dust.rotation.y -= dt * 0.004;
+      this.group.rotation.y += dt * 0.08;
+      if (this.rings[0]) this.rings[0].rotation.z += dt * 0.03;
+      if (this.rings[1]) this.rings[1].rotation.z -= dt * 0.022;
+      this.dust.rotation.y -= dt * 0.006;
       // mouse parallax (lerp)
       const k = 1 - Math.pow(0.001, dt); // frame-rate independent smoothing
       this.curRX += (this.targetRX - this.curRX) * k;

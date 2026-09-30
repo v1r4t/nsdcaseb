@@ -160,7 +160,11 @@ export default function Hero({ onDone }: HeroProps) {
   }, []);
 
   return (
-    <section ref={rootRef} className="relative h-dvh w-full overflow-hidden bg-void text-white">
+    <section
+      ref={rootRef}
+      className="relative h-dvh w-full overflow-hidden bg-void text-white"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {webglFailed ? (
         <div
           aria-hidden="true"
