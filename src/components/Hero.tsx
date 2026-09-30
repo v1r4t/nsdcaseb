@@ -56,6 +56,21 @@ export default function Hero({ onDone }: HeroProps) {
     };
   }, []);
 
+  // Park entrance targets in their hidden state on mount so the reveal
+  // timeline never snaps visible content backwards at 100%.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const ctx = gsap.context(() => {
+      gsap.set('.hero-stagger', { y: 28, opacity: 0 });
+      const canvas = canvasRef.current;
+      if (canvas) gsap.set(canvas, { scale: 0.94, opacity: 0.6 });
+    }, root);
+    return () => {
+      ctx.revert();
+    };
+  }, []);
+
   // Fake-but-real progress: RAF-interpolate displayed progress toward
   // asset-ready, enforce >= 1.8s, complete at 100 -> reveal + onDone.
   useEffect(() => {
@@ -91,18 +106,17 @@ export default function Hero({ onDone }: HeroProps) {
       globeRef.current?.setRevealed(true);
       setRevealed(true);
 
-      // GSAP entrance: canvas scale settles, overlay copy staggers in.
+      // GSAP entrance: targets were parked hidden on mount, animate to final.
       const root = rootRef.current;
       const canvas = canvasRef.current;
       if (root) {
         const ctx = gsap.context(() => {
           const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
           if (canvas && !webglFailed) {
-            tl.fromTo(canvas, { scale: 0.94, opacity: 0.6 }, { scale: 1, opacity: 1, duration: 1.6 }, 0);
+            tl.to(canvas, { scale: 1, opacity: 1, duration: 1.6 }, 0);
           }
-          tl.fromTo(
+          tl.to(
             '.hero-stagger',
-            { y: 28, opacity: 0 },
             { y: 0, opacity: 1, duration: 1.0, stagger: 0.15 },
             0.15,
           );
@@ -164,16 +178,16 @@ export default function Hero({ onDone }: HeroProps) {
       {/* Overlay */}
       <div className="pointer-events-none absolute inset-0 flex flex-col">
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p className="hero-stagger mb-6 text-xs font-medium uppercase tracking-mega text-neon md:text-sm">
+          <p className="hero-stagger mb-6 text-xs font-medium uppercase tracking-mega text-neon opacity-0 md:text-sm">
             National Student Data Corps
           </p>
-          <h1 className="hero-stagger bg-gradient-to-b from-white to-white/60 bg-clip-text text-5xl font-extrabold uppercase leading-none tracking-mega text-transparent md:text-7xl lg:text-8xl">
+          <h1 className="hero-stagger bg-gradient-to-b from-white to-white/60 bg-clip-text text-5xl font-extrabold uppercase leading-none tracking-mega text-transparent opacity-0 md:text-7xl lg:text-8xl">
             Coming Soon
           </h1>
-          <p className="hero-stagger mt-6 max-w-md text-base text-slate-300 md:text-lg">
+          <p className="hero-stagger mt-6 max-w-md text-base text-slate-300 opacity-0 md:text-lg">
             Something data-driven is brewing.
           </p>
-          <div className="hero-stagger pointer-events-auto mt-10">
+          <div className="hero-stagger pointer-events-auto mt-10 opacity-0">
             <Socials />
           </div>
         </div>
