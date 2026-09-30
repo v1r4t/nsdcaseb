@@ -156,8 +156,8 @@ export default function Hero({ onDone }: HeroProps) {
 
       {/* Overlay */}
       <div className="pointer-events-none absolute inset-0 flex flex-col">
-        <div className="hero-stagger pointer-events-auto absolute left-6 top-6 text-sm font-bold tracking-[0.35em] text-white">
-          NSDC
+        <div className="hero-stagger pointer-events-auto absolute left-6 top-6">
+          <img src="/nsdc_logo.png" alt="NSDC logo" className="h-8 w-auto" />
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
