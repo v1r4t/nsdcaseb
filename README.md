@@ -44,7 +44,8 @@ achievements, projects, event registration.
 ## Deploy
 
 - Manual: `npm run build && npx wrangler deploy`
-- Live at https://nsdcaseb.xyz
+- Live at https://nsdcaseb.xyz and https://www.nsdcaseb.xyz (both attached
+  as Worker custom domains)
 
 ## Socials
 
