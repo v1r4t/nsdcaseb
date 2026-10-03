@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { DataGlobe } from '../three/DataGlobe';
 import Loader from './Loader';
+import NotifyForm from './NotifyForm';
 import Socials from './Socials';
 
 interface HeroProps {
@@ -192,6 +193,9 @@ export default function Hero({ onDone }: HeroProps) {
           <p className="hero-stagger mt-6 max-w-md text-sm text-slate-300 opacity-0 sm:text-base md:text-lg">
             Something data-driven is brewing.
           </p>
+          <div className="hero-stagger pointer-events-auto mt-8 w-full max-w-md opacity-0">
+            <NotifyForm />
+          </div>
           <div className="hero-stagger pointer-events-auto mt-10 opacity-0">
             <Socials />
           </div>
