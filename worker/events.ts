@@ -5,6 +5,7 @@
 
 import { getSessionUser, json, requireRole } from './auth-helpers';
 import type { Env } from './auth-helpers';
+import { enqueueEmail, registrationConfirmation } from './email';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 // auth-helpers' readJsonBody caps bodies at 2KB (tuned for auth); answers can
@@ -332,6 +333,25 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         `INSERT INTO registrations (id, event_id, user_id, status, answers) VALUES (?, ?, ?, ?, ?)`,
       ).bind(crypto.randomUUID(), id, user.id, status, JSON.stringify(answers)),
     ]);
+    // Phase 5: enqueue a confirmation / waitlist email. Must never fail the
+    // registration, so any enqueue error is swallowed after logging.
+    try {
+      if (status === 'registered') {
+        const template = registrationConfirmation(event.title, status);
+        await enqueueEmail(env, user.email, template.subject, template.text);
+      } else {
+        const position =
+          (await env.AUTH_DB.prepare(
+            `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'waitlisted'`,
+          )
+            .bind(id)
+            .first<{ n: number }>())?.n ?? 1;
+        const template = registrationConfirmation(event.title, 'waitlisted', Math.max(1, position));
+        await enqueueEmail(env, user.email, template.subject, template.text);
+      }
+    } catch (err) {
+      console.error('[events] confirmation email enqueue failed', err);
+    }
     return json({ status }, 201);
   }
   if (method === 'DELETE') {

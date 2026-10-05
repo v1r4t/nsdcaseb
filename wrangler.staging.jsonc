@@ -21,5 +21,8 @@
       "binding": "RATELIMIT_KV",
       "id": "5535eca24d924115ad24c5b3d22af89f"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  }
 }

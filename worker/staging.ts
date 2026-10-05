@@ -3,6 +3,8 @@
 import { handleApi, type Env } from './auth';
 import { handleContentApi } from './content';
 import { handleEventsApi } from './events';
+import { handleAdminApi } from './admin';
+import { handleScheduled } from './email';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -11,9 +13,14 @@ export default {
       return (
         (await handleContentApi(request, env)) ??
         (await handleEventsApi(request, env)) ??
+        (await handleAdminApi(request, env)) ??
         handleApi(request, env)
       );
     }
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    await handleScheduled(env);
   },
 } satisfies ExportedHandler<Env>;
