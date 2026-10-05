@@ -8,6 +8,7 @@ import Admin from './pages/Admin';
 import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import Registrations from './pages/Registrations';
+import Media from './pages/Media';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/registrations" element={<Registrations />} />
               <Route path="/registrations/:id" element={<EventDetail />} />
+              <Route path="/media" element={<Media />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

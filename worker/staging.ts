@@ -4,6 +4,7 @@ import { handleApi, type Env } from './auth';
 import { handleContentApi } from './content';
 import { handleEventsApi } from './events';
 import { handleAdminApi } from './admin';
+import { handleMediaApi } from './media';
 import { handleScheduled } from './email';
 
 export default {
@@ -13,6 +14,7 @@ export default {
       return (
         (await handleContentApi(request, env)) ??
         (await handleEventsApi(request, env)) ??
+        (await handleMediaApi(request, env)) ??
         (await handleAdminApi(request, env)) ??
         handleApi(request, env)
       );
