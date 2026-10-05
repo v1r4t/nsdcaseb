@@ -3,8 +3,10 @@ import SiteHeader from './components/SiteHeader';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import EventDetail from './pages/EventDetail';
 import NotFound from './pages/NotFound';
 import Register from './pages/Register';
+import Registrations from './pages/Registrations';
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/registrations" element={<Registrations />} />
+              <Route path="/registrations/:id" element={<EventDetail />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

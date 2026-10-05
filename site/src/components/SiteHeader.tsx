@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 /** Sections the club will ship later. Rendered as visibly-disabled placeholders. */
-const COMING_SOON = ['Registrations', 'Media'];
+const COMING_SOON = ['Media'];
 
 export default function SiteHeader() {
   const { user, loading, logout } = useAuth();
@@ -38,6 +38,14 @@ export default function SiteHeader() {
             }
           >
             Home
+          </NavLink>
+          <NavLink
+            to="/registrations"
+            className={({ isActive }) =>
+              isActive ? 'font-medium text-white' : 'text-white/60 transition hover:text-white'
+            }
+          >
+            Registrations
           </NavLink>
           {COMING_SOON.map((label) => (
             <span
