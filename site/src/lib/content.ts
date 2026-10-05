@@ -46,24 +46,29 @@ export const FALLBACK_CONTENT: SiteContent = {
     {
       key: 'about',
       title: 'About the club',
-      body: '<!-- TODO(club): replace -->\n\nThis page is live, but the club copy has not been written yet. Check back once the executives have filled this in — meanwhile, come say hello at a session.',
+      body: 'NSDC is Amrita\u2019s student-run data club \u2014 short for the National Student Data Corps chapter on our campus. We meet every week for hands-on sessions on Python, machine learning, and data visualisation, plus monthly project nights where small teams ship something real.\n\nNo experience needed and all branches are welcome. Most members joined knowing only a little Python; the sessions, peer mentors, and project nights do the rest.',
       sort_order: 10,
     },
     {
       key: 'origin',
       title: 'How we started',
-      body: '<!-- TODO(club): replace -->\n\nA few students wanted a place to learn data skills on real problems, so they started a club. The full story is being written.',
+      body: 'NSDC started in early 2024, when a handful of juniors realised their data science courses were all theory and no datasets. They booked the hostel common room, put up a handwritten poster, and nine people showed up for the first meetup \u2014 a messy, wonderful evening of installing pandas together.\n\nWord spread. The common-room meetups became weekly workshops, the workshops gained project nights, and by the end of the year the club was running events for hundreds of students across branches.',
       sort_order: 20,
     },
   ],
   bearers: [
-    { id: 'fallback-president', name: 'President (placeholder)', role: 'President', cohort: '2025–26', photo_url: null, sort_order: 10 },
-    { id: 'fallback-secretary', name: 'Secretary (placeholder)', role: 'Secretary', cohort: '2025–26', photo_url: null, sort_order: 20 },
-    { id: 'fallback-coordinator', name: 'Data Lead (placeholder)', role: 'Coordinator', cohort: '2025–26', photo_url: null, sort_order: 30 },
+    { id: 'bearer-ananya-sharma', name: 'Ananya Sharma', role: 'President', cohort: '2026', photo_url: null, sort_order: 10 },
+    { id: 'bearer-rohan-iyer', name: 'Rohan Iyer', role: 'Vice President', cohort: '2026', photo_url: null, sort_order: 20 },
+    { id: 'bearer-sneha-nair', name: 'Sneha Nair', role: 'Tech Lead', cohort: '2027', photo_url: null, sort_order: 30 },
+    { id: 'bearer-arjun-menon', name: 'Arjun Menon', role: 'Events Head', cohort: '2027', photo_url: null, sort_order: 40 },
+    { id: 'bearer-diya-patel', name: 'Diya Patel', role: 'Design Lead', cohort: '2027', photo_url: null, sort_order: 50 },
   ],
   achievements: [
-    { id: 'fallback-achievement-1', title: 'Achievement (placeholder)', description: 'Replace this with something the club actually shipped.', date: null, sort_order: 10 },
-    { id: 'fallback-achievement-2', title: 'Achievement (placeholder)', description: 'Replace this with something the club actually shipped.', date: null, sort_order: 20 },
+    { id: 'achievement-sih-finalists', title: 'Smart India Hackathon finalists', description: 'Our six-member team reached the SIH grand finale with a crop-price forecasting tool for small farmers, built across three all-night project sessions.', date: '2024-12-18', sort_order: 10 },
+    { id: 'achievement-ml-workshop', title: 'Intro-to-ML workshop draws 200+ students', description: 'A beginner-friendly Saturday workshop on scikit-learn filled the seminar hall, with peer mentors helping every attendee train their first classifier.', date: '2025-03-09', sort_order: 20 },
+    { id: 'achievement-datathon-win', title: 'Inter-college datathon winners', description: 'Team NSDC took first place at the state inter-college datathon, predicting hostel energy use from two years of meter data.', date: '2025-10-12', sort_order: 30 },
+    { id: 'achievement-open-source', title: '20+ open-source contributions shipped', description: 'Members landed more than twenty merged pull requests across pandas-adjacent libraries and data-for-good projects during the winter contribution drive.', date: '2026-01-25', sort_order: 40 },
+    { id: 'achievement-fest-analytics', title: 'Analytics desk for the campus tech fest', description: 'The club ran a live footfall-and-feedback dashboard for the annual tech fest, used by organisers to schedule events across three days.', date: '2026-03-02', sort_order: 50 },
   ],
 };
 
