@@ -30,6 +30,8 @@ achievements, projects, event registration.
 - `src/components/Socials.tsx` — real social links
 - `worker/index.ts` — `POST /api/notify` (validates, dedupes, stores in KV)
 - `wrangler.jsonc` — Worker config (assets + `NOTIFY_KV` binding)
+- `site/` — full club site app (auth, landing, later phases); builds to
+  `dist-site/`
 - `public/nsdc_logo.png` — club logo (favicon source)
 - `src/index.css` — vignette, grain, glow, motion prefs
 
@@ -41,11 +43,41 @@ achievements, projects, event registration.
   values `{email, ts, ua}`.
 - Read them: `npx wrangler kv key list --namespace-id 9b54a4a0c174444e8b64cb7a2a590d47 --remote`
 
+## Auth (staging only — full site)
+
+- `site/` builds to `dist-site/`, served by the `nsdcaseb-staging` worker on
+  `preview.nsdcaseb.xyz`. Production apex stays on the teaser.
+- Endpoints: register / login / logout / me / forgot-password /
+  reset-password / verify-email under `/api/auth/*`, plus `GET /api/admin/_ping`.
+- Passwords: PBKDF2-HMAC-SHA256, 100k iterations (the Workers WebCrypto cap —
+  higher values throw at runtime), 16B salt; sessions are HttpOnly cookies
+  whose sha256 is stored in D1; rate limits in KV (fail-open).
+- Local full stack: `npm run build:site`, then `npx wrangler dev -c wrangler.staging.jsonc`.
+
 ## Deploy
 
 - Manual: `npm run build && npx wrangler deploy`
 - Live at https://nsdcaseb.xyz and https://www.nsdcaseb.xyz (both attached
   as Worker custom domains)
+
+## Staging environment
+
+Production (`nsdcaseb.xyz` / `www.nsdcaseb.xyz`) serves the coming-soon
+teaser only and is **not** affected by site development.
+
+The full club site builds from `site/` to `dist-site/` and deploys to a
+separate staging worker `nsdcaseb-staging` (host `preview.nsdcaseb.xyz`),
+configured by `wrangler.staging.jsonc`.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev:site` | Site dev server on :5174, API proxied to :8787 |
+| `npx wrangler dev -c wrangler.staging.jsonc` | Full stack locally (builds the site first) |
+| `npm run migrate:staging` | Apply D1 migrations to the staging DB |
+| `npm run deploy:staging` | Build `dist-site/` and deploy the staging worker |
+
+Migrations live in `worker/db/migrations/` — apply them before the first
+deploy.
 
 ## Socials
 

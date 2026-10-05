@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    /* The data-lab theme base. Kept as a literal so the shell is correct even
+       if the Tailwind theme is ever renamed. */
+    background-color: #050810;
+    @apply text-white/90 antialiased;
+  }
+
+  /* Neon focus ring for every keyboard-reachable control. Never removed. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-neon ring-offset-2 ring-offset-void;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-white/10 bg-white/[0.03] p-6;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/60;
+  }
+
+  .field {
+    @apply w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30;
+  }
+
+  .field-invalid {
+    @apply border-rose-400/70;
+  }
+
+  .hint {
+    @apply mt-1.5 text-xs text-white/50;
+  }
+
+  .error-text {
+    @apply mt-1.5 text-xs text-rose-300;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-neon px-4 py-2 text-sm font-semibold text-void transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-md border border-white/10 px-4 py-2 text-sm text-white/80 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .link {
+    @apply text-neon underline underline-offset-4 hover:text-cyan-300;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

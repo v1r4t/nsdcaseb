@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:site": "vite -c site/vite.config.ts",
+    "typecheck:site": "tsc -p site",
+    "build:site": "vite build -c site/vite.config.ts",
+    "build:all": "npm run build && npm run build:site",
+    "migrate:staging": "wrangler d1 migrations apply nsdc-auth --remote -c wrangler.staging.jsonc",
+    "deploy:staging": "npm run build:site && wrangler deploy -c wrangler.staging.jsonc"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +22,7 @@
     "lucide-react": "^1.49.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
     "three": "^0.186.1"
   },
   "devDependencies": {
