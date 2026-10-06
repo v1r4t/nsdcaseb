@@ -57,11 +57,11 @@ export const FALLBACK_CONTENT: SiteContent = {
     },
   ],
   bearers: [
-    { id: 'bearer-ananya-sharma', name: 'Ananya Sharma', role: 'President', cohort: '2026', photo_url: null, sort_order: 10 },
-    { id: 'bearer-rohan-iyer', name: 'Rohan Iyer', role: 'Vice President', cohort: '2026', photo_url: null, sort_order: 20 },
-    { id: 'bearer-sneha-nair', name: 'Sneha Nair', role: 'Tech Lead', cohort: '2027', photo_url: null, sort_order: 30 },
-    { id: 'bearer-arjun-menon', name: 'Arjun Menon', role: 'Events Head', cohort: '2027', photo_url: null, sort_order: 40 },
-    { id: 'bearer-diya-patel', name: 'Diya Patel', role: 'Design Lead', cohort: '2027', photo_url: null, sort_order: 50 },
+    { id: 'bearer-b-parswanadh', name: 'B Parswanadh', role: 'President', cohort: '2024', photo_url: null, sort_order: 10 },
+    { id: 'bearer-aluvala-sai-vinya', name: 'Aluvala Sai Vinya', role: 'Vice President', cohort: '2024', photo_url: null, sort_order: 20 },
+    { id: 'bearer-dhruva-vura', name: 'Dhruva Vura', role: 'Vice President', cohort: '2025', photo_url: null, sort_order: 30 },
+    { id: 'bearer-k-shanmuga-priya', name: 'K Shanmuga Priya', role: 'Treasurer', cohort: '2025', photo_url: null, sort_order: 40 },
+    { id: 'bearer-babbitha-b', name: 'Babbitha B', role: 'Head of Executives', cohort: '2025', photo_url: null, sort_order: 50 },
   ],
   achievements: [
     { id: 'achievement-sih-finalists', title: 'Smart India Hackathon finalists', description: 'Our six-member team reached the SIH grand finale with a crop-price forecasting tool for small farmers, built across three all-night project sessions.', date: '2024-12-18', sort_order: 10 },
