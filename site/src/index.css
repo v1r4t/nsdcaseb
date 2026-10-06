@@ -2,59 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './tokens.css';
+
 @layer base {
   html {
     color-scheme: dark;
   }
 
-  body {
-    /* The data-lab theme base. Kept as a literal so the shell is correct even
-       if the Tailwind theme is ever renamed. */
-    background-color: #050810;
-    @apply text-white/90 antialiased;
+  /* In-page anchors must clear the sticky header. */
+  [id] {
+    scroll-margin-top: 5rem;
   }
 
-  /* Neon focus ring for every keyboard-reachable control. Never removed. */
+  body {
+    background-color: var(--bg);
+    @apply font-display text-paper/80 antialiased;
+  }
+
+  /* Accent focus ring for every keyboard-reachable control. Never removed. */
   :focus-visible {
-    @apply outline-none ring-2 ring-neon ring-offset-2 ring-offset-void;
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-ink;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--bg);
   }
 }
 
 @layer components {
-  .card {
-    @apply rounded-lg border border-white/10 bg-white/[0.03] p-6;
-  }
-
+  /* Editorial section label: mono, uppercase, wide-tracked, muted. */
   .label {
-    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/60;
+    @apply font-mono text-[11px] uppercase tracking-wide text-muted;
   }
 
-  .field {
-    @apply w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30;
+  .shell {
+    @apply mx-auto w-full max-w-shell px-6 md:px-12;
   }
 
-  .field-invalid {
-    @apply border-rose-400/70;
+  /* Hairline rules instead of card containers. */
+  .rule {
+    @apply border-t border-line;
   }
 
-  .hint {
-    @apply mt-1.5 text-xs text-white/50;
-  }
-
-  .error-text {
-    @apply mt-1.5 text-xs text-rose-300;
-  }
-
+  /* Buttons: sharp corners, reserved for genuinely interactive things. */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-neon px-4 py-2 text-sm font-semibold text-void transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-sm bg-signal px-5 py-2.5 text-sm font-medium text-ink transition-colors duration-200 hover:bg-signal/90 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-md border border-white/10 px-4 py-2 text-sm text-white/80 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-sm border border-line px-5 py-2.5 text-sm text-paper/80 transition-colors duration-200 hover:border-paper/40 hover:text-paper disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .link {
-    @apply text-neon underline underline-offset-4 hover:text-cyan-300;
+    @apply text-signal underline decoration-signal/40 underline-offset-4 transition-colors hover:decoration-signal;
+  }
+
+  .field {
+    @apply w-full rounded-sm border border-line bg-transparent px-3 py-2.5 text-sm text-paper placeholder:text-muted/70 transition-colors focus:border-signal;
+  }
+
+  .field-invalid {
+    @apply border-signal;
+  }
+
+  .hint {
+    @apply mt-1.5 font-mono text-xs text-muted;
+  }
+
+  .error-text {
+    @apply mt-1.5 text-xs text-signal;
   }
 }
 

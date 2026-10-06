@@ -13,8 +13,8 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   // Don't bounce to /login while the session probe is still running.
   if (loading) {
     return (
-      <div className="px-4 py-16 text-center">
-        <p role="status" aria-live="polite" className="text-sm text-white/60">
+      <div className="shell py-16">
+        <p role="status" aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
           Checking your session...
         </p>
       </div>

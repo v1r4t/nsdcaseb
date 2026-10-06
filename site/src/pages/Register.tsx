@@ -80,10 +80,10 @@ export default function Register() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-12">
-      <div className="card">
-        <h1 className="font-display text-xl font-semibold text-white">Create your account</h1>
-        <p className="mt-1 text-sm text-white/60">
+    <div className="shell py-12 md:py-16">
+      <div className="rule max-w-md pt-8">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Create your account</h1>
+        <p className="mt-2 text-sm text-muted">
           Members use this to register for events and access club media.
         </p>
 
@@ -167,7 +167,7 @@ export default function Register() {
             )}
           </div>
 
-          <div className="rounded-md border border-white/10 bg-white/[0.02] p-3">
+          <div className="rule pt-4">
             <label className="flex items-start gap-3 text-sm">
               <input
                 type="checkbox"
@@ -175,11 +175,11 @@ export default function Register() {
                 checked={isExecutive}
                 disabled={pending}
                 onChange={(event) => setIsExecutive(event.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-400"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-signal"
               />
               <span>
-                <span className="font-medium text-white">I'm an executive</span>
-                <span className="mt-1 block text-xs text-white/60">
+                <span className="font-medium text-paper">I'm an executive</span>
+                <span className="mt-1 block text-xs text-muted">
                   Self-declared, not verified. An existing executive reviews new executive
                   requests before club access is granted, so pick this only if it is true today.
                 </span>
@@ -198,7 +198,7 @@ export default function Register() {
             {pending ? 'Creating account...' : 'Create account'}
           </button>
 
-          <p className="pt-2 text-sm text-white/60">
+          <p className="pt-2 text-sm text-muted">
             Already a member?{' '}
             <Link to="/login" className="link">
               Sign in

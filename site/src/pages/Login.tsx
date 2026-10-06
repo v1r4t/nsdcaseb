@@ -99,12 +99,12 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-12">
-      <div className="card">
-        <h1 className="font-display text-xl font-semibold text-white">
+    <div className="shell py-12 md:py-16">
+      <div className="rule max-w-md pt-8">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">
           {mode === 'signin' ? 'Sign in' : 'Reset your password'}
         </h1>
-        <p className="mt-1 text-sm text-white/60">
+        <p className="mt-2 text-sm text-muted">
           {mode === 'signin'
             ? 'Sign in to reach registrations, club media and member resources.'
             : 'Enter your email and we will send a reset link if the address is registered.'}
@@ -147,14 +147,14 @@ export default function Login() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-white/80">
+            <label className="flex items-center gap-2 text-sm text-paper/80">
               <input
                 type="checkbox"
                 name="remember"
                 checked={remember}
                 disabled={busy}
                 onChange={(event) => setRemember(event.target.checked)}
-                className="h-4 w-4 accent-cyan-400"
+                className="h-4 w-4 shrink-0 accent-signal"
               />
               Keep me signed in on this device
             </label>
@@ -174,7 +174,7 @@ export default function Login() {
               <button type="button" onClick={() => switchMode('forgot')} className="link">
                 Forgot password?
               </button>
-              <span className="text-white/60">
+              <span className="text-muted">
                 No account?{' '}
                 <Link to="/register" className="link">
                   Register
@@ -209,7 +209,7 @@ export default function Login() {
               </p>
             )}
             {notice && (
-              <p role="status" aria-live="polite" className="text-xs text-neon">
+              <p role="status" aria-live="polite" className="hint">
                 {notice}
               </p>
             )}
@@ -218,7 +218,7 @@ export default function Login() {
               {busy ? 'Sending...' : 'Send reset link'}
             </button>
 
-            <button type="button" onClick={() => switchMode('signin')} className="link w-full text-sm">
+            <button type="button" onClick={() => switchMode('signin')} className="link text-sm">
               Back to sign in
             </button>
           </form>

@@ -51,7 +51,7 @@ export default function SocialLinks() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={link.label}
-            className="text-white/50 transition hover:text-neon"
+            className="text-muted transition-colors duration-200 hover:text-paper"
           >
             {link.icon}
           </a>

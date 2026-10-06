@@ -1,13 +1,20 @@
-import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+/**
+ * Minimal site header: NSDC mark left, `26—27` centre, MENU + session right.
+ *
+ * There is no classic nav bar here — all navigation lives in the full-screen
+ * MENU overlay. The header only states where you are and who you are.
+ */
 
-/** Sections the club will ship later. Rendered as visibly-disabled placeholders. */
-const COMING_SOON: string[] = [];
+import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import FullscreenMenu from './FullscreenMenu';
+import { useAuth } from '../lib/auth';
 
 export default function SiteHeader() {
   const { user, loading, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -22,75 +29,67 @@ export default function SiteHeader() {
   }
 
   return (
-    <header className="border-b border-white/10 bg-void/80 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-8 gap-y-4 px-4 py-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img src="/nsdc_logo.png" alt="" aria-hidden="true" className="h-8 w-8 rounded" />
-          <span className="font-display text-base font-bold tracking-mega text-white">NSDC</span>
-        </Link>
-
-        <nav aria-label="Primary" className="flex items-center gap-5 text-sm">
-          <NavLink
+    <>
+      <header className="sticky top-0 z-40 border-b border-line bg-ink/80 backdrop-blur">
+        <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-x-4 px-6 md:grid-cols-3 md:px-12">
+          <Link
             to="/"
-            end
-            className={({ isActive }) =>
-              isActive ? 'font-medium text-white' : 'text-white/60 transition hover:text-white'
-            }
+            className="justify-self-start font-display text-base font-medium tracking-tight text-paper transition-colors hover:text-signal"
           >
-            Home
-          </NavLink>
-          <NavLink
-            to="/registrations"
-            className={({ isActive }) =>
-              isActive ? 'font-medium text-white' : 'text-white/60 transition hover:text-white'
-            }
-          >
-            Registrations
-          </NavLink>
-          <NavLink
-            to="/media"
-            className={({ isActive }) =>
-              isActive ? 'font-medium text-white' : 'text-white/60 transition hover:text-white'
-            }
-          >
-            Media
-          </NavLink>
-          {COMING_SOON.map((label) => (
-            <span
-              key={label}
-              aria-disabled="true"
-              title="Coming soon"
-              className="cursor-not-allowed text-white/30"
-            >
-              {label}
-              <span className="ml-1.5 text-[10px] uppercase tracking-wide text-white/25">soon</span>
-              <span className="sr-only"> (coming soon)</span>
-            </span>
-          ))}
-        </nav>
+            NSDC
+          </Link>
 
-        <div className="ml-auto flex items-center gap-3 text-sm">
-          {loading ? (
-            <span role="status" aria-live="polite" className="text-white/50">
-              Checking session...
-            </span>
-          ) : user ? (
-            <>
-              <span className="max-w-[14rem] truncate text-white/70">{user.email}</span>
-              <span className="rounded-full border border-neon/40 px-2 py-0.5 text-[11px] uppercase tracking-wide text-neon">
-                {user.role}
+          {/* Season marker. Centred on desktop, dropped on small screens. */}
+          <span aria-hidden="true" className="hidden justify-self-center font-mono text-[11px] uppercase tracking-wide text-muted md:block">
+            26&mdash;27
+          </span>
+
+          <div className="col-start-2 flex items-center justify-self-end gap-3 md:col-start-3">
+            {loading ? (
+              <span role="status" aria-live="polite" className="label hidden sm:inline">
+                Checking session&hellip;
               </span>
-              <button type="button" onClick={handleSignOut} disabled={signingOut} className="btn-ghost">
-                {signingOut ? 'Signing out...' : 'Sign out'}
-              </button>
-            </>
-          ) : (
-            <Link to="/login" className="btn-primary">
-              Sign in
-            </Link>
-          )}
+            ) : user ? (
+              <>
+                <span className="hidden max-w-[12rem] truncate text-sm text-muted lg:inline">{user.email}</span>
+                <span
+                  className={`font-mono text-[10px] uppercase tracking-wide ${
+                    user.role === 'admin' ? 'text-signal' : 'text-muted'
+                  }`}
+                >
+                  {user.role}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+                >
+                  {signingOut ? 'Signing out' : 'Sign out'}
+                </button>
+              </>
+            ) : (
+              <Link to="/login" className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide">
+                Sign in
+              </Link>
+            )}
+
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-expanded={menuOpen}
+              aria-controls="nsdc-menu"
+              aria-haspopup="dialog"
+              className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+            >
+              Menu
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      <FullscreenMenu open={menuOpen} onClose={() => setMenuOpen(false)} returnFocusRef={menuButtonRef} />
+    </>
   );
 }

@@ -1,53 +1,111 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ApiError, listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 import { useAuth } from '../lib/auth';
+import StatusDot from '../components/StatusDot';
+import Reveal from '../components/Reveal';
 
-function formatRange(starts: string, ends: string): string {
-  const opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function dateParts(iso: string): { day: string; mon: string; year: string } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    day: String(d.getDate()).padStart(2, '0'),
+    mon: MONTHS[d.getMonth()] ?? '',
+    year: String(d.getFullYear()),
+  };
+}
+
+function timeRange(starts: string, ends: string): string {
+  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
   try {
-    return `${new Date(starts).toLocaleString(undefined, opts)} – ${new Date(ends).toLocaleString(undefined, opts)}`;
+    const s = new Date(starts);
+    const e = new Date(ends);
+    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '';
+    return `${s.toLocaleTimeString(undefined, opts)} – ${e.toLocaleTimeString(undefined, opts)}`;
   } catch {
-    return `${starts} – ${ends}`;
+    return '';
   }
 }
 
-function spotsLabel(event: EventSummary): string {
-  if (event.capacity === null) return 'Open capacity';
-  return `${event.spots_left ?? 0} of ${event.capacity} spots left`;
+function Row({ event }: { event: EventSummary }) {
+  const parts = dateParts(event.starts_at);
+  const range = timeRange(event.starts_at, event.ends_at);
+  return (
+    <li>
+      <Link
+        to={`/events/${encodeURIComponent(event.id)}`}
+        className="group flex items-baseline gap-5 border-t border-line py-5 transition-colors duration-200 hover:bg-paper/[0.025] sm:gap-8 sm:px-3"
+      >
+        <div aria-hidden="true" className="w-14 shrink-0 font-mono leading-none">
+          {parts ? (
+            <>
+              <span className="block text-sm text-paper">
+                {parts.day} {parts.mon}
+              </span>
+              <span className="mt-1 block text-[11px] text-muted">{parts.year}</span>
+            </>
+          ) : (
+            <span className="block text-sm text-muted">TBD</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display text-lg font-medium leading-snug text-paper transition-colors duration-200 group-hover:text-signal sm:text-xl">
+            {event.title}
+          </h3>
+          {range && <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">{range}</p>}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <StatusDot event={event} />
+          <span
+            aria-hidden="true"
+            className="font-mono text-[11px] uppercase tracking-wide text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+          >
+            View event →
+          </span>
+        </div>
+      </Link>
+    </li>
+  );
 }
 
-function Card({ event, authed, from }: { event: EventSummary; authed: boolean; from: string }) {
-  const status = event.mine?.status ?? null;
+function Group({
+  id,
+  label,
+  count,
+  events,
+  empty,
+  dimmed,
+}: {
+  id?: string;
+  label: string;
+  count: number;
+  events: EventSummary[];
+  empty: string;
+  dimmed?: boolean;
+}) {
   return (
-    <article className="card" aria-label={event.title}>
-      <h3 className="font-display text-base font-semibold text-white">{event.title}</h3>
-      <p className="mt-1 text-xs text-white/50">{formatRange(event.starts_at, event.ends_at)}</p>
-      <p className="mt-1 text-xs text-white/60">{spotsLabel(event)}</p>
-      <div className="mt-4">
-        {status === 'registered' ? (
-          <span className="text-sm font-medium text-neon">Registered ✓</span>
-        ) : status === 'waitlisted' ? (
-          <span className="text-sm font-medium text-amber-300">Waitlisted — you’re on the list</span>
-        ) : !event.registration_open ? (
-          <span className="text-sm text-white/50">Closed</span>
-        ) : authed ? (
-          <Link to={`/events/${encodeURIComponent(event.id)}`} state={{ from }} className="btn-primary">
-            Register
-          </Link>
-        ) : (
-          <Link to="/login" state={{ from }} className="btn-ghost">
-            Sign in to register
-          </Link>
-        )}
-        {!status && (
-          <Link to={`/events/${encodeURIComponent(event.id)}`} className="link ml-4 text-sm">
-            Details
-          </Link>
-        )}
+    <section aria-label={label} id={id} className="mt-12 scroll-mt-24">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-mono text-[11px] uppercase tracking-wide text-muted">{label}</h2>
+        <span aria-hidden="true" className="font-mono text-[11px] text-muted">
+          {String(count).padStart(2, '0')}
+        </span>
       </div>
-    </article>
+      {events.length === 0 ? (
+        <p className="border-t border-line py-8 font-mono text-xs uppercase tracking-wide text-muted">{empty}</p>
+      ) : (
+        <ul className={dimmed ? 'opacity-60' : undefined}>
+          {events.map((e) => (
+            <Row key={e.id} event={e} />
+          ))}
+          {/* Closing hairline for the last row */}
+          <li aria-hidden="true" className="border-t border-line" />
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -65,9 +123,11 @@ export default function Registrations() {
       })
       .catch((err) => {
         if (active) {
-          setError(err instanceof ApiError && err.error === 'network_error'
-            ? 'Could not reach the server. Check your connection and try again.'
-            : 'Could not load events. Please try again.');
+          setError(
+            err instanceof ApiError && err.error === 'network_error'
+              ? 'Could not reach the server. Check your connection and try again.'
+              : 'Could not load events. Please try again.',
+          );
         }
       });
     return () => {
@@ -75,46 +135,67 @@ export default function Registrations() {
     };
   }, []);
 
-  const from = `${location.pathname}${location.search}${location.hash}`;
+  const { upcoming, archive } = useMemo(() => {
+    const now = Date.now();
+    const up: EventSummary[] = [];
+    const arch: EventSummary[] = [];
+    for (const e of events ?? []) {
+      const t = new Date(e.starts_at).getTime();
+      if (!Number.isNaN(t) && t > now) up.push(e);
+      else arch.push(e);
+    }
+    up.sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at));
+    arch.sort((a, b) => +new Date(b.starts_at) - +new Date(a.starts_at));
+    return { upcoming: up, archive: arch };
+  }, [events]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10">
-      <h1 className="font-display text-2xl font-semibold text-white">Registrations</h1>
-      <p className="mt-1 text-sm text-white/60">Workshops, meetups and hack nights — reserve your seat.</p>
+    <div className="shell py-12 md:py-16">
+      <Reveal>
+        <p className="label">01 / Index</p>
+        <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight text-paper sm:text-6xl">
+          EVENTS
+        </h1>
+        {events !== null && (
+          <p aria-live="polite" className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted">
+            Upcoming {String(upcoming.length).padStart(2, '0')}
+            <span aria-hidden="true" className="mx-3">
+              /
+            </span>
+            Archive {String(archive.length).padStart(2, '0')}
+          </p>
+        )}
+      </Reveal>
+
       {error && (
-        <p role="alert" aria-live="assertive" className="error-text mt-4">
+        <p role="alert" aria-live="assertive" className="error-text mt-8 text-sm">
           {error}
         </p>
       )}
       {!error && events === null && (
-        <p aria-live="polite" className="mt-6 text-sm text-white/60">Loading events…</p>
+        <p aria-live="polite" className="mt-8 font-mono text-xs uppercase tracking-wide text-muted">
+          Loading events…
+        </p>
       )}
-      {events !== null && (
+
+      {events !== null && !error && (
         <>
-          <section aria-label="Open now" className="mt-8">
-            <h2 className="font-display text-lg font-semibold text-white">Open now</h2>
-            {events.filter((e) => e.registration_open).length === 0 ? (
-              <p className="mt-3 text-sm text-white/50">No registrations are open right now. Check back soon.</p>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {events.filter((e) => e.registration_open).map((e) => (
-                  <Card key={e.id} event={e} authed={!!user} from={from} />
-                ))}
-              </div>
-            )}
-          </section>
-          <section aria-label="Upcoming and past" className="mt-10">
-            <h2 className="font-display text-lg font-semibold text-white">Upcoming &amp; past</h2>
-            {events.filter((e) => !e.registration_open).length === 0 ? (
-              <p className="mt-3 text-sm text-white/50">Nothing in the archive yet.</p>
-            ) : (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {events.filter((e) => !e.registration_open).map((e) => (
-                  <Card key={e.id} event={e} authed={!!user} from={from} />
-                ))}
-              </div>
-            )}
-          </section>
+          <Group label="Upcoming" count={upcoming.length} events={upcoming} empty="No upcoming events" />
+          {!user && (
+            <p className="mt-8 font-mono text-[11px] uppercase tracking-wide text-muted">
+              <Link to="/login" state={{ from: location }} className="link font-mono text-[11px] uppercase">
+                Sign in to register
+              </Link>
+            </p>
+          )}
+          <Group
+            id="archive"
+            label="Archive"
+            count={archive.length}
+            events={archive}
+            empty="Nothing in the archive yet"
+            dimmed
+          />
         </>
       )}
     </div>

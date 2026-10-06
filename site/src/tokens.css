@@ -1,0 +1,33 @@
+/* NSDC design tokens — mirrors design/design.md. Single source of colour,
+   type and motion for the club site. */
+
+:root {
+  /* Palette */
+  --bg: #080808;
+  --text: #f5f5f2;
+  --muted: #777777;
+  --border: #242424;
+  --accent: #ff5a36;
+  --accent-soft: rgba(255, 90, 54, 0.12);
+
+  /* Type */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Motion */
+  --dur-micro: 200ms;
+  --dur-ui: 420ms;
+  --dur-cinematic: 900ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Layout */
+  --max-w: 1440px;
+  --gutter: 1.5rem;
+  --hairline: 1px solid var(--border);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 3rem;
+  }
+}

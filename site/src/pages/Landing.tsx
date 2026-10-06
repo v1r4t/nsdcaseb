@@ -1,35 +1,27 @@
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { fetchContent, FALLBACK_CONTENT } from '../lib/content';
-import type { Achievement, ContentSection, OfficeBearer, SiteContent } from '../lib/content';
+import type { SiteContent } from '../lib/content';
 import { listEvents, type EventSummary } from '../lib/events';
+import { listMedia } from '../lib/media';
 import Reveal from '../components/Reveal';
-import SocialLinks from '../components/SocialLinks';
+import Stat from '../components/Stat';
+import OriginStatement from '../components/OriginStatement';
+import PeopleList from '../components/PeopleList';
+import NowSection from '../components/NowSection';
+import ProjectStrip from '../components/ProjectStrip';
+import EventRows from '../components/EventRows';
+import ArchiveTeaser, { type ArchivePhoto } from '../components/ArchiveTeaser';
 
-/**
- * Copy authored in D1 is treated as plain text -- never HTML -- so a bad edit
- * cannot inject markup. The placeholder HTML comment is stripped for the same
- * reason: it is a marker for the club, not something a visitor should read.
- */
+/** D1 copy is plain text — never HTML. Split on blank lines into paragraphs. */
 function paragraphs(body: string): string[] {
   return body
     .replace(/<!--[\s\S]*?-->/g, '')
-    // Tolerate escaped newlines pasted from a shell/SQL string literal.
     .replace(/\\r\\n|\\n/g, '\n')
     .split(/\n\s*\n/)
     .map((block) => block.trim())
     .filter(Boolean);
-}
-
-function initials(name: string): string {
-  const letters = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase());
-  return letters.join('') || '—';
 }
 
 /** `2025-08-14` stays as-is; a longer timestamp is trimmed to its date part. */
@@ -37,132 +29,26 @@ function readableDate(value: string): string {
   return value.length > 10 ? value.slice(0, 10) : value;
 }
 
-const STATS = [
-  { value: '120+', label: 'Members' },
-  { value: '15+', label: 'Events' },
-  { value: '30+', label: 'Projects' },
-];
-
-function Section({ id, label, title, children }: { id: string; label: string; title: string; children: ReactNode }) {
+function SectionHead({ index, name, meta }: { index: string; name: string; meta?: string }) {
   return (
-    <section id={id} aria-label={title} className="border-t border-white/10 py-16 sm:py-20">
-      <Reveal className="mx-auto w-full max-w-3xl px-4">
-        <p className="text-[11px] font-medium uppercase tracking-mega text-neon/80">{label}</p>
-        <h2 className="mt-3 font-display text-2xl font-semibold tracking-wide text-white sm:text-3xl">{title}</h2>
-        <div className="mt-6">{children}</div>
-      </Reveal>
-    </section>
-  );
-}
-
-function Prose({ section }: { section: ContentSection | undefined }) {
-  if (!section) {
-    return <p className="text-sm text-white/50">This section has not been written yet.</p>;
-  }
-  const blocks = paragraphs(section.body);
-  if (blocks.length === 0) {
-    return <p className="text-sm text-white/50">This section has not been written yet.</p>;
-  }
-  return (
-    <div className="max-w-2xl space-y-4">
-      {blocks.map((block) => (
-        <p key={block.slice(0, 48)} className="text-base leading-relaxed text-white/70">
-          {block}
-        </p>
-      ))}
+    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <p className="label">
+        {index} / {name}
+      </p>
+      {meta ? <p className="font-mono text-[11px] uppercase tracking-wide text-muted/70">{meta}</p> : null}
     </div>
-  );
-}
-
-/** Slim banner for the first open event. Renders nothing when none is open. */
-function NextEventBanner() {
-  const [event, setEvent] = useState<EventSummary | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    listEvents()
-      .then(({ events }) => {
-        if (!active) return;
-        setEvent(events.find((e) => e.registration_open) ?? null);
-      })
-      .catch(() => {
-        // Banner is best-effort; the page must render without it.
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (!event) return null;
-  return (
-    <p className="inline-flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-neon/30 bg-neon/10 px-4 py-2 text-sm text-white/80">
-      <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-neon" />
-      <span className="font-medium text-white">{event.title}</span>
-      <time dateTime={event.starts_at} className="text-white/60">
-        {readableDate(event.starts_at)}
-      </time>
-      <Link to="/registrations" className="font-medium text-neon underline-offset-4 hover:underline">
-        Register
-      </Link>
-    </p>
-  );
-}
-
-function BearerCard({ bearer, delay }: { bearer: OfficeBearer; delay: number }) {
-  return (
-    <li>
-      <Reveal
-        delay={delay}
-        className="h-full rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition duration-300 hover:-translate-y-1 hover:border-neon/40 hover:bg-white/[0.05]"
-      >
-        <div className="flex items-center gap-4">
-          <span
-            aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-neon/30 bg-neon/10 font-display text-sm font-semibold tracking-wide text-neon"
-          >
-            {initials(bearer.name)}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-medium text-white">{bearer.name}</p>
-            <p className="text-sm text-neon/90">{bearer.role}</p>
-            {bearer.cohort ? <p className="text-xs text-white/40">Class of {bearer.cohort}</p> : null}
-          </div>
-        </div>
-      </Reveal>
-    </li>
-  );
-}
-
-function TimelineItem({ item, delay, last }: { item: Achievement; delay: number; last: boolean }) {
-  return (
-    <li className="relative pl-8">
-      {!last && <span aria-hidden="true" className="absolute bottom-0 left-[7px] top-6 w-px bg-white/10" />}
-      <span
-        aria-hidden="true"
-        className="absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-2 border-neon bg-[#050810]"
-      />
-      <Reveal delay={delay}>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          {item.date ? (
-            <time dateTime={item.date} className="text-xs font-medium uppercase tracking-mega text-neon/80">
-              {readableDate(item.date)}
-            </time>
-          ) : null}
-          <h3 className="mt-1.5 font-medium tracking-wide text-white">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-white/60">{item.description}</p>
-        </div>
-      </Reveal>
-    </li>
   );
 }
 
 export default function Landing() {
   const { user, loading } = useAuth();
   const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
+  // null = in flight or failed; sections degrade to honest empty states.
+  const [events, setEvents] = useState<EventSummary[] | null>(null);
+  const [photos, setPhotos] = useState<ArchivePhoto[]>([]);
 
   useEffect(() => {
     let active = true;
-    // fetchContent never rejects; it resolves with fallback copy on any failure.
     void fetchContent().then((data) => {
       if (active) setContent(data);
     });
@@ -171,126 +57,271 @@ export default function Landing() {
     };
   }, []);
 
+  // Single events fetch shared by NOW and EVENTS. Never gates first paint.
+  useEffect(() => {
+    let active = true;
+    listEvents()
+      .then(({ events: list }) => {
+        if (active) setEvents(list);
+      })
+      .catch(() => {
+        if (active) setEvents(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // First 3 images across albums for the archive teaser. Best-effort.
+  useEffect(() => {
+    let active = true;
+    listMedia()
+      .then(({ albums }) => {
+        if (!active) return;
+        const found: ArchivePhoto[] = [];
+        for (const album of albums) {
+          for (const item of album.items ?? []) {
+            if (item.type === 'image' && typeof item.url === 'string' && item.url.length > 0) {
+              found.push({ url: item.url, title: item.title ?? '' });
+              if (found.length >= 3) break;
+            }
+          }
+          if (found.length >= 3) break;
+        }
+        setPhotos(found);
+      })
+      .catch(() => {
+        if (active) setPhotos([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const about = content.sections.find((section) => section.key === 'about');
   const origin = content.sections.find((section) => section.key === 'origin');
+  const aboutBlocks = paragraphs(about?.body ?? '');
 
   return (
     <div>
-      {/* Hero ------------------------------------------------------------- */}
-      <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:pb-20 sm:pt-20">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(60% 50% at 50% 0%, rgba(34,211,238,0.16), transparent 70%)' }}
-        />
-        <Reveal className="relative mx-auto w-full max-w-3xl">
-          <NextEventBanner />
-          <p className="mt-6 text-xs font-medium uppercase tracking-mega text-neon">
-            Amrita student data club
-          </p>
-          <h1 className="mt-4 bg-gradient-to-r from-white via-cyan-100 to-cyan-400 bg-clip-text font-display text-4xl font-bold leading-tight tracking-tight text-transparent sm:text-6xl">
-            Learn data by building with it.
-          </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/70">
-            NSDC is where Amrita students turn curiosity about data into real projects, together.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              to="/register"
-              className="rounded-full bg-neon px-6 py-2.5 text-sm font-semibold text-[#050810] transition hover:brightness-110"
-            >
-              Join the club
-            </Link>
-            <Link
-              to="/registrations"
-              className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-medium text-white/85 transition hover:border-neon/60 hover:text-white"
-            >
-              Explore events
-            </Link>
-          </div>
-
-          <dl aria-label="Club milestones (demo figures)" className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
-            {STATS.map((stat) => (
-              <div key={stat.label} className="flex flex-col">
-                <dt className="order-2 mt-1 text-xs uppercase tracking-mega text-white/45">{stat.label}</dt>
-                <dd className="order-1 font-display text-2xl font-bold text-white">
-                  {stat.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          <div className="mt-8 min-h-[1.75rem] text-sm">
+      {/* 0. STATEMENT — min-h-screen asymmetric hero ---------------------- */}
+      <section aria-label="Introduction" className="rule">
+        <div className="shell grid min-h-screen grid-cols-12 gap-x-6 pb-16 pt-14 sm:pt-20">
+          <Reveal className="col-span-12 md:col-span-7">
+            <p className="label">12.9716° N, 77.5946° E · EST. 2026</p>
+            <h1 className="mt-6 text-left font-display text-6xl font-bold leading-[0.95] tracking-tight text-paper sm:text-8xl">
+              NATIONAL
+              <br />
+              STUDENT
+              <br />
+              DATA
+              <br />
+              CORPS
+            </h1>
+            <p className="mt-8 font-mono text-xs uppercase tracking-wide text-muted">Amrita / Bengaluru</p>
+            <p className="mt-2 font-mono text-xs uppercase tracking-wide text-paper/80">Build. Learn. Ship.</p>
             {loading ? (
-              <p role="status" aria-live="polite" className="text-white/50">
-                Checking session...
+              <p role="status" aria-live="polite" className="mt-8 font-mono text-xs text-muted">
+                Checking session…
               </p>
             ) : user ? (
-              <p className="flex flex-wrap items-center gap-3">
-                <span className="truncate text-white/70">{user.email}</span>
-                <span className="rounded-full border border-neon/40 px-3 py-1 text-[11px] uppercase tracking-wide text-neon">
+              <p className="mt-8 flex flex-wrap items-center gap-3">
+                <span className="truncate font-mono text-xs text-muted">{user.email}</span>
+                <span className="rounded-sm border border-line px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-signal">
                   {user.role}
                 </span>
               </p>
             ) : (
-              <p className="text-white/50">
+              <p className="mt-8 font-mono text-xs text-muted">
                 Member?{' '}
                 <Link to="/login" className="link">
                   Sign in
                 </Link>
               </p>
             )}
-          </div>
-        </Reveal>
+          </Reveal>
+          <Reveal
+            delay={140}
+            className="col-span-10 col-start-2 flex flex-col justify-end md:col-span-3 md:col-start-10"
+          >
+            <p className="font-mono text-xs text-muted">26—27</p>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-wide text-muted">
+              System.status · Online
+            </p>
+            <p aria-hidden="true" className="mt-8 font-mono text-xs text-signal">
+              ↓
+            </p>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-wide text-muted">Scroll</p>
+          </Reveal>
+        </div>
       </section>
 
-      <Section id="about" label="Who we are" title={about?.title ?? 'About the club'}>
-        <Prose section={about} />
-      </Section>
-
-      <Section id="origin" label="Origin" title={origin?.title ?? 'How we started'}>
-        <div className="max-w-2xl rounded-2xl border border-neon/20 bg-neon/[0.04] p-6 sm:p-8">
-          <Prose section={origin} />
+      {/* 1. WHAT WE DO ---------------------------------------------------- */}
+      <section id="about" aria-label="What we do" className="rule">
+        <div className="shell grid grid-cols-12 gap-x-6 py-16 sm:py-24">
+          <Reveal className="col-span-12 md:col-span-6 md:col-start-2">
+            <SectionHead index="01" name="About" />
+            <p className="mt-8 font-display text-2xl font-bold leading-snug tracking-tight text-paper sm:text-3xl">
+              We bring students together to learn, build, experiment and compete across data, AI and
+              emerging technology.
+            </p>
+          </Reveal>
+          <Reveal delay={120} className="col-span-12 mt-10 md:col-span-6 md:col-start-6">
+            {aboutBlocks.length === 0 ? (
+              <p className="text-sm text-muted">This section has not been written yet.</p>
+            ) : (
+              <div className="space-y-5">
+                {aboutBlocks.map((block) => (
+                  <p key={block.slice(0, 48)} className="max-w-2xl text-base leading-relaxed text-paper/70">
+                    {block}
+                  </p>
+                ))}
+              </div>
+            )}
+          </Reveal>
         </div>
-      </Section>
+      </section>
 
-      {/* Achievements ----------------------------------------------------- */}
-      <Section id="achievements" label="Track record" title="Achievements">
-        {content.achievements.length === 0 ? (
-          <p className="text-sm text-white/50">Nothing logged yet — the first entry is on its way.</p>
-        ) : (
-          <ol className="max-w-2xl space-y-5">
-            {content.achievements.map((item, i) => (
-              <TimelineItem key={item.id} item={item} delay={Math.min(i, 5) * 80} last={i === content.achievements.length - 1} />
-            ))}
-          </ol>
-        )}
-      </Section>
+      {/* 2. NUMBERS -------------------------------------------------------- */}
+      <section aria-label="Numbers" className="rule">
+        <div className="shell py-16 sm:py-20">
+          <Reveal>
+            <p className="label">084 members and counting</p>
+          </Reveal>
+          <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4">
+            <Reveal>
+              <Stat label="Members" value={120} suffix="+" />
+            </Reveal>
+            <Reveal delay={80}>
+              <Stat label="Projects" value={30} suffix="+" />
+            </Reveal>
+            <Reveal delay={160}>
+              <Stat label="Events" value={15} suffix="+" />
+            </Reveal>
+            <Reveal delay={240}>
+              <Stat label="Ideas" glyph="∞" />
+            </Reveal>
+          </dl>
+        </div>
+      </section>
 
-      {/* Office bearers ---------------------------------------------------- */}
-      <Section id="bearers" label="Who runs it" title="Office bearers">
-        {content.bearers.length === 0 ? (
-          <p className="text-sm text-white/50">The current board has not been published yet.</p>
-        ) : (
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {content.bearers.map((bearer, i) => (
-              <BearerCard key={bearer.id} bearer={bearer} delay={Math.min(i, 5) * 80} />
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      {/* Footer ------------------------------------------------------------ */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-4 px-4 py-10">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-white/40">Find us online</p>
-            <p className="mt-2 text-sm text-white/60">National Student Data Corps — Amrita student chapter</p>
+      {/* 3. THE ORIGIN ----------------------------------------------------- */}
+      <section id="origin" aria-label="The origin" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="02" name="The origin" meta="EST. 2026" />
+          <div className="mt-10">
+            <OriginStatement title={origin?.title ?? 'How we started'} body={origin?.body ?? ''} />
           </div>
-          <SocialLinks />
         </div>
-      </footer>
+      </section>
+
+      {/* 4. NOW / 2026 ----------------------------------------------------- */}
+      <section aria-label="Now" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="03" name="Now / 2026" meta="System.status · Online" />
+          <h2 className="mt-8 max-w-2xl font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            What is happening now.
+          </h2>
+          <div className="mt-8">
+            <NowSection events={events} mediaCount={photos.length} />
+          </div>
+        </div>
+      </section>
+
+      {/* 5. PROJECTS -------------------------------------------------------- */}
+      <section aria-label="Projects" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="04" name="Projects" meta="12.9716° N, 77.5946° E" />
+          <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            Selected work.
+          </h2>
+          <div className="mt-8">
+            <ProjectStrip />
+          </div>
+        </div>
+      </section>
+
+      {/* 6. EVENTS ----------------------------------------------------------- */}
+      <section aria-label="Events" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="05" name="Events" />
+          <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            Upcoming dates.
+          </h2>
+          <div className="mt-8 md:ml-[8.333%] md:max-w-[83.333%]">
+            <EventRows events={events} />
+          </div>
+        </div>
+      </section>
+
+      {/* 7. ARCHIVE ---------------------------------------------------------- */}
+      <section aria-label="Archive" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="06" name="Archive" meta="Filed frames" />
+          <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            From the room.
+          </h2>
+          <div className="mt-10">
+            <ArchiveTeaser photos={photos} />
+          </div>
+        </div>
+      </section>
+
+      {/* 8. PEOPLE ------------------------------------------------------------ */}
+      <section id="people" aria-label="People" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="07" name="People" meta="EST. 2026" />
+          <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            The people holding it together.
+          </h2>
+          <div className="mt-10">
+            <PeopleList bearers={content.bearers} />
+          </div>
+        </div>
+      </section>
+
+      {/* 9. ACHIEVEMENTS — editorial timeline, inline ------------------------ */}
+      <section id="achievements" aria-label="Achievements" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="08" name="Achievements" meta="System.status · Online" />
+          <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
+            Logged, not claimed.
+          </h2>
+          <div className="mt-10 md:ml-[16.666%] md:max-w-[66.666%]">
+            {content.achievements.length === 0 ? (
+              <p className="border-t border-line pt-5 text-sm text-muted">
+                Nothing logged yet — the first entry is on its way.
+              </p>
+            ) : (
+              <ol>
+                {content.achievements.map((item, i) => (
+                  <li key={item.id} className="relative pl-8">
+                    {i !== content.achievements.length - 1 && (
+                      <span aria-hidden="true" className="absolute bottom-0 left-[4px] top-6 w-px bg-line" />
+                    )}
+                    <span aria-hidden="true" className="absolute left-0 top-2 h-2 w-2 rounded-full bg-signal" />
+                    <Reveal delay={Math.min(i, 5) * 60}>
+                      <div className="border-t border-line py-6">
+                        {item.date ? (
+                          <p className="font-mono text-xs text-muted">
+                            <time dateTime={item.date}>{readableDate(item.date)}</time>
+                          </p>
+                        ) : null}
+                        <h3 className="mt-2 font-display text-lg font-bold tracking-tight text-paper">
+                          {item.title}
+                        </h3>
+                        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-paper/70">
+                          {item.description}
+                        </p>
+                      </div>
+                    </Reveal>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

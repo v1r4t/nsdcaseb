@@ -80,9 +80,35 @@ export default function Admin() {
     return () => { active = false; };
   }, [user, outboxStatus, notice]);
 
-  if (loading) return <p aria-live="polite" className="mx-auto max-w-4xl px-4 py-10 text-sm text-white/60">Loading…</p>;
-  if (!user) return <div className="mx-auto max-w-4xl px-4 py-10"><h1 className="font-display text-2xl text-white">Admin</h1><p className="mt-2 text-sm text-white/60">Please <Link to="/login" className="link">sign in</Link> to continue.</p></div>;
-  if (user.role !== 'admin') return <div className="mx-auto max-w-4xl px-4 py-10"><h1 className="font-display text-2xl text-white">Admin</h1><p role="alert" className="error-text mt-2">Restricted — this area is for club admins only.</p></div>;
+  if (loading) {
+    return (
+      <div className="shell py-12 md:py-16">
+        <p aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+          Loading…
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="shell py-12 md:py-16">
+        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin</h1>
+        <p className="mt-3 text-sm text-muted">
+          Please <Link to="/login" className="link">sign in</Link> to continue.
+        </p>
+      </div>
+    );
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="shell py-12 md:py-16">
+        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin</h1>
+        <p role="alert" className="error-text mt-3">Restricted — this area is for club admins only.</p>
+      </div>
+    );
+  }
 
   async function toggleEvent(e: EventSummary): Promise<void> {
     setBusy(true);
@@ -130,94 +156,137 @@ export default function Admin() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10">
-      <h1 className="font-display text-2xl font-semibold text-white">Admin dashboard</h1>
-      <p role="status" aria-live="polite" className="mt-2 min-h-5 text-sm text-white/70">{notice}</p>
+    <div className="shell py-12 md:py-16">
+      <div className="max-w-5xl">
+        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin dashboard</h1>
+        <p role="status" aria-live="polite" className="mt-4 min-h-5 text-sm text-paper/80">{notice}</p>
 
-      <section aria-label="Overview" className="mt-6">
-        <h2 className="font-display text-lg text-white">Overview</h2>
-        {stats && (
-          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {[['Members', stats.users_total], ['Executives', stats.users_by_role.executive], ['Events', stats.events_total], ['Registrations', stats.registrations_total], ['Waitlisted', stats.registrations_by_status.waitlisted], ['Emails pending', stats.outbox.pending]].map(([label, n]) => (
-              <div key={label as string} className="card"><dt className="text-xs text-white/50">{label}</dt><dd className="text-xl font-semibold text-white">{n}</dd></div>
+        <section aria-label="Overview" className="rule mt-10 pt-6">
+          <h2 className="label">Overview</h2>
+          {stats && (
+            <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+              {[['Members', stats.users_total], ['Executives', stats.users_by_role.executive], ['Events', stats.events_total], ['Registrations', stats.registrations_total], ['Waitlisted', stats.registrations_by_status.waitlisted], ['Emails pending', stats.outbox.pending]].map(([label, n]) => (
+                <div key={label as string} className="border-t border-line pt-3">
+                  <dt className="font-mono text-[11px] uppercase tracking-wide text-muted">{label}</dt>
+                  <dd className="mt-1 font-mono text-2xl font-medium leading-none text-paper">{n}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </section>
+
+        <section aria-label="Events" className="rule mt-10 pt-6">
+          <h2 className="label">Events</h2>
+          <ul className="mt-5">
+            {events.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3 border-t border-line py-4 last:border-b">
+                <span className="text-sm text-paper/80">{e.title}
+                  <span className={`ml-3 font-mono text-[11px] uppercase tracking-wide ${e.registration_open ? 'text-signal' : 'text-muted'}`}>{e.registration_open ? 'Open' : 'Closed'}</span>
+                  <span className="ml-3 font-mono text-[11px] uppercase tracking-wide text-muted">cap {e.capacity ?? '∞'}</span>
+                </span>
+                <button type="button" className="btn-ghost shrink-0" disabled={busy} onClick={() => toggleEvent(e)}>{e.registration_open ? 'Close' : 'Open'}</button>
+              </li>
             ))}
-          </dl>
-        )}
-      </section>
+          </ul>
+        </section>
 
-      <section aria-label="Events" className="mt-8">
-        <h2 className="font-display text-lg text-white">Events</h2>
-        <ul className="mt-3 space-y-2">
-          {events.map((e) => (
-            <li key={e.id} className="card flex items-center justify-between gap-3">
-              <span className="text-sm text-white">{e.title}
-                <span className="ml-2 rounded px-1.5 py-0.5 text-xs" style={{ background: e.registration_open ? '#0f3' : '#555' }}>{e.registration_open ? 'Open' : 'Closed'}</span>
-                <span className="ml-2 text-xs text-white/50">cap {e.capacity ?? '∞'}</span>
-              </span>
-              <button type="button" className="btn-ghost" disabled={busy} onClick={() => toggleEvent(e)}>{e.registration_open ? 'Close' : 'Open'}</button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section aria-label="Roster" className="mt-8">
-        <h2 className="font-display text-lg text-white">Roster</h2>
-        <div className="mt-3 flex gap-2">
-          <select aria-label="Event" value={rosterEvent} onChange={(e) => loadRoster(e.target.value)} className="rounded bg-white/10 px-2 py-1 text-sm text-white">
-            <option value="">Select event…</option>
-            {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
-          </select>
-          {roster && <button type="button" className="btn-ghost" onClick={rosterCsv}>Download CSV</button>}
-        </div>
-        {roster && (
-          <table className="mt-3 w-full text-left text-sm text-white/80">
-            <thead><tr><th>Email</th><th>Status</th><th>Answers</th><th>Date</th></tr></thead>
-            <tbody>{roster.map((r) => <tr key={r.email}><td>{r.email}</td><td>{r.status}</td><td>{Object.entries(r.answers).map(([k, v]) => `${k}: ${v}`).join('; ')}</td><td>{r.created_at}</td></tr>)}</tbody>
-          </table>
-        )}
-      </section>
-
-      <section aria-label="Broadcast" className="mt-8">
-        <h2 className="font-display text-lg text-white">Broadcast</h2>
-        <p className="mt-1 text-xs text-amber-300">Emails queue immediately, but delivery activates once club email is connected (mailer seam pending).</p>
-        <div className="mt-3 space-y-2">
-          <div className="flex gap-4 text-sm text-white/80">
-            <label><input type="radio" checked={aud === 'all'} onChange={() => setAud('all')} /> All members</label>
-            <label><input type="radio" checked={aud === 'event'} onChange={() => setAud('event')} /> Per-event</label>
-          </div>
-          {aud === 'event' && (
-            <select aria-label="Broadcast event" value={audEvent} onChange={(e) => setAudEvent(e.target.value)} className="rounded bg-white/10 px-2 py-1 text-sm text-white">
+        <section aria-label="Roster" className="rule mt-10 pt-6">
+          <h2 className="label">Roster</h2>
+          <div className="mt-5 flex gap-2">
+            <select aria-label="Event" value={rosterEvent} onChange={(e) => loadRoster(e.target.value)} className="field max-w-xs">
               <option value="">Select event…</option>
               {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
             </select>
+            {roster && <button type="button" className="btn-ghost shrink-0" onClick={rosterCsv}>Download CSV</button>}
+          </div>
+          {roster && (
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-left text-sm text-paper/80">
+                <thead className="border-b border-line">
+                  <tr>
+                    <th scope="col" className="label py-2 pr-6 text-left">Email</th>
+                    <th scope="col" className="label py-2 pr-6 text-left">Status</th>
+                    <th scope="col" className="label py-2 pr-6 text-left">Answers</th>
+                    <th scope="col" className="label py-2 text-left">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {roster.map((r) => (
+                    <tr key={r.email}>
+                      <td className="py-3 pr-6">{r.email}</td>
+                      <td className="py-3 pr-6 font-mono text-xs uppercase tracking-wide">{r.status}</td>
+                      <td className="py-3 pr-6">{Object.entries(r.answers).map(([k, v]) => `${k}: ${v}`).join('; ')}</td>
+                      <td className="py-3 font-mono text-xs text-muted">{r.created_at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-          <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="block w-full rounded bg-white/10 px-2 py-1 text-sm text-white" />
-          <textarea aria-label="Body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message body" rows={4} className="block w-full rounded bg-white/10 px-2 py-1 text-sm text-white" />
-          <button type="button" className="btn-primary" disabled={busy || !subject.trim() || !body.trim()} onClick={broadcast}>Queue broadcast</button>
-        </div>
-      </section>
+        </section>
 
-      <section aria-label="Content" className="mt-8">
-        <h2 className="font-display text-lg text-white">Content</h2>
-        {content?.sections.map((s) => (
-          <SectionForm key={s.key} sectionKey={s.key} title={s.title} sectionBody={s.body} busy={busy} onSave={saveSection} />
-        ))}
-        <BearerEditor bearers={content?.bearers ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
-        <AchievementEditor achievements={content?.achievements ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
-      </section>
+        <section aria-label="Broadcast" className="rule mt-10 pt-6">
+          <h2 className="label">Broadcast</h2>
+          <p className="hint">Emails queue immediately, but delivery activates once club email is connected (mailer seam pending).</p>
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap gap-6 text-sm text-paper/80">
+              <label><input type="radio" className="accent-signal" checked={aud === 'all'} onChange={() => setAud('all')} /> All members</label>
+              <label><input type="radio" className="accent-signal" checked={aud === 'event'} onChange={() => setAud('event')} /> Per-event</label>
+            </div>
+            {aud === 'event' && (
+              <select aria-label="Broadcast event" value={audEvent} onChange={(e) => setAudEvent(e.target.value)} className="field max-w-xs">
+                <option value="">Select event…</option>
+                {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+              </select>
+            )}
+            <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="field" />
+            <textarea aria-label="Body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message body" rows={4} className="field resize-y" />
+            <button type="button" className="btn-primary" disabled={busy || !subject.trim() || !body.trim()} onClick={broadcast}>Queue broadcast</button>
+          </div>
+        </section>
 
-      <section aria-label="Outbox" className="mt-8">
-        <h2 className="font-display text-lg text-white">Outbox</h2>
-        <div className="mt-3 flex gap-2" role="group" aria-label="Status filter">
-          {(['pending', 'sent', 'failed'] as OutboxStatus[]).map((s) => (
-            <button key={s} type="button" className={s === outboxStatus ? 'btn-primary' : 'btn-ghost'} onClick={() => setOutboxStatus(s)}>{s}</button>
+        <section aria-label="Content" className="rule mt-10 pt-6">
+          <h2 className="label">Content</h2>
+          {content?.sections.map((s) => (
+            <SectionForm key={s.key} sectionKey={s.key} title={s.title} sectionBody={s.body} busy={busy} onSave={saveSection} />
           ))}
-        </div>
-        <table className="mt-3 w-full text-left text-sm text-white/80">
-          <thead><tr><th>To</th><th>Subject</th><th>Status</th><th>Tries</th><th>Date</th></tr></thead>
-          <tbody>{outbox.map((o) => <tr key={o.id}><td>{o.to_email}</td><td>{o.subject}</td><td>{o.status}</td><td>{o.attempts}</td><td>{o.created_at}</td></tr>)}</tbody>
-        </table>
-      </section>
+          <BearerEditor bearers={content?.bearers ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
+          <AchievementEditor achievements={content?.achievements ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
+        </section>
+
+        <section aria-label="Outbox" className="rule mt-10 pb-4 pt-6">
+          <h2 className="label">Outbox</h2>
+          <div className="mt-5 flex gap-2" role="group" aria-label="Status filter">
+            {(['pending', 'sent', 'failed'] as OutboxStatus[]).map((s) => (
+              <button key={s} type="button" className={s === outboxStatus ? 'btn-primary' : 'btn-ghost'} onClick={() => setOutboxStatus(s)}>{s}</button>
+            ))}
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-sm text-paper/80">
+              <thead className="border-b border-line">
+                <tr>
+                  <th scope="col" className="label py-2 pr-6 text-left">To</th>
+                  <th scope="col" className="label py-2 pr-6 text-left">Subject</th>
+                  <th scope="col" className="label py-2 pr-6 text-left">Status</th>
+                  <th scope="col" className="label py-2 pr-6 text-left">Tries</th>
+                  <th scope="col" className="label py-2 text-left">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {outbox.map((o) => (
+                  <tr key={o.id}>
+                    <td className="py-3 pr-6">{o.to_email}</td>
+                    <td className="py-3 pr-6">{o.subject}</td>
+                    <td className="py-3 pr-6 font-mono text-xs uppercase tracking-wide">{o.status}</td>
+                    <td className="py-3 pr-6 font-mono text-xs">{o.attempts}</td>
+                    <td className="py-3 font-mono text-xs text-muted">{o.created_at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -227,11 +296,11 @@ function SectionForm({ sectionKey, title, sectionBody, busy, onSave }: { section
   const [b, setB] = useState(sectionBody);
   useEffect(() => { setT(title); setB(sectionBody); }, [title, sectionBody]);
   return (
-    <form className="card mt-3" onSubmit={(e) => { e.preventDefault(); onSave(sectionKey, t, b); }}>
-      <h3 className="text-sm font-semibold text-white">{sectionKey}</h3>
-      <input aria-label="Section title" value={t} onChange={(e) => setT(e.target.value)} className="mt-2 block w-full rounded bg-white/10 px-2 py-1 text-sm text-white" />
-      <textarea aria-label="Section body" value={b} onChange={(e) => setB(e.target.value)} rows={4} className="mt-2 block w-full rounded bg-white/10 px-2 py-1 text-sm text-white" />
-      <button type="submit" className="btn-primary mt-2" disabled={busy}>Save</button>
+    <form className="mt-6 border-t border-line pt-5" onSubmit={(e) => { e.preventDefault(); onSave(sectionKey, t, b); }}>
+      <h3 className="label">{sectionKey}</h3>
+      <input aria-label="Section title" value={t} onChange={(e) => setT(e.target.value)} className="field mt-3" />
+      <textarea aria-label="Section body" value={b} onChange={(e) => setB(e.target.value)} rows={4} className="field mt-3 resize-y" />
+      <button type="submit" className="btn-primary mt-3" disabled={busy}>Save</button>
     </form>
   );
 }
@@ -244,25 +313,25 @@ function BearerEditor({ bearers, onDone }: { bearers: { id: string; name: string
     try { await fn(); await onDone(msg); } catch (err) { await onDone(errText(err)); }
   }
   return (
-    <div className="card mt-3">
-      <h3 className="text-sm font-semibold text-white">Office bearers</h3>
-      <ul className="mt-2 space-y-2">
+    <div className="mt-6 border-t border-line pt-5">
+      <h3 className="label">Office bearers</h3>
+      <ul className="mt-4">
         {bearers.map((x) => {
           const ed = edits[x.id] ?? { name: x.name, role: x.role };
           return (
-            <li key={x.id} className="flex flex-wrap items-center gap-2">
-              <input aria-label="Bearer name" value={ed.name} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, name: e.target.value } })} className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-              <input aria-label="Bearer role" value={ed.role} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, role: e.target.value } })} className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-              <button type="button" className="btn-ghost" onClick={() => run(() => updateBearer(x.id, { name: ed.name, role: ed.role }), `Saved ${ed.name}.`)}>Save</button>
-              <button type="button" className="btn-ghost" onClick={() => { if (window.confirm(`Delete ${x.name}?`)) void run(() => deleteBearer(x.id), `Deleted ${x.name}.`); }}>Delete</button>
+            <li key={x.id} className="flex flex-wrap items-center gap-2 border-t border-line py-3">
+              <input aria-label="Bearer name" value={ed.name} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, name: e.target.value } })} className="field flex-1 min-w-[9rem]" />
+              <input aria-label="Bearer role" value={ed.role} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, role: e.target.value } })} className="field flex-1 min-w-[9rem]" />
+              <button type="button" className="btn-ghost shrink-0" onClick={() => run(() => updateBearer(x.id, { name: ed.name, role: ed.role }), `Saved ${ed.name}.`)}>Save</button>
+              <button type="button" className="btn-ghost shrink-0" onClick={() => { if (window.confirm(`Delete ${x.name}?`)) void run(() => deleteBearer(x.id), `Deleted ${x.name}.`); }}>Delete</button>
             </li>
           );
         })}
       </ul>
-      <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void run(async () => { await createBearer({ name, role }); setName(''); setRole(''); }, `Added ${name}.`); }}>
-        <input aria-label="New bearer name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-        <input aria-label="New bearer role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role" className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-        <button type="submit" className="btn-primary" disabled={!name.trim() || !role.trim()}>Add</button>
+      <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void run(async () => { await createBearer({ name, role }); setName(''); setRole(''); }, `Added ${name}.`); }}>
+        <input aria-label="New bearer name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="field flex-1 min-w-[9rem]" />
+        <input aria-label="New bearer role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role" className="field flex-1 min-w-[9rem]" />
+        <button type="submit" className="btn-primary shrink-0" disabled={!name.trim() || !role.trim()}>Add</button>
       </form>
     </div>
   );
@@ -276,25 +345,25 @@ function AchievementEditor({ achievements, onDone }: { achievements: { id: strin
     try { await fn(); await onDone(msg); } catch (err) { await onDone(errText(err)); }
   }
   return (
-    <div className="card mt-3">
-      <h3 className="text-sm font-semibold text-white">Achievements</h3>
-      <ul className="mt-2 space-y-2">
+    <div className="mt-6 border-t border-line pt-5">
+      <h3 className="label">Achievements</h3>
+      <ul className="mt-4">
         {achievements.map((a) => {
           const ed = edits[a.id] ?? { title: a.title, description: a.description };
           return (
-            <li key={a.id} className="flex flex-wrap items-center gap-2">
-              <input aria-label="Achievement title" value={ed.title} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, title: e.target.value } })} className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-              <input aria-label="Achievement description" value={ed.description} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, description: e.target.value } })} className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-              <button type="button" className="btn-ghost" onClick={() => run(() => updateAchievement(a.id, { title: ed.title, description: ed.description }), 'Saved achievement.')}>Save</button>
-              <button type="button" className="btn-ghost" onClick={() => { if (window.confirm(`Delete ${a.title}?`)) void run(() => deleteAchievement(a.id), 'Deleted achievement.'); }}>Delete</button>
+            <li key={a.id} className="flex flex-wrap items-center gap-2 border-t border-line py-3">
+              <input aria-label="Achievement title" value={ed.title} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, title: e.target.value } })} className="field flex-1 min-w-[9rem]" />
+              <input aria-label="Achievement description" value={ed.description} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, description: e.target.value } })} className="field flex-1 min-w-[9rem]" />
+              <button type="button" className="btn-ghost shrink-0" onClick={() => run(() => updateAchievement(a.id, { title: ed.title, description: ed.description }), 'Saved achievement.')}>Save</button>
+              <button type="button" className="btn-ghost shrink-0" onClick={() => { if (window.confirm(`Delete ${a.title}?`)) void run(() => deleteAchievement(a.id), 'Deleted achievement.'); }}>Delete</button>
             </li>
           );
         })}
       </ul>
-      <form className="mt-3 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void run(async () => { await createAchievement({ title, description: desc }); setTitle(''); setDesc(''); }, `Added ${title}.`); }}>
-        <input aria-label="New achievement title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-        <input aria-label="New achievement description" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" className="rounded bg-white/10 px-2 py-1 text-sm text-white" />
-        <button type="submit" className="btn-primary" disabled={!title.trim() || !desc.trim()}>Add</button>
+      <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => { e.preventDefault(); void run(async () => { await createAchievement({ title, description: desc }); setTitle(''); setDesc(''); }, `Added ${title}.`); }}>
+        <input aria-label="New achievement title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="field flex-1 min-w-[9rem]" />
+        <input aria-label="New achievement description" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" className="field flex-1 min-w-[9rem]" />
+        <button type="submit" className="btn-primary shrink-0" disabled={!title.trim() || !desc.trim()}>Add</button>
       </form>
     </div>
   );

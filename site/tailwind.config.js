@@ -9,15 +9,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: '#050810',
-        neon: '#22d3ee',
-        deepblue: '#3b82f6',
+        ink: '#080808',
+        paper: '#f5f5f2',
+        muted: '#777777',
+        line: '#242424',
+        signal: '#ff5a36',
       },
       fontFamily: {
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       letterSpacing: {
-        mega: '0.45em',
+        tight: '-0.03em',
+        wide: '0.2em',
+      },
+      transitionTimingFunction: {
+        expo: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+      maxWidth: {
+        shell: '1440px',
       },
     },
   },

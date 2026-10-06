@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import SiteHeader from './components/SiteHeader';
+import SiteFooter from './components/SiteFooter';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -28,9 +29,7 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-          <footer className="border-t border-white/10 px-4 py-6 text-center text-xs text-white/40">
-            National Student Data Corps, Amrita Vishwa Vidyapeetham
-          </footer>
+          <SiteFooter />
         </div>
       </AuthProvider>
     </BrowserRouter>
