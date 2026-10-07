@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Reveal from '../components/Reveal';
 import { ApiError, listMedia } from '../lib/media';
 import type { MediaAlbum, MediaItem } from '../lib/media';
+import { listEvents } from '../lib/events';
+import type { EventSummary } from '../lib/events';
 
 const ALL = 'all';
 
@@ -83,6 +86,7 @@ export default function Media() {
   const [albums, setAlbums] = useState<MediaAlbum[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<string>(ALL);
+  const [eventsById, setEventsById] = useState<Map<string, EventSummary> | null>(null);
   const [lightbox, setLightbox] = useState<{ items: MediaItem[]; index: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -100,6 +104,21 @@ export default function Media() {
             ? 'Could not reach the server. Check your connection and try again.'
             : 'Could not load the gallery. Please try again.',
         );
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Single events fetch for the FROM: cross-links; unresolvable ids render nothing.
+  useEffect(() => {
+    let alive = true;
+    listEvents()
+      .then((res) => {
+        if (alive) setEventsById(new Map(res.events.map((e) => [e.id, e])));
+      })
+      .catch(() => {
+        if (alive) setEventsById(new Map());
       });
     return () => {
       alive = false;
@@ -210,6 +229,15 @@ export default function Media() {
               <section aria-label={album.title} className="rule mt-12 pt-6">
                 <h2 className="font-display text-lg font-semibold tracking-tight text-paper">{album.title}</h2>
                 {album.description && <p className="mt-1 max-w-2xl text-sm text-muted">{album.description}</p>}
+                {album.event_id && eventsById?.get(album.event_id) && (
+                  <Link
+                    to={`/registrations/${encodeURIComponent(album.event_id)}`}
+                    aria-label={`From event: ${eventsById.get(album.event_id)?.title}`}
+                    className="mt-2 inline-block font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:text-paper"
+                  >
+                    From: {eventsById.get(album.event_id)?.title} →
+                  </Link>
+                )}
                 <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
                   {album.items.map((item) => (
                     <Tile key={item.id} item={item} onOpen={open} />

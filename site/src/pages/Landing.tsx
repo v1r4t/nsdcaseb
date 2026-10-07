@@ -14,6 +14,7 @@ import NowSection from '../components/NowSection';
 import ProjectStrip from '../components/ProjectStrip';
 import EventRows from '../components/EventRows';
 import ArchiveTeaser, { type ArchivePhoto } from '../components/ArchiveTeaser';
+import Testimonials from '../components/Testimonials';
 
 /** D1 copy is plain text — never HTML. Split on blank lines into paragraphs. */
 function paragraphs(body: string): string[] {
@@ -279,10 +280,20 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 9. ACHIEVEMENTS — editorial timeline, inline ------------------------ */}
+      {/* 9. VOICES ------------------------------------------------------------ */}
+      <section aria-label="Voices" className="rule">
+        <div className="shell py-16 sm:py-24">
+          <SectionHead index="08" name="Voices" meta="From the members" />
+          <div className="mt-10">
+            <Testimonials />
+          </div>
+        </div>
+      </section>
+
+      {/* 10. ACHIEVEMENTS — editorial timeline, inline ------------------------ */}
       <section id="achievements" aria-label="Achievements" className="rule">
         <div className="shell py-16 sm:py-24">
-          <SectionHead index="08" name="Achievements" meta="System.status · Online" />
+          <SectionHead index="09" name="Achievements" meta="System.status · Online" />
           <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
             Logged, not claimed.
           </h2>

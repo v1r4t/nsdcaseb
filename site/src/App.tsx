@@ -12,6 +12,8 @@ import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import Registrations from './pages/Registrations';
 import Media from './pages/Media';
+import Projects from './pages/Projects';
+import AnnouncementBanner from './components/AnnouncementBanner';
 
 export default function App() {
   return (
@@ -19,6 +21,7 @@ export default function App() {
       <AuthProvider>
         <div className="flex min-h-screen flex-col">
           <SiteHeader />
+          <AnnouncementBanner />
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -27,6 +30,7 @@ export default function App() {
               <Route path="/registrations" element={<Registrations />} />
               <Route path="/registrations/:id" element={<EventDetail />} />
               <Route path="/media" element={<Media />} />
+              <Route path="/projects" element={<Projects />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

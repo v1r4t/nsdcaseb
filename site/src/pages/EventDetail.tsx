@@ -9,6 +9,8 @@ import {
   registerForEvent,
 } from '../lib/events';
 import type { EventDetail, RegistrationStatus } from '../lib/events';
+import { listProjects } from '../lib/projects';
+import type { Project } from '../lib/projects';
 import { useAuth } from '../lib/auth';
 import SeatMeter from '../components/SeatMeter';
 
@@ -64,6 +66,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [related, setRelated] = useState<Project[] | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,6 +98,23 @@ export default function EventDetailPage() {
       active = false;
     };
   }, [id, user]);
+
+  // Related work: projects that point back at this event. One fetch, filtered
+  // locally; a miss renders nothing at all.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    listProjects()
+      .then((res) => {
+        if (active) setRelated(res.projects.filter((p) => p.event_id === id));
+      })
+      .catch(() => {
+        if (active) setRelated([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   // Move focus to the step heading whenever the step changes.
   useEffect(() => {
@@ -196,6 +216,55 @@ export default function EventDetailPage() {
       <p className="mt-6 max-w-2xl whitespace-pre-wrap text-base leading-relaxed text-paper/70">
         {event.description}
       </p>
+
+      {related !== null && related.length > 0 && (
+        <section aria-label="Related work" className="mt-12 max-w-2xl border-t border-line pt-8">
+          <h2 className="font-mono text-[11px] uppercase tracking-wide text-muted">
+            Related work
+          </h2>
+          <ul className="mt-2">
+            {related.map((project) => (
+              <li key={project.id} className="border-t border-line py-4 first:mt-4">
+                {project.url ? (
+                  <a
+                    href={project.url}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={`${project.title} (opens in a new tab)`}
+                    className="group flex items-baseline justify-between gap-4"
+                  >
+                    <span className="font-display text-lg font-medium text-paper transition-colors duration-200 group-hover:text-signal">
+                      {project.title}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted"
+                    >
+                      Visit →
+                    </span>
+                  </a>
+                ) : (
+                  <Link to="/projects" className="group flex items-baseline justify-between gap-4">
+                    <span className="font-display text-lg font-medium text-paper transition-colors duration-200 group-hover:text-signal">
+                      {project.title}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted"
+                    >
+                      Index →
+                    </span>
+                  </Link>
+                )}
+                {project.summary && (
+                  <p className="mt-1 text-sm leading-relaxed text-paper/70">{project.summary}</p>
+                )}
+              </li>
+            ))}
+            <li aria-hidden="true" className="border-t border-line" />
+          </ul>
+        </section>
+      )}
 
       {showMeter && event.capacity !== null && event.spots_left !== null && (
         <div className="mt-8 max-w-2xl">

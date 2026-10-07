@@ -36,7 +36,8 @@ function Row({ event }: { event: EventSummary }) {
   return (
     <li>
       <Link
-        to={`/events/${encodeURIComponent(event.id)}`}
+        to={`/registrations/${encodeURIComponent(event.id)}`}
+        data-cursor="VIEW EVENT →"
         className="group flex items-baseline gap-5 border-t border-line py-5 transition-colors duration-200 hover:bg-paper/[0.025] sm:gap-8 sm:px-3"
       >
         <div aria-hidden="true" className="w-14 shrink-0 font-mono leading-none">
