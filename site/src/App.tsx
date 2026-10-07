@@ -3,6 +3,8 @@ import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import CommandPalette from './components/CommandPalette';
 import ContextCursor from './components/ContextCursor';
+import Backdrop from './components/Backdrop';
+import FolioRail from './components/FolioRail';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -19,7 +21,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="flex min-h-screen flex-col">
+        <Backdrop />
+        <div className="relative z-10 flex min-h-screen flex-col">
           <SiteHeader />
           <AnnouncementBanner />
           <main className="flex-1">
@@ -37,6 +40,7 @@ export default function App() {
           </main>
           <SiteFooter />
         </div>
+        <FolioRail />
         <CommandPalette />
         <ContextCursor />
       </AuthProvider>

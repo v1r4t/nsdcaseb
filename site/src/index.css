@@ -73,6 +73,61 @@
   .error-text {
     @apply mt-1.5 text-xs text-signal;
   }
+
+  /* ---- Backdrop texture ------------------------------------------------ */
+
+  /* Film grain — sits over the near-black page and any imagery, unifying
+     both into one filmic surface. Pointer-transparent, aria-hidden. */
+  .nsdc-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    opacity: 0.05;
+  }
+
+  /* Blueprint grid — 12 hairlines, barely there. Makes the deliberate
+     asymmetry read as a grid that was broken on purpose. */
+  .nsdc-grid {
+    background-image: repeating-linear-gradient(
+      to right,
+      rgba(245, 245, 242, 0.05) 0 1px,
+      transparent 1px calc(100% / 12)
+    );
+  }
+
+  /* Edge metadata — rotated mono, runs up the page margin. */
+  .edge-meta {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  /* Registration marks — print crop marks at a section's corners. */
+  .reg-mark {
+    @apply pointer-events-none absolute h-3 w-3 border-paper/15;
+  }
+}
+
+/* Marquee: one continuous strip, duplicated track for a seamless loop. */
+@keyframes nsdc-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: nsdc-marquee 44s linear infinite;
+  will-change: transform;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
