@@ -8,4 +8,4 @@ INSERT INTO office_bearers (id, name, role, cohort, photo_url, sort_order) VALUE
   ('bearer-aluvala-sai-vinya', 'Aluvala Sai Vinya', 'Vice President',      '2024', NULL, 20),
   ('bearer-dhruva-vura',       'Dhruva Vura',       'Vice President',      '2025', NULL, 30),
   ('bearer-k-shanmuga-priya',  'K Shanmuga Priya',  'Treasurer',           '2025', NULL, 40),
-  ('bearer-babbitha-b',        'Babbitha B',        'Head of Executives',  '2025', NULL, 50);
+  ('bearer-babbitha-b',        'Babitha B',         'Head of Executives',  '2025', NULL, 50);
