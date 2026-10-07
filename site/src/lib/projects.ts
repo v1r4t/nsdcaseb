@@ -17,6 +17,7 @@ export interface Project {
   cover_url: string | null;
   status: ProjectStatus;
   event_id: string | null;
+  author: string;
   sort_order: number;
 }
 

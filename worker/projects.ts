@@ -26,6 +26,7 @@ interface ProjectRow {
   cover_url: string | null;
   status: string;
   event_id: string | null;
+  author: string;
   sort_order: number;
 }
 
@@ -101,7 +102,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method === 'GET') {
       const rows = (
         await env.AUTH_DB.prepare(
-          `SELECT id, title, summary, description, stack, url, cover_url, status, event_id, sort_order
+          `SELECT id, title, summary, description, stack, url, cover_url, status, event_id, author, sort_order
            FROM projects ORDER BY sort_order ASC, created_at ASC`,
         ).all<ProjectRow>()
       ).results ?? [];
@@ -116,6 +117,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
           cover_url: r.cover_url,
           status: r.status,
           event_id: r.event_id,
+          author: r.author,
           sort_order: r.sort_order,
         })),
       });

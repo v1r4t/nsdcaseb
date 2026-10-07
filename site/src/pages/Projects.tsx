@@ -51,6 +51,9 @@ function Row({
           <p className="mt-3 max-w-xl text-base leading-relaxed text-paper/70">{project.summary}</p>
         )}
         <StackTokens stack={project.stack} />
+        {project.author && (
+          <p className="mt-4 font-mono text-[11px] tracking-wide text-muted/70">{project.author}</p>
+        )}
         <p className="mt-5 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-wide">
           {project.url && (
             <a

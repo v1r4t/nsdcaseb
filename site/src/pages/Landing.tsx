@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { fetchContent, FALLBACK_CONTENT } from '../lib/content';
 import type { SiteContent } from '../lib/content';
 import { listEvents, type EventSummary } from '../lib/events';
+import { listProjects } from '../lib/projects';
 import { listMedia } from '../lib/media';
 import Reveal from '../components/Reveal';
 import Stat from '../components/Stat';
@@ -49,6 +50,7 @@ export default function Landing() {
   const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
   // null = in flight or failed; sections degrade to honest empty states.
   const [events, setEvents] = useState<EventSummary[] | null>(null);
+  const [projectCount, setProjectCount] = useState<number | null>(null);
   const [photos, setPhotos] = useState<ArchivePhoto[]>([]);
 
   useEffect(() => {
@@ -70,6 +72,21 @@ export default function Landing() {
       })
       .catch(() => {
         if (active) setEvents(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Project count for the numbers console. Best-effort; null hides the figure.
+  useEffect(() => {
+    let active = true;
+    listProjects()
+      .then(({ projects }) => {
+        if (active) setProjectCount(projects.length);
+      })
+      .catch(() => {
+        if (active) setProjectCount(null);
       });
     return () => {
       active = false;
@@ -201,17 +218,17 @@ export default function Landing() {
       <section aria-label="Numbers" data-folio="03 / Numbers" className="rule">
         <div className="shell py-16 sm:py-20">
           <Reveal>
-            <p className="label">084 members and counting</p>
+            <p className="label">The record so far</p>
           </Reveal>
           <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4">
             <Reveal>
-              <Stat label="Members" value={120} suffix="+" />
+              <Stat label="Founded" value={2024} />
             </Reveal>
             <Reveal delay={80}>
-              <Stat label="Projects" value={30} suffix="+" />
+              <Stat label="Events" value={events?.length ?? 0} />
             </Reveal>
             <Reveal delay={160}>
-              <Stat label="Events" value={15} suffix="+" />
+              <Stat label="Projects" value={projectCount ?? 0} />
             </Reveal>
             <Reveal delay={240}>
               <Stat label="Ideas" glyph="∞" />
