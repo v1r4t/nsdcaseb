@@ -7,7 +7,8 @@ import { listEvents, type EventSummary } from '../lib/events';
 import { listMedia } from '../lib/media';
 import Reveal from '../components/Reveal';
 import Stat from '../components/Stat';
-import OriginStatement from '../components/OriginStatement';
+import CinematicOrigin from '../components/CinematicOrigin';
+import GlobeNarrative from '../components/GlobeNarrative';
 import PeopleList from '../components/PeopleList';
 import NowSection from '../components/NowSection';
 import ProjectStrip from '../components/ProjectStrip';
@@ -156,7 +157,10 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 1. WHAT WE DO ---------------------------------------------------- */}
+      {/* 1. THE NETWORK — scroll-linked globe narrative -------------------- */}
+      <GlobeNarrative />
+
+      {/* 2. WHAT WE DO ---------------------------------------------------- */}
       <section id="about" aria-label="What we do" className="rule">
         <div className="shell grid grid-cols-12 gap-x-6 py-16 sm:py-24">
           <Reveal className="col-span-12 md:col-span-6 md:col-start-2">
@@ -205,14 +209,9 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 3. THE ORIGIN ----------------------------------------------------- */}
+      {/* 4. THE ORIGIN ----------------------------------------------------- */}
       <section id="origin" aria-label="The origin" className="rule">
-        <div className="shell py-16 sm:py-24">
-          <SectionHead index="02" name="The origin" meta="EST. 2026" />
-          <div className="mt-10">
-            <OriginStatement title={origin?.title ?? 'How we started'} body={origin?.body ?? ''} />
-          </div>
-        </div>
+        <CinematicOrigin title={origin?.title ?? 'How we started'} body={origin?.body ?? ''} />
       </section>
 
       {/* 4. NOW / 2026 ----------------------------------------------------- */}

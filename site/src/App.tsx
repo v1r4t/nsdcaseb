@@ -1,6 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
+import CommandPalette from './components/CommandPalette';
+import ContextCursor from './components/ContextCursor';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -31,6 +33,8 @@ export default function App() {
           </main>
           <SiteFooter />
         </div>
+        <CommandPalette />
+        <ContextCursor />
       </AuthProvider>
     </BrowserRouter>
   );

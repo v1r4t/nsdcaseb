@@ -24,7 +24,7 @@ export default function ArchiveTeaser({ photos }: { photos: ArchivePhoto[] }) {
               delay={i * 80}
               className={i === 1 ? 'col-span-2 md:col-span-1 md:mt-16' : undefined}
             >
-              <figure className="overflow-hidden">
+              <figure className="overflow-hidden" data-cursor="OPEN ARCHIVE →">
                 <img
                   src={photo.url}
                   alt={photo.title || 'NSDC archive photo'}

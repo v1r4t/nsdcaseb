@@ -43,6 +43,7 @@ export default function EventRows({ events }: EventRowsProps) {
               <Reveal delay={Math.min(i, 3) * 60}>
                 <Link
                   to={`/registrations/${encodeURIComponent(event.id)}`}
+                  data-cursor="VIEW EVENT →"
                   className="group flex flex-wrap items-baseline gap-x-6 gap-y-1 py-5 transition-colors duration-200 hover:text-signal"
                 >
                   <time dateTime={event.starts_at} className="w-24 shrink-0 font-mono text-xs text-muted group-hover:text-signal/80">

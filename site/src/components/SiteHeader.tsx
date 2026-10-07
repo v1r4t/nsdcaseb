@@ -75,6 +75,18 @@ export default function SiteHeader() {
             )}
 
             <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('nsdc:open-palette'))}
+              aria-label="Search the site"
+              className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+            >
+              Search
+              <span aria-hidden="true" className="ml-2 hidden text-muted sm:inline">
+                ⌘K
+              </span>
+            </button>
+
+            <button
               ref={menuButtonRef}
               type="button"
               onClick={() => setMenuOpen(true)}
