@@ -289,11 +289,31 @@ export default function Admin() {
           <form className="mt-5 space-y-3" onSubmit={createEventSubmit}>
             <input aria-label="Title" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Title" className="field" required />
             <textarea aria-label="Description" value={newEvent.description} onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })} placeholder="Description" rows={3} className="field resize-y" />
+            <p className="label mt-2">Event schedule</p>
             <div className="grid gap-2 sm:grid-cols-2">
-              <input aria-label="Starts at" type="datetime-local" value={newEvent.starts_at} onChange={(e) => setNewEvent({ ...newEvent, starts_at: e.target.value })} className="field" required />
-              <input aria-label="Ends at" type="datetime-local" value={newEvent.ends_at} onChange={(e) => setNewEvent({ ...newEvent, ends_at: e.target.value })} className="field" required />
-              <input aria-label="Registration opens" type="datetime-local" value={newEvent.reg_opens_at} onChange={(e) => setNewEvent({ ...newEvent, reg_opens_at: e.target.value })} className="field" required />
-              <input aria-label="Registration closes" type="datetime-local" value={newEvent.reg_closes_at} onChange={(e) => setNewEvent({ ...newEvent, reg_closes_at: e.target.value })} className="field" required />
+              <label className="space-y-1">
+                <span className="label">Event starts</span>
+                <input type="datetime-local" value={newEvent.starts_at} onChange={(e) => setNewEvent({ ...newEvent, starts_at: e.target.value })} className="field" required />
+                <span className="hint">When the event actually begins.</span>
+              </label>
+              <label className="space-y-1">
+                <span className="label">Event ends</span>
+                <input type="datetime-local" value={newEvent.ends_at} onChange={(e) => setNewEvent({ ...newEvent, ends_at: e.target.value })} className="field" required />
+                <span className="hint">When the event finishes.</span>
+              </label>
+            </div>
+            <p className="label mt-3">Registration window</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="label">Registration opens</span>
+                <input type="datetime-local" value={newEvent.reg_opens_at} onChange={(e) => setNewEvent({ ...newEvent, reg_opens_at: e.target.value })} className="field" required />
+                <span className="hint">When people first can register.</span>
+              </label>
+              <label className="space-y-1">
+                <span className="label">Registration closes</span>
+                <input type="datetime-local" value={newEvent.reg_closes_at} onChange={(e) => setNewEvent({ ...newEvent, reg_closes_at: e.target.value })} className="field" required />
+                <span className="hint">Deadline after which the form closes.</span>
+              </label>
             </div>
             <input aria-label="Capacity" value={newEvent.capacity} onChange={(e) => setNewEvent({ ...newEvent, capacity: e.target.value })} placeholder="Capacity (blank = unlimited)" className="field" />
             <input aria-label="Poster" type="file" accept="image/*" onChange={(e) => setNewEventPoster(e.target.files?.[0] ?? null)} className="field" required />
