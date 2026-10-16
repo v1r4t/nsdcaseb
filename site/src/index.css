@@ -62,6 +62,30 @@
     @apply w-full rounded-sm border border-line bg-transparent px-3 py-2.5 text-sm text-paper placeholder:text-muted/70 transition-colors focus:border-signal;
   }
 
+  select.field {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2.5rem;
+    cursor: pointer;
+    /* Deep panel background so options open over the near-black surface. */
+    background-color: #101010;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6.25L8 10.25L12 6.25' stroke='%23F5F5F2' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    background-size: 1rem;
+  }
+
+  select.field option,
+  select.field optgroup {
+    background-color: #101010;
+    color: #F5F5F2;
+  }
+
+  select.field:focus {
+    background-color: #141414;
+  }
+
   .field-invalid {
     @apply border-signal;
   }
