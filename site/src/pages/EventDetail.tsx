@@ -69,6 +69,8 @@ export default function EventDetailPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [guestName, setGuestName] = useState('');
   const [guestReg, setGuestReg] = useState('');
+  const [memberName, setMemberName] = useState(user?.name ?? '');
+  const [memberReg, setMemberReg] = useState(user?.reg_number ?? '');
   const [accountPrompt, setAccountPrompt] = useState(false);
   const [related, setRelated] = useState<Project[] | null>(null);
   const [step, setStep] = useState<Step>(1);
@@ -88,6 +90,8 @@ export default function EventDetailPage() {
         if (active) setError(err instanceof ApiError ? message(err) : 'Could not load this event.');
       });
     if (user) {
+      setMemberName(user.name ?? '');
+      setMemberReg(user.reg_number ?? '');
       myRegistration(id)
         .then((res) => {
           if (active && res.registration) setStatus(res.registration.status);
@@ -137,7 +141,7 @@ export default function EventDetailPage() {
     try {
       const res = guestMode
         ? await registerForEvent(id, { name: guestName.trim(), reg_number: guestReg.trim(), answers: {} })
-        : await registerForEvent(id, answers);
+        : await registerForEvent(id, { name: memberName.trim(), reg_number: memberReg.trim(), answers });
       setStatus(res.status);
       setAccountPrompt(!!res.account_prompt);
     } catch (err) {
@@ -460,8 +464,28 @@ export default function EventDetailPage() {
               </h2>
               <p className="label mt-4">Signed in as</p>
               <p className="mt-1 font-mono text-sm text-paper">{user.email}</p>
+              <div className="mt-6 max-w-xl space-y-4">
+                <label className="block space-y-1">
+                  <span className="label">Name</span>
+                  <input
+                    value={memberName}
+                    onChange={(e) => setMemberName(e.target.value)}
+                    placeholder="Your full name"
+                    className="field"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="label">Registration number</span>
+                  <input
+                    value={memberReg}
+                    onChange={(e) => setMemberReg(e.target.value)}
+                    placeholder="Registration number"
+                    className="field"
+                  />
+                </label>
+              </div>
               <div className="mt-6 flex gap-3">
-                <button type="button" onClick={() => goStep(2)} className="btn-primary">
+                <button type="button" onClick={() => goStep(2)} disabled={!memberName.trim() || !memberReg.trim()} className="btn-primary">
                   Continue →
                 </button>
               </div>
