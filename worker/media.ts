@@ -5,7 +5,7 @@
 // owns every /api/media path. GET is public; mutations are admin-only
 // (401 unauth, 403 non-admin, 404 unknown id, 405 + Allow on a wrong method).
 
-import { getSessionUser, json, requireRole } from './auth-helpers';
+import { getSessionUser, json, requireMinRole } from './auth-helpers';
 import type { Env, User } from './auth-helpers';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -63,7 +63,7 @@ async function parseJson(request: Request): Promise<ParseResult> {
 async function requireAdmin(env: Env, request: Request): Promise<{ user: User } | { response: Response }> {
   const user = await getSessionUser(env, request);
   if (!user) return { response: json({ error: 'unauthenticated' }, 401) };
-  if (!requireRole(user, 'admin')) return { response: json({ error: 'forbidden' }, 403) };
+  if (!requireMinRole(user, 'ob')) return { response: json({ error: 'forbidden' }, 403) };
   return { user };
 }
 

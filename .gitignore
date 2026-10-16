@@ -6,3 +6,4 @@ vite.config.js
 vite.config.d.ts
 .wrangler/
 dist-site/
+supabase/.temp/

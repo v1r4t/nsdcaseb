@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
@@ -8,14 +9,14 @@ import FolioRail from './components/FolioRail';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import EventDetail from './pages/EventDetail';
-import Admin from './pages/Admin';
 import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import Registrations from './pages/Registrations';
-import Media from './pages/Media';
-import Projects from './pages/Projects';
 import AnnouncementBanner from './components/AnnouncementBanner';
+const EventDetail = lazy(() => import('./pages/EventDetail'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Media = lazy(() => import('./pages/Media'));
+const Projects = lazy(() => import('./pages/Projects'));
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <SiteHeader />
           <AnnouncementBanner />
           <main className="flex-1">
+            <Suspense fallback={<p className="shell py-12 font-mono text-xs uppercase tracking-wide text-muted">Loading…</p>}>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
@@ -37,6 +39,7 @@ export default function App() {
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </main>
           <SiteFooter />
         </div>

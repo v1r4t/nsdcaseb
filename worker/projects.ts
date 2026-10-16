@@ -11,7 +11,7 @@
 // Returns `null` when the request path is not ours so the dispatcher can
 // fall through to the next handler.
 
-import { getSessionUser, json, readJsonBody, requireRole, type Env, type User } from './auth-helpers';
+import { getSessionUser, json, readJsonBody, requireMinRole, type Env, type User } from './auth-helpers';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const STATUSES = ['active', 'shipped', 'archived'] as const;
@@ -125,7 +125,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method === 'POST') {
       const user = await getSessionUser(env, request);
       if (!user) return json({ error: 'unauthenticated' }, 401);
-      if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+      if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
       const body = await readJsonBody(request);
       if (!body.ok) return body.response;
       const v = body.value;
@@ -180,7 +180,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method !== 'PATCH' && method !== 'DELETE') return methodNotAllowed('PATCH, DELETE');
     const user = await getSessionUser(env, request);
     if (!user) return json({ error: 'unauthenticated' }, 401);
-    if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+    if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
     const existing = await env.AUTH_DB.prepare(`SELECT id FROM projects WHERE id = ?`)
       .bind(id)
       .first<{ id: string }>();
@@ -271,7 +271,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method === 'POST') {
       const user = await getSessionUser(env, request);
       if (!user) return json({ error: 'unauthenticated' }, 401);
-      if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+      if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
       const body = await readJsonBody(request);
       if (!body.ok) return body.response;
       const v = body.value;
@@ -294,7 +294,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method !== 'PATCH' && method !== 'DELETE') return methodNotAllowed('PATCH, DELETE');
     const user = await getSessionUser(env, request);
     if (!user) return json({ error: 'unauthenticated' }, 401);
-    if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+    if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
     const existing = await env.AUTH_DB.prepare(`SELECT id FROM testimonials WHERE id = ?`)
       .bind(id)
       .first<{ id: string }>();
@@ -355,7 +355,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
   if (method === 'PUT') {
     const user = await getSessionUser(env, request);
     if (!user) return json({ error: 'unauthenticated' }, 401);
-    if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+    if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
     const body = await readJsonBody(request);
     if (!body.ok) return body.response;
     const v = body.value;

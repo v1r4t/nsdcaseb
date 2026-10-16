@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   ApiError,
   cancelRegistration,
@@ -62,10 +62,14 @@ function formatTimeRange(starts: string, ends: string): string {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const location = useLocation();
+  const guestMode = !user;
+
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [guestName, setGuestName] = useState('');
+  const [guestReg, setGuestReg] = useState('');
+  const [accountPrompt, setAccountPrompt] = useState(false);
   const [related, setRelated] = useState<Project[] | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState<string | null>(null);
@@ -131,8 +135,11 @@ export default function EventDetailPage() {
     setError(null);
     setBusy(true);
     try {
-      const res = await registerForEvent(id, answers);
+      const res = guestMode
+        ? await registerForEvent(id, { name: guestName.trim(), reg_number: guestReg.trim(), answers: {} })
+        : await registerForEvent(id, answers);
       setStatus(res.status);
+      setAccountPrompt(!!res.account_prompt);
     } catch (err) {
       setError(err instanceof ApiError ? message(err) : 'Something went wrong. Please try again.');
     } finally {
@@ -213,6 +220,9 @@ export default function EventDetailPage() {
       <h1 className="mt-4 max-w-4xl font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">
         {event.title}
       </h1>
+      {event.poster_url && (
+        <img src={event.poster_url} alt={`${event.title} poster`} className="mt-6 max-w-2xl border border-line" />
+      )}
       <p className="mt-6 max-w-2xl whitespace-pre-wrap text-base leading-relaxed text-paper/70">
         {event.description}
       </p>
@@ -282,6 +292,13 @@ export default function EventDetailPage() {
       {status === 'registered' && (
         <section aria-label="Registration confirmed" className="mt-12 border-t border-line pt-10">
           <p className="label">Registration confirmed</p>
+          {accountPrompt && (
+            <p className="mt-4">
+              <Link to="/register" className="btn-primary">
+                Create an account for updates and club activities
+              </Link>
+            </p>
+          )}
           <h2 className="mt-3 font-display text-5xl font-semibold tracking-tight text-paper sm:text-6xl">
             YOU&rsquo;RE IN.
           </h2>
@@ -385,10 +402,36 @@ export default function EventDetailPage() {
 
       {/* ---- Logged out ---- */}
       {!isActive && status !== 'cancelled' && !closed && !user && (
-        <section aria-label="Sign in to register" className="mt-12 border-t border-line pt-8">
-          <Link to="/login" state={{ from: location }} className="btn-primary">
-            Sign in to register
-          </Link>
+        <section aria-label="Guest registration" className="mt-12 border-t border-line pt-8">
+          <h2 className="font-display text-2xl font-semibold text-paper">Register as a guest</h2>
+          <p className="mt-2 text-sm text-paper/70">No account required. Create one afterwards for updates on upcoming events.</p>
+          <div className="mt-6 max-w-xl space-y-4">
+            <input
+              aria-label="Name"
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Your full name"
+              className="field"
+            />
+            <input
+              aria-label="Registration number"
+              value={guestReg}
+              onChange={(e) => setGuestReg(e.target.value)}
+              placeholder="Registration number"
+              className="field"
+            />
+            {error && <p role="alert" className="error-text">{error}</p>}
+            <button type="button" onClick={handleRegister} disabled={busy || !guestName.trim() || !guestReg.trim()} className="btn-primary">
+              {busy ? 'Submitting...' : 'Register'}
+            </button>
+            <p className="text-sm text-muted">
+              Prefer updates?{' '}
+              <Link to="/register" className="link">
+                Create an account
+              </Link>
+              {' '}after registering.
+            </p>
+          </div>
         </section>
       )}
 

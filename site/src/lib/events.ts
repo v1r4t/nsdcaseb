@@ -25,6 +25,7 @@ export interface EventSummary {
   capacity: number | null;
   spots_left: number | null;
   registration_open: boolean;
+  poster_url: string | null;
   mine: { status: RegistrationStatus } | null;
 }
 
@@ -97,12 +98,12 @@ export function getEvent(id: string): Promise<{ event: EventDetail }> {
 
 export function registerForEvent(
   id: string,
-  answers?: Record<string, string>,
-): Promise<{ status: RegistrationStatus }> {
-  return request<{ status: RegistrationStatus }>(
+  payload: { answers?: Record<string, string>; name?: string; reg_number?: string } = {},
+): Promise<{ status: RegistrationStatus; account_prompt?: boolean }> {
+  return request<{ status: RegistrationStatus; account_prompt?: boolean }>(
     `/api/events/${encodeURIComponent(id)}/register`,
     'POST',
-    { answers: answers ?? {} },
+    payload,
   );
 }
 

@@ -7,6 +7,7 @@ import { fetchContent } from '../lib/content';
 import type { SiteContent } from '../lib/content';
 import {
   ApiError,
+  adminCreateEvent,
   adminUpdateEvent,
   createAchievement,
   createBearer,
@@ -15,11 +16,16 @@ import {
   getEventRoster,
   getOutbox,
   getStats,
+  listAdminUsers,
+  sendAdminVerification,
   sendBroadcast,
+  syncAdminRoles,
   updateAchievement,
+  updateAdminUserRole,
+  updateAdminUserVerified,
   updateBearer,
-  updateSection,
 } from '../lib/admin';
+import type { AdminUser } from '../lib/admin';
 import type { AdminStats, OutboxEntry, OutboxStatus, RosterEntry } from '../lib/admin';
 
 function errText(err: unknown): string {
@@ -28,24 +34,6 @@ function errText(err: unknown): string {
     return `Request failed (${err.error}).`;
   }
   return 'Something went wrong.';
-}
-
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-function downloadCsv(filename: string, rows: string[][]): void {
-  const blob = new Blob([rows.map((r) => r.map(csvCell).join(',')).join('\n')], {
-    type: 'text/csv;charset=utf-8',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 export default function Admin() {
@@ -62,19 +50,28 @@ export default function Admin() {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [notice, setNotice] = useState('');
+  const [newEvent, setNewEvent] = useState({
+    title: '', description: '', starts_at: '', ends_at: '', reg_opens_at: '', reg_closes_at: '', capacity: '',
+  });
+  const [newEventPoster, setNewEventPoster] = useState<File | null>(null);
+  const [windowEventId, setWindowEventId] = useState('');
+  const [windowCloses, setWindowCloses] = useState('');
+  const [windowForceClosed, setWindowForceClosed] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') return;
+    if (!user || user.role !== 'ob') return;
     let active = true;
     getStats().then((s) => active && setStats(s)).catch(() => active && setNotice('Could not load stats.'));
     listEvents().then((r) => active && setEvents(r.events)).catch(() => {});
     fetchContent().then((c) => active && setContent(c)).catch(() => {});
+    listAdminUsers().then((r) => active && setUsers(r.users)).catch(() => {});
     return () => { active = false; };
   }, [user]);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') return;
+    if (!user || user.role !== 'ob') return;
     let active = true;
     getOutbox(outboxStatus).then((r) => active && setOutbox(r.outbox)).catch(() => {});
     return () => { active = false; };
@@ -101,7 +98,7 @@ export default function Admin() {
     );
   }
 
-  if (user.role !== 'admin') {
+  if (user.role !== 'ob') {
     return (
       <div className="shell py-12 md:py-16">
         <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin</h1>
@@ -117,6 +114,76 @@ export default function Admin() {
       const r = await listEvents();
       setEvents(r.events);
       setNotice(e.registration_open ? `Closed registration for ${e.title}.` : `Reopened registration for ${e.title}.`);
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function changeRole(u: AdminUser, role: AdminUser['role']): Promise<void> {
+    setBusy(true);
+    try {
+      await updateAdminUserRole(u.id, role);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role } : x)));
+      setNotice(`Updated ${u.email} to ${role}.`);
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function toggleVerified(u: AdminUser): Promise<void> {
+    setBusy(true);
+    try {
+      await updateAdminUserVerified(u.id, !u.email_verified);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, email_verified: !u.email_verified } : x)));
+      setNotice(`${!u.email_verified ? 'Verified' : 'Unverified'} ${u.email}.`);
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function saveWindow(): Promise<void> {
+    if (!windowEventId || !windowCloses) { setNotice('Select event and end time.'); return; }
+    setBusy(true);
+    try {
+      await adminUpdateEvent(windowEventId, { reg_closes_at: new Date(windowCloses).toISOString(), force_closed: windowForceClosed });
+      const r = await listEvents();
+      setEvents(r.events);
+      setNotice('Saved registration window.');
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function syncRoles(): Promise<void> {
+    setBusy(true);
+    try {
+      const r = await syncAdminRoles();
+      setUsers((await listAdminUsers()).users);
+      setNotice(`Synced roles: ${r.changed} changed.`);
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function bulkVerify(): Promise<void> {
+    setBusy(true);
+    try {
+      const r = await sendAdminVerification();
+      setUsers((await listAdminUsers()).users);
+      setNotice(`Queued verification for ${r.queued} user(s).`);
+    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function createEventSubmit(e: { preventDefault(): void }): Promise<void> {
+    e.preventDefault();
+    if (!newEventPoster) { setNotice('Poster required.'); return; }
+    setBusy(true);
+    try {
+      const r = await adminCreateEvent({
+        title: newEvent.title,
+        description: newEvent.description,
+        starts_at: new Date(newEvent.starts_at).toISOString(),
+        ends_at: new Date(newEvent.ends_at).toISOString(),
+        reg_opens_at: new Date(newEvent.reg_opens_at).toISOString(),
+        reg_closes_at: new Date(newEvent.reg_closes_at).toISOString(),
+        capacity: newEvent.capacity ? Number(newEvent.capacity) : null,
+        poster: newEventPoster,
+      });
+      setNotice(`Created event ${r.id}.`);
+      setNewEvent({ title: '', description: '', starts_at: '', ends_at: '', reg_opens_at: '', reg_closes_at: '', capacity: '' });
+      setNewEventPoster(null);
+      const rr = await listEvents();
+      setEvents(rr.events);
     } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
   }
 
@@ -138,22 +205,6 @@ export default function Admin() {
     } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
   }
 
-  async function saveSection(key: string, title: string, sectionBody: string): Promise<void> {
-    setBusy(true);
-    try {
-      await updateSection(key, { title, body: sectionBody });
-      setContent(await fetchContent());
-      setNotice(`Saved section ${key}.`);
-    } catch (err) { setNotice(errText(err)); } finally { setBusy(false); }
-  }
-
-  const rosterCsv = (): void => {
-    if (!roster) return;
-    downloadCsv(`roster-${rosterEvent}.csv`, [
-      ['email', 'status', 'answers', 'date'],
-      ...roster.map((r) => [r.email, r.status, Object.entries(r.answers).map(([k, v]) => `${k}: ${v}`).join('; '), r.created_at]),
-    ]);
-  };
 
   return (
     <div className="shell py-12 md:py-16">
@@ -190,6 +241,82 @@ export default function Admin() {
           </ul>
         </section>
 
+        <section aria-label="Accounts" className="rule mt-10 pt-6">
+          <h2 className="label">Accounts and roles</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={syncRoles} className="btn-ghost" disabled={busy}>Sync roles from hardcoded lists</button>
+            <button type="button" onClick={bulkVerify} className="btn-ghost" disabled={busy}>Send verification to unverified</button>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-left text-sm text-paper/80">
+              <thead className="border-b border-line">
+                <tr>
+                  <th className="label py-2 pr-4 text-left">Email</th>
+                  <th className="label py-2 pr-4 text-left">Role</th>
+                  <th className="label py-2 pr-4 text-left">Verified</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td className="py-3 pr-4">{u.email}</td>
+                    <td className="py-3 pr-4">
+                      <select
+                        aria-label={`Role for ${u.email}`}
+                        value={u.role}
+                        onChange={(e) => changeRole(u, e.target.value as AdminUser['role'])}
+                        className="field"
+                      >
+                        <option value="member">member</option>
+                        <option value="executive">executive</option>
+                        <option value="ob">ob</option>
+                      </select>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <button type="button" onClick={() => toggleVerified(u)} disabled={busy} className="btn-ghost">
+                        {u.email_verified ? 'Verified' : 'Mark verified'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-label="Create event" className="rule mt-10 pt-6">
+          <h2 className="label">Create event (poster required)</h2>
+          <form className="mt-5 space-y-3" onSubmit={createEventSubmit}>
+            <input aria-label="Title" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} placeholder="Title" className="field" required />
+            <textarea aria-label="Description" value={newEvent.description} onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })} placeholder="Description" rows={3} className="field resize-y" />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <input aria-label="Starts at" type="datetime-local" value={newEvent.starts_at} onChange={(e) => setNewEvent({ ...newEvent, starts_at: e.target.value })} className="field" required />
+              <input aria-label="Ends at" type="datetime-local" value={newEvent.ends_at} onChange={(e) => setNewEvent({ ...newEvent, ends_at: e.target.value })} className="field" required />
+              <input aria-label="Registration opens" type="datetime-local" value={newEvent.reg_opens_at} onChange={(e) => setNewEvent({ ...newEvent, reg_opens_at: e.target.value })} className="field" required />
+              <input aria-label="Registration closes" type="datetime-local" value={newEvent.reg_closes_at} onChange={(e) => setNewEvent({ ...newEvent, reg_closes_at: e.target.value })} className="field" required />
+            </div>
+            <input aria-label="Capacity" value={newEvent.capacity} onChange={(e) => setNewEvent({ ...newEvent, capacity: e.target.value })} placeholder="Capacity (blank = unlimited)" className="field" />
+            <input aria-label="Poster" type="file" accept="image/*" onChange={(e) => setNewEventPoster(e.target.files?.[0] ?? null)} className="field" required />
+            <button type="submit" disabled={busy} className="btn-primary">Create event</button>
+          </form>
+        </section>
+
+        <section aria-label="Registration window" className="rule mt-10 pt-6">
+          <h2 className="label">Registration window / close form</h2>
+          <div className="mt-5 max-w-xl space-y-3">
+            <select aria-label="Event" value={windowEventId} onChange={(e) => setWindowEventId(e.target.value)} className="field">
+              <option value="">Select event…</option>
+              {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+            </select>
+            <input aria-label="Registration closes at" type="datetime-local" value={windowCloses} onChange={(e) => setWindowCloses(e.target.value)} className="field" />
+            <label className="flex items-center gap-2 text-sm text-paper/80">
+              <input type="checkbox" checked={windowForceClosed} onChange={(e) => setWindowForceClosed(e.target.checked)} className="h-4 w-4 shrink-0 accent-signal" />
+              Force closed now
+            </label>
+            <button type="button" onClick={saveWindow} disabled={busy} className="btn-primary">Save window</button>
+          </div>
+        </section>
+
         <section aria-label="Roster" className="rule mt-10 pt-6">
           <h2 className="label">Roster</h2>
           <div className="mt-5 flex gap-2">
@@ -197,7 +324,11 @@ export default function Admin() {
               <option value="">Select event…</option>
               {events.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
             </select>
-            {roster && <button type="button" className="btn-ghost shrink-0" onClick={rosterCsv}>Download CSV</button>}
+            {roster && rosterEvent && (
+              <a className="btn-ghost shrink-0" href={`/api/admin/events/${encodeURIComponent(rosterEvent)}/roster.csv`}>
+                Download CSV (server)
+              </a>
+            )}
           </div>
           {roster && (
             <div className="mt-5 overflow-x-auto">
@@ -247,9 +378,7 @@ export default function Admin() {
 
         <section aria-label="Content" className="rule mt-10 pt-6">
           <h2 className="label">Content</h2>
-          {content?.sections.map((s) => (
-            <SectionForm key={s.key} sectionKey={s.key} title={s.title} sectionBody={s.body} busy={busy} onSave={saveSection} />
-          ))}
+          {/* Hero/site-wide copy editing intentionally removed. */}
           <BearerEditor bearers={content?.bearers ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
           <AchievementEditor achievements={content?.achievements ?? []} onDone={async (m) => { setNotice(m); setContent(await fetchContent()); }} />
         </section>
@@ -288,20 +417,6 @@ export default function Admin() {
         </section>
       </div>
     </div>
-  );
-}
-
-function SectionForm({ sectionKey, title, sectionBody, busy, onSave }: { sectionKey: string; title: string; sectionBody: string; busy: boolean; onSave: (k: string, t: string, b: string) => Promise<void> }) {
-  const [t, setT] = useState(title);
-  const [b, setB] = useState(sectionBody);
-  useEffect(() => { setT(title); setB(sectionBody); }, [title, sectionBody]);
-  return (
-    <form className="mt-6 border-t border-line pt-5" onSubmit={(e) => { e.preventDefault(); onSave(sectionKey, t, b); }}>
-      <h3 className="label">{sectionKey}</h3>
-      <input aria-label="Section title" value={t} onChange={(e) => setT(e.target.value)} className="field mt-3" />
-      <textarea aria-label="Section body" value={b} onChange={(e) => setB(e.target.value)} rows={4} className="field mt-3 resize-y" />
-      <button type="submit" className="btn-primary mt-3" disabled={busy}>Save</button>
-    </form>
   );
 }
 

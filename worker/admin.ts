@@ -9,7 +9,8 @@
 // (Event create/close already live in events.ts — deliberately left
 // unaudited here; see Phase 5 report.)
 
-import { getSessionUser, json, requireRole, type Env, type User } from './auth-helpers';
+import { getSessionUser, json, requireMinRole, createEmailToken, normalizeRole, type Env, type User } from './auth-helpers';
+import { roleForEmail } from './role-allowlists';
 import { enqueueEmail } from './email';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
@@ -76,7 +77,7 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
 
   const user = await getSessionUser(env, request);
   if (!user) return json({ error: 'unauthenticated' }, 401);
-  if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+  if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
 
   // GET /api/admin/stats
   if (path === '/api/admin/stats') {
@@ -87,12 +88,12 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         n: number;
       }>()
     ).results ?? [];
-    const usersByRole = { member: 0, executive: 0, admin: 0 };
+    const usersByRole = { member: 0, executive: 0, ob: 0 };
     let usersTotal = 0;
     for (const r of roleRows) {
       usersTotal += r.n;
       if (r.role === 'executive') usersByRole.executive += r.n;
-      else if (r.role === 'admin') usersByRole.admin += r.n;
+      else if (r.role === 'ob' || r.role === 'admin') usersByRole.ob += r.n;
       else usersByRole.member += r.n;
     }
     const eventsTotal =
@@ -201,6 +202,120 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       ).all<{ action: string; detail: string; created_at: string; admin_email: string }>()
     ).results ?? [];
     return json({ entries });
+  }
+
+  // ---------------------------------------------------------------------
+  // Account management + role assignment + verification (OB-only)
+  // ---------------------------------------------------------------------
+  if (path === '/api/admin/users') {
+    if (method !== 'GET') return methodNotAllowed('GET');
+    const search = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const where = search ? 'WHERE lower(email) LIKE ? OR lower(COALESCE(name, \'\')) LIKE ?' : '';
+    const args: unknown[] = search ? [`%${search}%`, `%${search}%`] : [];
+    const rows = (
+      await env.AUTH_DB
+        .prepare(
+          `SELECT id, email, name, mobile, reg_number, role, is_executive, email_verified, created_at
+           FROM users ${where} ORDER BY created_at DESC LIMIT 200`,
+        )
+        .bind(...args)
+        .all<{
+          id: string; email: string; name: string | null; mobile: string | null; reg_number: string | null;
+          role: string; is_executive: number; email_verified: number; created_at: string;
+        }>()
+    ).results ?? [];
+    return json({
+      users: rows.map((r) => ({
+        id: r.id, email: r.email,
+        name: r.name ?? '',
+        mobile: r.mobile ?? '',
+        reg_number: r.reg_number ?? null,
+        role: normalizeRole(r.role),
+        is_executive: !!r.is_executive,
+        email_verified: !!r.email_verified,
+        created_at: r.created_at,
+      })),
+    });
+  }
+
+  const userRoleMatch = /^\/api\/admin\/users\/([^/]+)\/role$/.exec(path);
+  if (userRoleMatch && method === 'PATCH') {
+    const userId = decodeURIComponent(userRoleMatch[1]);
+    const body = await parseJson(request);
+    if (!body.ok) return body.response;
+    const nextRole = body.value.role;
+    if (nextRole !== 'member' && nextRole !== 'executive' && nextRole !== 'ob') {
+      return json({ error: 'invalid_role' }, 400);
+    }
+    const target = await env.AUTH_DB.prepare(`SELECT id, role FROM users WHERE id = ?`).bind(userId).first<{ id: string; role: string }>();
+    if (!target) return json({ error: 'user_not_found' }, 404);
+    if ((target.role === 'ob' || target.role === 'admin') && nextRole !== 'ob') {
+      const count = (await env.AUTH_DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role IN ('ob','admin')`).first<{ n: number }>())?.n ?? 0;
+      if (count <= 1) return json({ error: 'last_ob' }, 400);
+    }
+    await env.AUTH_DB
+      .prepare(`UPDATE users SET role = ?, is_executive = ? WHERE id = ?`)
+      .bind(nextRole, nextRole === 'executive' || nextRole === 'ob' ? 1 : 0, userId)
+      .run();
+    await audit(env, user, 'role_update', JSON.stringify({ userId, from: target.role, to: nextRole }));
+    return json({ ok: true });
+  }
+
+  const userVerifiedMatch = /^\/api\/admin\/users\/([^/]+)\/verified$/.exec(path);
+  if (userVerifiedMatch && method === 'PATCH') {
+    const userId = decodeURIComponent(userVerifiedMatch[1]);
+    const body = await parseJson(request);
+    if (!body.ok) return body.response;
+    const value = body.value.email_verified;
+    if (value !== true && value !== false && value !== 0 && value !== 1) return json({ error: 'invalid_verified' }, 400);
+    const target = await env.AUTH_DB.prepare(`SELECT id FROM users WHERE id = ?`).bind(userId).first<{ id: string }>();
+    if (!target) return json({ error: 'user_not_found' }, 404);
+    await env.AUTH_DB
+      .prepare(`UPDATE users SET email_verified = ? WHERE id = ?`)
+      .bind(value === true || value === 1 ? 1 : 0, userId)
+      .run();
+    await audit(env, user, 'verified_update', JSON.stringify({ userId, verified: value === true || value === 1 }));
+    return json({ ok: true });
+  }
+
+  if (path === '/api/admin/users/sync-roles' && method === 'POST') {
+    await parseJson(request);
+    const users = (await env.AUTH_DB.prepare(`SELECT id, email, role FROM users`).all<{ id: string; email: string; role: string }>()).results ?? [];
+    let changed = 0;
+    for (const u of users) {
+      const derived = roleForEmail(u.email);
+      if (normalizeRole(u.role) !== derived) {
+        await env.AUTH_DB
+          .prepare(`UPDATE users SET role = ?, is_executive = ? WHERE id = ?`)
+          .bind(derived, derived === 'executive' || derived === 'ob' ? 1 : 0, u.id)
+          .run();
+        changed += 1;
+      }
+    }
+    await audit(env, user, 'role_sync', JSON.stringify({ changed }));
+    return json({ changed });
+  }
+
+  if (path === '/api/admin/users/send-verification' && method === 'POST') {
+    const body = await parseJson(request);
+    if (!body.ok) return body.response;
+    const ids = Array.isArray(body.value.ids) ? body.value.ids.filter((v): v is string => typeof v === 'string') : [];
+    const where = ids.length ? `WHERE id IN (${ids.map(() => '?').join(',')}) AND (email_verified = 0 OR email_verified IS NULL)` : 'WHERE email_verified = 0 OR email_verified IS NULL';
+    const targets = (await env.AUTH_DB.prepare(
+      `SELECT id, email FROM users ${where}`,
+    ).bind(...ids).all<{ id: string; email: string }>()).results ?? [];
+    let queued = 0;
+    for (const t of targets) {
+      try {
+        const token = await createEmailToken(env, t.id, 'verify');
+        await enqueueEmail(env, t.email, 'Verify your NSDC account', `Verify your email: ${new URL(request.url).origin}/verify-email?token=${token}`);
+        queued += 1;
+      } catch (err) {
+        console.error('[admin] verification enqueue failed', t.id, err);
+      }
+    }
+    await audit(env, user, 'verification_send', JSON.stringify({ queued }));
+    return json({ queued });
   }
 
   // PUT /api/content/sections/:key
@@ -346,6 +461,49 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       return json({ error: method === 'POST' ? 'not_found' : 'unknown_achievement' }, 404);
     }
     return methodNotAllowed('POST');
+  }
+
+  const rosterCsvMatch = /^\/api\/admin\/events\/([^/]+)\/roster\.csv$/.exec(path);
+  if (rosterCsvMatch) {
+    if (method !== 'GET') return methodNotAllowed('GET');
+    const eventId = decodeURIComponent(rosterCsvMatch[1]);
+    const rows = (await env.AUTH_DB.prepare(
+      `SELECT r.status, r.user_type, r.student_name, r.reg_number, r.answers, r.created_at, u.email
+       FROM registrations r LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.event_id = ? ORDER BY r.created_at DESC`,
+    ).bind(eventId).all<{
+      status: string; user_type: string | null; student_name: string | null; reg_number: string | null;
+      answers: string; created_at: string; email: string | null;
+    }>()).results ?? [];
+
+    const escape = (v: unknown): string => {
+      const s = v == null ? '' : String(v);
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const lines = ['email,type,name,reg_number,status,answers,created_at'];
+    for (const r of rows) {
+      let answers = '';
+      try { answers = JSON.stringify(JSON.parse(r.answers)); } catch { answers = r.answers; }
+      lines.push([
+        escape(r.email ?? ''),
+        escape(r.user_type ?? ''),
+        escape(r.student_name ?? ''),
+        escape(r.reg_number ?? ''),
+        escape(r.status),
+        escape(answers),
+        escape(r.created_at),
+      ].join(','));
+    }
+    return new Response(lines.join('\\n'), {
+      status: 200,
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="roster-${eventId}.csv"`,
+        'cache-control': 'no-store',
+      },
+    });
   }
 
   // Admin path we don't recognize, or a content path with an unsupported verb.

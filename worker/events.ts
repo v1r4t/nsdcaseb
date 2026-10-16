@@ -3,7 +3,8 @@
 // Phase 3: events + registrations API. Wired into the staging dispatcher by
 // the orchestrator; this module owns every path under /api/events.
 
-import { getSessionUser, json, requireRole } from './auth-helpers';
+import { getSessionUser, json, requireMinRole, rateLimit, clientIp } from './auth-helpers';
+import { uploadPoster, posterUrl, storageConfigured } from './supabase-storage';
 import type { Env } from './auth-helpers';
 import { enqueueEmail, registrationConfirmation } from './email';
 
@@ -30,6 +31,7 @@ interface EventRow {
   capacity: number | null;
   force_closed: number;
   questions: string;
+  poster_key: string | null;
 }
 
 type RegStatus = 'registered' | 'waitlisted' | 'cancelled';
@@ -158,6 +160,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
             capacity: e.capacity,
             spots_left: e.capacity === null ? null : Math.max(0, e.capacity - registered),
             registration_open: registrationOpen(e, now),
+            poster_url: posterUrl(env, e.poster_key),
             mine: status ? { status } : null,
           };
         }),
@@ -165,12 +168,30 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
     }
     if (method === 'POST') {
       const user = await getSessionUser(env, request);
-      if (!requireRole(user, 'admin')) {
+      if (!requireMinRole(user, 'ob')) {
         return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
       }
-      const body = await parseJson(request);
-      if (!body.ok) return body.response;
-      const v = body.value;
+
+      const contentType = request.headers.get('content-type') ?? '';
+      let v: Record<string, unknown>;
+      let posterBuffer: ArrayBuffer | null = null;
+      let posterType = 'image/webp';
+      if (contentType.includes('multipart/form-data')) {
+        const form = await request.formData();
+        const raw = form.get('data');
+        if (typeof raw !== 'string') return json({ error: 'invalid_json' }, 400);
+        try { v = JSON.parse(raw); } catch { return json({ error: 'invalid_json' }, 400); }
+        const file = form.get('poster');
+        if (file instanceof File) {
+          posterBuffer = await file.arrayBuffer();
+          posterType = file.type || 'image/webp';
+        }
+      } else {
+        const parsed = await parseJson(request);
+        if (!parsed.ok) return parsed.response;
+        v = parsed.value;
+      }
+
       if (typeof v.title !== 'string' || !v.title.trim()) return json({ error: 'title_required' }, 400);
       if (!validDate(v.starts_at) || !validDate(v.ends_at) || !validDate(v.reg_opens_at) || !validDate(v.reg_closes_at)) {
         return json({ error: 'invalid_dates' }, 400);
@@ -178,14 +199,26 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       if (!validCapacity(v.capacity)) return json({ error: 'invalid_capacity' }, 400);
       const questions = v.questions === undefined ? [] : validateQuestions(v.questions);
       if (questions === null) return json({ error: 'invalid_questions' }, 400);
+
       const id = typeof v.id === 'string' && ID_RE.test(v.id) ? v.id : crypto.randomUUID();
+      if (!posterBuffer) {
+        return json({ error: 'poster_required' }, 400);
+      }
+
+      let posterKey: string | null = null;
+      if (posterBuffer) {
+        posterKey = `events/${id}/poster.webp`;
+        const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+        if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+      }
+
       await env.AUTH_DB.prepare(
-        `INSERT INTO events (id, title, description, starts_at, ends_at, reg_opens_at, reg_closes_at, capacity, force_closed, questions)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events (id, title, description, starts_at, ends_at, reg_opens_at, reg_closes_at, capacity, force_closed, questions, poster_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(id, v.title.trim(), typeof v.description === 'string' ? v.description : '',
         v.starts_at, v.ends_at, v.reg_opens_at, v.reg_closes_at,
-        v.capacity ?? null, v.force_closed ? 1 : 0, JSON.stringify(questions)).run();
-      return json({ id }, 201);
+        v.capacity ?? null, v.force_closed ? 1 : 0, JSON.stringify(questions), posterKey).run();
+      return json({ id, poster_url: posterUrl(env, posterKey) }, 201);
     }
     return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, POST' });
   }
@@ -193,7 +226,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
   // /api/events/:id and sub-routes
   const rest = path.slice('/api/events/'.length);
   const [id, sub] = rest.split('/');
-  if (!id || !ID_RE.test(id) || (sub !== undefined && !['register', 'my-registration', 'registrations'].includes(sub))) {
+  if (!id || !ID_RE.test(id) || (sub !== undefined && !['register', 'my-registration', 'registrations', 'poster'].includes(sub))) {
     if (sub !== undefined && sub !== 'register' && sub !== 'my-registration' && sub !== 'registrations') {
       return null; // not ours — let another handler try
     }
@@ -204,6 +237,33 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
   const event = await env.AUTH_DB.prepare(`SELECT * FROM events WHERE id = ?`).bind(id).first<EventRow>();
   if (!event) return json({ error: 'event_not_found' }, 404);
   const questions = parseQuestions(event.questions);
+
+  if (sub === 'poster') {
+    if (method === 'GET') {
+      const url = posterUrl(env, event.poster_key);
+      if (!url) return json({ error: 'poster_not_found' }, 404);
+      return new Response(null, { status: 302, headers: { Location: url, 'cache-control': 'public, max-age=300' } });
+    }
+    if (method === 'POST') {
+      const user = await getSessionUser(env, request);
+      if (!requireMinRole(user, 'ob')) return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
+      const contentType = request.headers.get('content-type') ?? '';
+      let buffer: ArrayBuffer | null = null;
+      let mime = 'image/webp';
+      if (contentType.includes('multipart/form-data')) {
+        const form = await request.formData();
+        const file = form.get('poster');
+        if (file instanceof File) { buffer = await file.arrayBuffer(); mime = file.type || mime; }
+      }
+      if (!buffer) return json({ error: 'poster_required' }, 400);
+      const key = `events/${id}/poster.webp`;
+      const ok = await uploadPoster(env, key, buffer, mime);
+      if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+      await env.AUTH_DB.prepare(`UPDATE events SET poster_key = ? WHERE id = ?`).bind(key, id).run();
+      return json({ poster_url: posterUrl(env, key) }, 201);
+    }
+    return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, POST' });
+  }
 
   if (!sub) {
     if (method === 'GET') {
@@ -227,18 +287,39 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
           capacity: event.capacity,
           spots_left: event.capacity === null ? null : Math.max(0, event.capacity - registered),
           registration_open: registrationOpen(event, now),
+          poster_url: posterUrl(env, event.poster_key),
           mine, questions,
         },
       });
     }
     if (method === 'PATCH') {
       const user = await getSessionUser(env, request);
-      if (!requireRole(user, 'admin')) {
+      if (!requireMinRole(user, 'ob')) {
         return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
       }
-      const body = await parseJson(request);
-      if (!body.ok) return body.response;
-      const v = body.value;
+      const contentType = request.headers.get('content-type') ?? '';
+      let v: Record<string, unknown>;
+      let posterBuffer: ArrayBuffer | null = null;
+      let posterType = 'image/webp';
+      if (contentType.includes('multipart/form-data')) {
+        const form = await request.formData();
+        const raw = form.get('data');
+        if (typeof raw === 'string') {
+          try { v = JSON.parse(raw); } catch { return json({ error: 'invalid_json' }, 400); }
+        } else {
+          v = {};
+        }
+        const file = form.get('poster');
+        if (file instanceof File) {
+          posterBuffer = await file.arrayBuffer();
+          posterType = file.type || 'image/webp';
+        }
+      } else {
+        const parsed = await parseJson(request);
+        if (!parsed.ok) return parsed.response;
+        v = parsed.value;
+      }
+
       const patch: string[] = [];
       const args: unknown[] = [];
       if (v.title !== undefined) {
@@ -267,10 +348,16 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         if (q === null) return json({ error: 'invalid_questions' }, 400);
         patch.push('questions = ?'); args.push(JSON.stringify(q));
       }
+      if (posterBuffer) {
+        const posterKey = `events/${id}/poster.webp`;
+        const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+        if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+        patch.push('poster_key = ?'); args.push(posterKey);
+      }
       if (patch.length === 0) return json({ error: 'nothing_to_update' }, 400);
       args.push(id);
       await env.AUTH_DB.prepare(`UPDATE events SET ${patch.join(', ')} WHERE id = ?`).bind(...args).run();
-      return json({ ok: true });
+      return json({ ok: true, poster_url: posterUrl(env, posterBuffer ? `events/${id}/poster.webp` : event.poster_key) });
     }
     return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, PATCH' });
   }
@@ -278,7 +365,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
   if (sub === 'registrations') {
     if (method !== 'GET') return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET' });
     const user = await getSessionUser(env, request);
-    if (!requireRole(user, 'admin')) {
+    if (!requireMinRole(user, 'ob')) {
       return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
     }
     const rows = (await env.AUTH_DB.prepare(
@@ -311,50 +398,91 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
 
   // sub === 'register'
   const user = await getSessionUser(env, request);
-  if (!user) return json({ error: 'unauthenticated' }, 401);
+  const isGuest = !user;
   if (method === 'POST') {
+    const ip = clientIp(request);
+    if (
+      !(await rateLimit(env, `event-register:${id}:ip:${ip}`, 10, 15 * 60))
+    ) {
+      return json({ error: 'rate_limited' }, 429);
+    }
     if (!registrationOpen(event, now)) return json({ error: 'event_closed' }, 403);
-    const existing = await env.AUTH_DB.prepare(
-      `SELECT id FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`,
-    ).bind(id, user.id).first<{ id: string }>();
-    if (existing) return json({ error: 'already_registered' }, 409);
     const body = await parseJson(request);
     if (!body.ok) return body.response;
+
+    let studentName = '';
+    let regNumber = '';
+    if (user) {
+      const dbUser = await env.AUTH_DB.prepare(`SELECT name, reg_number FROM users WHERE id = ?`).bind(user.id).first<{ name: string | null; reg_number: string | null }>();
+      studentName = (dbUser?.name ?? user.name ?? '').trim();
+      regNumber = (dbUser?.reg_number ?? user.reg_number ?? '').trim();
+      if (body.value.name && typeof body.value.name === 'string') studentName = body.value.name.trim();
+      if (body.value.reg_number && typeof body.value.reg_number === 'string') regNumber = body.value.reg_number.trim();
+      if (!studentName) studentName = user.email;
+      if (!regNumber) return json({ error: 'reg_number_required' }, 400);
+    } else {
+      studentName = typeof body.value.name === 'string' ? body.value.name.trim() : '';
+      regNumber = typeof body.value.reg_number === 'string' ? body.value.reg_number.trim() : '';
+      if (!studentName) return json({ error: 'name_required' }, 400);
+      if (!regNumber) return json({ error: 'reg_number_required' }, 400);
+    }
+
     const answers = validateAnswers(questions, (body.value as { answers?: unknown }).answers);
     if (answers === null) return json({ error: 'answers_invalid' }, 400);
-    const count = await env.AUTH_DB.prepare(
-      `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'registered'`,
-    ).bind(id).first<{ n: number }>();
-    const full = event.capacity !== null && (count?.n ?? 0) >= event.capacity;
-    const status: RegStatus = full ? 'waitlisted' : 'registered';
-    // Capacity re-check + insert issued as one batch so they land atomically.
+
+    const duplicateParams = user ? [id, user.id] : [id, regNumber];
+    const duplicateSql = user
+      ? `SELECT id FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`
+      : `SELECT id FROM registrations WHERE event_id = ? AND reg_number = ? AND user_type = 'guest' AND status != 'cancelled'`;
+    const existing = await env.AUTH_DB.prepare(duplicateSql).bind(...duplicateParams).first<{ id: string }>();
+    if (existing) return json({ error: 'already_registered' }, 409);
+
+    // Determine status inside the INSERT so capacity checks stay
+    // consistent with the transactional batch boundary.
+    const registrationId = crypto.randomUUID();
     await env.AUTH_DB.batch([
       env.AUTH_DB.prepare(
-        `INSERT INTO registrations (id, event_id, user_id, status, answers) VALUES (?, ?, ?, ?, ?)`,
-      ).bind(crypto.randomUUID(), id, user.id, status, JSON.stringify(answers)),
+        `INSERT INTO registrations (id, event_id, user_id, status, answers, student_name, reg_number, user_type)
+         VALUES (?, ?, ?, CASE WHEN ? IS NULL OR (SELECT COUNT(*) FROM registrations WHERE event_id = ? AND status = 'registered') < ? THEN 'registered' ELSE 'waitlisted' END, ?, ?, ?, ?)`,
+      ).bind(
+        registrationId,
+        id,
+        user?.id ?? null,
+        event.capacity,
+        id,
+        event.capacity ?? 0,
+        JSON.stringify(answers),
+        studentName,
+        regNumber,
+        user ? 'member' : 'guest',
+      ),
     ]);
-    // Phase 5: enqueue a confirmation / waitlist email. Must never fail the
-    // registration, so any enqueue error is swallowed after logging.
-    try {
-      if (status === 'registered') {
-        const template = registrationConfirmation(event.title, status);
-        await enqueueEmail(env, user.email, template.subject, template.text);
-      } else {
-        const position =
-          (await env.AUTH_DB.prepare(
-            `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'waitlisted'`,
-          )
-            .bind(id)
-            .first<{ n: number }>())?.n ?? 1;
-        const template = registrationConfirmation(event.title, 'waitlisted', Math.max(1, position));
-        await enqueueEmail(env, user.email, template.subject, template.text);
+    const insertedStatus = (await env.AUTH_DB.prepare(`SELECT status FROM registrations WHERE id = ?`).bind(registrationId).first<{ status: string }>())?.status;
+    const status: RegStatus = insertedStatus === 'waitlisted' ? 'waitlisted' : 'registered';
+
+    if (user?.email) {
+      try {
+        if (status === 'registered') {
+          const template = registrationConfirmation(event.title, status);
+          await enqueueEmail(env, user.email, template.subject, template.text);
+        } else {
+          const position =
+            (await env.AUTH_DB.prepare(
+              `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'waitlisted'`,
+            )
+              .bind(id)
+              .first<{ n: number }>())?.n ?? 1;
+          const template = registrationConfirmation(event.title, 'waitlisted', Math.max(1, position));
+          await enqueueEmail(env, user.email, template.subject, template.text);
+        }
+      } catch (err) {
+        console.error('[events] confirmation email enqueue failed', err);
       }
-    } catch (err) {
-      console.error('[events] confirmation email enqueue failed', err);
     }
-    return json({ status }, 201);
+    return json({ status, account_prompt: !user }, 201);
   }
   if (method === 'DELETE') {
+    if (!user) return json({ error: 'unauthenticated' }, 401);
     const own = await env.AUTH_DB.prepare(
       `SELECT id FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`,
     ).bind(id, user.id).first<{ id: string }>();

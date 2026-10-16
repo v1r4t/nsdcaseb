@@ -46,6 +46,7 @@ export default function Login() {
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [adminCode, setAdminCode] = useState('');
   const [remember, setRemember] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,7 @@ export default function Login() {
     setNotice(null);
     setPending(true);
     try {
-      await login(email, password, remember);
+      await login(email, password, remember, adminCode);
       navigate(redirectTarget(location.state), { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? signInMessage(err) : 'Something went wrong. Please try again.');
@@ -143,6 +144,22 @@ export default function Login() {
                 disabled={busy}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                className="field"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="login-admin-code" className="label">
+                Office bearer code (if applicable)
+              </label>
+              <input
+                id="login-admin-code"
+                name="admin_code"
+                type="password"
+                autoComplete="off"
+                disabled={busy}
+                value={adminCode}
+                onChange={(event) => setAdminCode(event.target.value)}
                 className="field"
               />
             </div>

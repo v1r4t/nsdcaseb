@@ -20,6 +20,8 @@ import {
   createSession,
   getSessionUser,
   requireRole,
+  requireMinRole,
+  normalizeRole,
   createEmailToken,
   consumeEmailToken,
   SESSION_COOKIE,
@@ -32,6 +34,7 @@ import {
   type UserRow,
 } from './auth-helpers';
 import { sha256Base64Url } from './auth-crypto';
+import { roleForEmail, regNumberFromEmail } from './role-allowlists';
 
 // Re-export shared types so existing imports (`./auth`) keep working,
 // e.g. mailer.ts `import type { Env } from './auth'` and staging.ts.
@@ -62,7 +65,7 @@ async function trySendEmail(env: Env, msg: EmailMessage): Promise<void> {
 
 async function loadUserById(env: Env, id: string): Promise<User | null> {
   const row = await env.AUTH_DB
-    .prepare('SELECT id, email, role, is_executive, email_verified, created_at FROM users WHERE id = ?')
+    .prepare('SELECT id, email, name, mobile, reg_number, role, is_executive, email_verified, created_at FROM users WHERE id = ?')
     .bind(id)
     .first<UserRow>();
   return row ? mapUser(row) : null;
@@ -87,13 +90,18 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
   const email = normalizeEmail(body.value.email);
   if (!email) return json({ error: 'invalid_email' }, 400);
 
+  const name = typeof body.value.name === 'string' ? body.value.name.trim() : '';
+  if (!name || name.length > 120) return json({ error: 'invalid_name' }, 400);
+
+  const mobile = typeof body.value.mobile === 'string' ? body.value.mobile.trim() : '';
+  if (!mobile || mobile.length > 32) return json({ error: 'invalid_mobile' }, 400);
+
   const password = body.value.password;
   if (!isStrongPassword(password)) return json({ error: 'weak_password' }, 400);
 
-  // Role is derived ONLY from the boolean flag; any non-boolean value is false.
-  // No client-supplied `role` / `is_admin` field is read anywhere.
-  const isExecutive = body.value.is_executive === true;
-  const role: Role = isExecutive ? 'executive' : 'member';
+  // Role is derived only from the protected allowlist, never from client input.
+  const role = roleForEmail(email);
+  const reg_number = regNumberFromEmail(email);
 
   const existing = await env.AUTH_DB
     .prepare('SELECT id FROM users WHERE email = ?')
@@ -103,10 +111,11 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
 
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
+  const isExecutive = role === 'executive' || role === 'ob' ? 1 : 0;
   try {
     await env.AUTH_DB
-      .prepare('INSERT INTO users (id, email, password_hash, role, is_executive) VALUES (?, ?, ?, ?, ?)')
-      .bind(id, email, passwordHash, role, isExecutive ? 1 : 0)
+      .prepare('INSERT INTO users (id, email, name, mobile, reg_number, password_hash, role, is_executive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, email, name, mobile, reg_number, passwordHash, role, isExecutive)
       .run();
   } catch (err) {
     if (isUniqueViolation(err)) return json({ error: 'email_taken' }, 409);
@@ -116,7 +125,6 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
   const user = await loadUserById(env, id);
   if (!user) throw new Error('user_missing_after_insert');
 
-  // Best-effort verification email; delivery failure is never surfaced.
   try {
     const verifyToken = await createEmailToken(env, id, 'verify');
     await trySendEmail(env, {
@@ -164,7 +172,7 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
 
   const row = await env.AUTH_DB
     .prepare(
-      'SELECT id, email, password_hash, role, is_executive, email_verified, created_at FROM users WHERE email = ?',
+      'SELECT id, email, name, mobile, reg_number, password_hash, role, is_executive, email_verified, created_at FROM users WHERE email = ?',
     )
     .bind(email)
     .first<UserRow & { password_hash: string }>();
@@ -172,6 +180,13 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
   const password = typeof body.value.password === 'string' ? body.value.password : '';
   const valid = await verifyPassword(password, row ? row.password_hash : DUMMY_PASSWORD_HASH);
   if (!row || !valid) return json({ error: 'invalid_credentials' }, 401);
+
+  if (normalizeRole(row.role) === 'ob' && env.ADMIN_ENTRY_CODE) {
+    const adminCode = typeof body.value.admin_code === 'string' ? body.value.admin_code : '';
+    if (adminCode !== env.ADMIN_ENTRY_CODE) {
+      return json({ error: 'invalid_admin_code' }, 403);
+    }
+  }
 
   const remember = body.value.remember === true;
   const { token, expiresAt } = await createSession(env, row.id, request, remember);
@@ -278,7 +293,7 @@ async function handleVerifyEmail({ request, env }: RouteContext): Promise<Respon
 
 async function handleAdminPing({ request, env }: RouteContext): Promise<Response> {
   const user = await getSessionUser(env, request);
-  if (!requireRole(user, 'admin')) return json({ error: 'forbidden' }, 403);
+  if (!requireMinRole(user, 'ob')) return json({ error: 'forbidden' }, 403);
   return json({ ok: true });
 }
 

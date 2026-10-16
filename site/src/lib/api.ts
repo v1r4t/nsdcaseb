@@ -5,11 +5,14 @@
  * attached with `credentials: 'include'`.
  */
 
-export type Role = 'member' | 'executive' | 'admin';
+export type Role = 'member' | 'executive' | 'ob';
 
 export interface User {
   id: string;
   email: string;
+  name: string;
+  mobile: string;
+  reg_number: string | null;
   role: Role;
   is_executive: boolean;
   email_verified: boolean;
@@ -95,17 +98,23 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
-export function register(email: string, password: string, is_executive: boolean): Promise<RegisterResponse> {
+export function register(input: {
+  name: string;
+  email: string;
+  mobile: string;
+  password: string;
+  admin_code?: string;
+}): Promise<RegisterResponse> {
   return request<RegisterResponse>('/api/auth/register', {
     method: 'POST',
-    body: { email, password, is_executive },
+    body: input,
   });
 }
 
-export function login(email: string, password: string, remember?: boolean): Promise<LoginResponse> {
+export function login(email: string, password: string, remember?: boolean, admin_code?: string): Promise<LoginResponse> {
   return request<LoginResponse>('/api/auth/login', {
     method: 'POST',
-    body: remember === undefined ? { email, password } : { email, password, remember },
+    body: { email, password, remember, admin_code },
   });
 }
 

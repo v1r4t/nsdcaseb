@@ -97,7 +97,7 @@ export function buildStaticIndex(role: Role | null | undefined): SearchItem[] {
     },
     { id: 'page-login', domain: 'pages', label: 'Sign in', sublabel: 'PAGE · /LOGIN', href: '/login' },
   ];
-  if (role === 'admin') {
+  if (role === 'ob') {
     pages.push({
       id: 'page-admin',
       domain: 'pages',

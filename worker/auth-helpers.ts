@@ -16,13 +16,19 @@ export interface Env {
   AUTH_DB: D1Database;
   RATELIMIT_KV: KVNamespace;
   ASSETS: Fetcher;
+  ADMIN_ENTRY_CODE?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
-export type Role = 'member' | 'executive' | 'admin';
+export type Role = 'member' | 'executive' | 'ob';
 
 export interface User {
   id: string;
   email: string;
+  name: string;
+  mobile: string;
+  reg_number: string | null;
   role: Role;
   is_executive: boolean;
   email_verified: boolean;
@@ -32,6 +38,9 @@ export interface User {
 export interface UserRow {
   id: string;
   email: string;
+  name: string | null;
+  mobile: string | null;
+  reg_number: string | null;
   role: string;
   is_executive: number;
   email_verified: number;
@@ -137,7 +146,19 @@ export function isStrongPassword(password: unknown): password is string {
 }
 
 export function normalizeRole(role: string): Role {
-  return role === 'admin' || role === 'executive' ? role : 'member';
+  if (role === 'ob' || role === 'admin') return 'ob';
+  if (role === 'executive') return 'executive';
+  return 'member';
+}
+
+export const ROLE_RANK: Record<Role, number> = { member: 1, executive: 2, ob: 3 };
+
+export function hasRole(user: User | null, minimum: Role): user is User {
+  return !!user && ROLE_RANK[normalizeRole(user.role)] >= ROLE_RANK[minimum];
+}
+
+export function requireMinRole(user: User | null, minimum: Role): user is User {
+  return hasRole(user, minimum);
 }
 
 export function toIso(value: string): string {
@@ -153,6 +174,9 @@ export function mapUser(row: UserRow): User {
   return {
     id: row.id,
     email: row.email,
+    name: row.name ?? '',
+    mobile: row.mobile ?? '',
+    reg_number: row.reg_number ?? null,
     role: normalizeRole(row.role),
     is_executive: !!row.is_executive,
     email_verified: !!row.email_verified,

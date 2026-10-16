@@ -55,7 +55,7 @@ async function request<T>(path: string, method: Method = 'GET', body?: unknown):
 
 export interface AdminStats {
   users_total: number;
-  users_by_role: { member: number; executive: number; admin: number };
+  users_by_role: { member: number; executive: number; ob: number };
   events_total: number;
   registrations_total: number;
   registrations_by_status: { registered: number; waitlisted: number; cancelled: number };
@@ -75,7 +75,22 @@ export interface OutboxEntry {
 export interface RosterEntry {
   email: string;
   status: string;
+  user_type?: string | null;
+  student_name?: string | null;
+  reg_number?: string | null;
   answers: Record<string, string>;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  mobile: string;
+  reg_number: string | null;
+  role: 'member' | 'executive' | 'ob';
+  is_executive: boolean;
+  email_verified: boolean;
   created_at: string;
 }
 
@@ -115,10 +130,20 @@ export function getEventRoster(eventId: string): Promise<{ registrations: Roster
   );
 }
 
-/** Admin-only event toggle (open/close). Capacity stays read-only for now. */
+/** Admin-only event edit: fields supported by the worker PATCH endpoint. */
 export function adminUpdateEvent(
   eventId: string,
-  patch: { force_closed?: boolean },
+  patch: Partial<{
+    title: string;
+    description: string;
+    starts_at: string;
+    ends_at: string;
+    reg_opens_at: string;
+    reg_closes_at: string;
+    capacity: number | null;
+    force_closed: boolean;
+    questions: unknown[];
+  }>,
 ): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/events/${encodeURIComponent(eventId)}`, 'PATCH', patch);
 }
@@ -178,4 +203,97 @@ export function deleteAchievement(id: string): Promise<{ deleted: true }> {
     `/api/content/achievements/${encodeURIComponent(id)}`,
     'DELETE',
   );
+}
+
+// ---------------------------------------------------------------------------
+// Account management helpers
+// ---------------------------------------------------------------------------
+
+export async function listAdminUsers(q = ''): Promise<{ users: AdminUser[] }> {
+  const query = q ? `?q=${encodeURIComponent(q)}` : '';
+  return request<{ users: AdminUser[] }>(`/api/admin/users${query}`);
+}
+
+export function updateAdminUserRole(id: string, role: 'member' | 'executive' | 'ob'): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/admin/users/${encodeURIComponent(id)}/role`, 'PATCH', { role });
+}
+
+export function updateAdminUserVerified(id: string, email_verified: boolean): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/admin/users/${encodeURIComponent(id)}/verified`, 'PATCH', { email_verified });
+}
+
+export function syncAdminRoles(): Promise<{ changed: number }> {
+  return request<{ changed: number }>('/api/admin/users/sync-roles', 'POST', {});
+}
+
+export function sendAdminVerification(ids?: string[]): Promise<{ queued: number }> {
+  return request<{ queued: number }>('/api/admin/users/send-verification', 'POST', { ids });
+}
+
+// ---------------------------------------------------------------------------
+// Event create/edit helpers (poster via multipart)
+// ---------------------------------------------------------------------------
+
+export async function adminCreateEvent(input: {
+  id?: string;
+  title: string;
+  description?: string;
+  starts_at: string;
+  ends_at: string;
+  reg_opens_at: string;
+  reg_closes_at: string;
+  capacity?: number | null;
+  force_closed?: boolean;
+  questions?: unknown[];
+  poster: File;
+}): Promise<{ id: string; poster_url: string | null }> {
+  const data = {
+    id: input.id,
+    title: input.title,
+    description: input.description ?? '',
+    starts_at: input.starts_at,
+    ends_at: input.ends_at,
+    reg_opens_at: input.reg_opens_at,
+    reg_closes_at: input.reg_closes_at,
+    capacity: input.capacity ?? null,
+    force_closed: input.force_closed ?? false,
+    questions: input.questions ?? [],
+  };
+  const form = new FormData();
+  form.append('data', JSON.stringify(data));
+  form.append('poster', input.poster);
+  const res = await fetch('/api/events', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  const raw = await res.text().catch(() => '');
+  let payload: any = null;
+  try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
+  if (!res.ok) {
+    const code = payload?.error ?? (res.status === 401 ? 'unauthenticated' : 'request_failed');
+    throw new ApiError(res.status, code);
+  }
+  return payload as { id: string; poster_url: string | null };
+}
+
+export function adminUploadPoster(eventId: string, file: File): Promise<{ poster_url: string | null } | { ok: true; poster_url?: string | null }> {
+  const form = new FormData();
+  form.append('data', JSON.stringify({}));
+  form.append('poster', file);
+  return (async () => {
+    const res = await fetch(`/api/events/${encodeURIComponent(eventId)}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      body: form,
+    });
+    const raw = await res.text().catch(() => '');
+    let payload: any = null;
+    try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
+    if (!res.ok) {
+      const code = payload?.error ?? (res.status === 401 ? 'unauthenticated' : 'request_failed');
+      throw new ApiError(res.status, code);
+    }
+    return payload;
+  })();
 }

@@ -7,7 +7,9 @@ import { useAuth } from '../lib/auth';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface FieldErrors {
+  name?: string;
   email?: string;
+  mobile?: string;
   password?: string;
   confirm?: string;
 }
@@ -28,6 +30,10 @@ function registerMessage(error: ApiError): string {
       return 'Choose a stronger password: at least 10 characters including a letter and a number.';
     case 'invalid_email':
       return 'That email address is not valid. Use a normal address like you@amrita.edu.';
+    case 'invalid_name':
+      return 'Please enter your full name.';
+    case 'invalid_mobile':
+      return 'Please enter a valid mobile number.';
     case 'invalid_json':
       return 'We could not read that request. Reload the page and try again.';
     case 'rate_limited':
@@ -41,10 +47,11 @@ function registerMessage(error: ApiError): string {
 
 export default function Register() {
   const { user, register } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [isExecutive, setIsExecutive] = useState(false);
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -54,7 +61,9 @@ export default function Register() {
 
   function validate(): FieldErrors {
     const next: FieldErrors = {};
+    if (!name.trim()) next.name = 'Enter your name.';
     if (!EMAIL_PATTERN.test(email.trim())) next.email = 'Enter a valid email address.';
+    if (!mobile.trim()) next.mobile = 'Enter your mobile number.';
     const passwordError = passwordProblem(password);
     if (passwordError) next.password = passwordError;
     if (confirm !== password) next.confirm = 'Passwords do not match.';
@@ -71,7 +80,7 @@ export default function Register() {
 
     setPending(true);
     try {
-      await register(email.trim(), password, isExecutive);
+      await register({ name: name.trim(), email: email.trim(), mobile: mobile.trim(), password });
       // AuthProvider now holds the session; the Navigate above takes over.
     } catch (err) {
       setFormError(err instanceof ApiError ? registerMessage(err) : 'Something went wrong. Please try again.');
@@ -88,6 +97,58 @@ export default function Register() {
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit} aria-busy={pending} noValidate>
+          <div>
+            <label htmlFor="register-name" className="label">
+              Name
+            </label>
+            <input
+              id="register-name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              required
+              disabled={pending}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-invalid={errors.name ? true : undefined}
+              aria-describedby={errors.name ? 'register-name-error' : undefined}
+              className={`field ${errors.name ? 'field-invalid' : ''}`}
+              placeholder="Your full name"
+            />
+            {errors.name && (
+              <p id="register-name-error" className="error-text">
+                <span aria-hidden="true">! </span>
+                {errors.name}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="register-mobile" className="label">
+              Mobile number
+            </label>
+            <input
+              id="register-mobile"
+              name="mobile"
+              type="tel"
+              autoComplete="tel"
+              required
+              disabled={pending}
+              value={mobile}
+              onChange={(event) => setMobile(event.target.value)}
+              aria-invalid={errors.mobile ? true : undefined}
+              aria-describedby={errors.mobile ? 'register-mobile-error' : undefined}
+              className={`field ${errors.mobile ? 'field-invalid' : ''}`}
+              placeholder="+91..."
+            />
+            {errors.mobile && (
+              <p id="register-mobile-error" className="error-text">
+                <span aria-hidden="true">! </span>
+                {errors.mobile}
+              </p>
+            )}
+          </div>
+
           <div>
             <label htmlFor="register-email" className="label">
               Email
@@ -165,26 +226,6 @@ export default function Register() {
                 {errors.confirm}
               </p>
             )}
-          </div>
-
-          <div className="rule pt-4">
-            <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                name="is_executive"
-                checked={isExecutive}
-                disabled={pending}
-                onChange={(event) => setIsExecutive(event.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-signal"
-              />
-              <span>
-                <span className="font-medium text-paper">I'm an executive</span>
-                <span className="mt-1 block text-xs text-muted">
-                  Self-declared, not verified. An existing executive reviews new executive
-                  requests before club access is granted, so pick this only if it is true today.
-                </span>
-              </span>
-            </label>
           </div>
 
           {formError && (

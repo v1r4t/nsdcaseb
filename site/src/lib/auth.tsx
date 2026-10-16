@@ -19,8 +19,8 @@ export interface AuthContextValue {
   user: User | null;
   /** True while the initial `me()` probe is in flight. */
   loading: boolean;
-  login: (email: string, password: string, remember?: boolean) => Promise<User>;
-  register: (email: string, password: string, isExecutive: boolean) => Promise<User>;
+  login: (email: string, password: string, remember?: boolean, admin_code?: string) => Promise<User>;
+  register: (input: { name: string; email: string; mobile: string; password: string }) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -51,14 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string, remember?: boolean) => {
-    const user = requireUser(await apiLogin(email, password, remember));
+  const login = useCallback(async (email: string, password: string, remember?: boolean, admin_code?: string) => {
+    const user = requireUser(await apiLogin(email, password, remember, admin_code));
     setUser(user);
     return user;
   }, []);
 
-  const register = useCallback(async (email: string, password: string, isExecutive: boolean) => {
-    const user = requireUser(await apiRegister(email, password, isExecutive));
+  const register = useCallback(async (input: { name: string; email: string; mobile: string; password: string }) => {
+    const user = requireUser(await apiRegister(input));
     setUser(user);
     return user;
   }, []);
