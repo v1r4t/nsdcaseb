@@ -9,12 +9,12 @@ import FolioRail from './components/FolioRail';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import AdminDoor from './pages/AdminDoor';
 import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import Registrations from './pages/Registrations';
 import AnnouncementBanner from './components/AnnouncementBanner';
 const EventDetail = lazy(() => import('./pages/EventDetail'));
-const Admin = lazy(() => import('./pages/Admin'));
 const Media = lazy(() => import('./pages/Media'));
 const Projects = lazy(() => import('./pages/Projects'));
 
@@ -36,7 +36,7 @@ export default function App() {
               <Route path="/registrations/:id" element={<EventDetail />} />
               <Route path="/media" element={<Media />} />
               <Route path="/projects" element={<Projects />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin" element={<AdminDoor />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>

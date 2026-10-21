@@ -21,22 +21,11 @@ import {
   searchPalette,
 } from '../lib/search';
 import type { MatchRange, SearchItem } from '../lib/search';
-import type { Role } from '../lib/api';
-import { useAuth } from '../lib/auth';
 
 /** Keep the exit timer in sync with the `duration-200` transition below. */
 const EXIT_MS = 200;
 const LISTBOX_ID = 'nsdc-palette-listbox';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/** Auth may be absent in isolation; a missing provider means "no session". */
-function useRoleSafe(): Role | null {
-  try {
-    return useAuth().user?.role ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function optionId(index: number): string {
   return `nsdc-palette-option-${index}`;
@@ -65,7 +54,6 @@ function HighlightedLabel({ text, ranges }: { text: string; ranges: MatchRange[]
 
 export default function CommandPalette() {
   const navigate = useNavigate();
-  const role = useRoleSafe();
 
   const [open, setOpen] = useState(false);
   // `mounted` outlives `open` so the panel can fade out; `entered` drives the
@@ -83,7 +71,7 @@ export default function CommandPalette() {
 
   const closePalette = useCallback(() => setOpen(false), []);
 
-  const statics = useMemo(() => buildStaticIndex(role), [role]);
+  const statics = useMemo(() => buildStaticIndex(), []);
   const groups = useMemo(() => searchPalette(query, statics, remote), [query, statics, remote]);
   const flat = useMemo(() => groups.flatMap((group) => group.results), [groups]);
   const total = flat.length;

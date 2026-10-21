@@ -12,7 +12,6 @@
  * index ranges so the UI can highlight hits.
  */
 
-import type { Role } from './api';
 import { fetchContent } from './content';
 import { listEvents } from './events';
 import type { EventSummary } from './events';
@@ -76,7 +75,7 @@ const MAX_PER_GROUP = 8;
 
 // Static index ---------------------------------------------------------------
 
-export function buildStaticIndex(role: Role | null | undefined): SearchItem[] {
+export function buildStaticIndex(): SearchItem[] {
   const pages: SearchItem[] = [
     { id: 'page-about', domain: 'pages', label: 'About', sublabel: 'PAGE · /', href: '/' },
     {
@@ -97,15 +96,6 @@ export function buildStaticIndex(role: Role | null | undefined): SearchItem[] {
     },
     { id: 'page-login', domain: 'pages', label: 'Sign in', sublabel: 'PAGE · /LOGIN', href: '/login' },
   ];
-  if (role === 'ob') {
-    pages.push({
-      id: 'page-admin',
-      domain: 'pages',
-      label: 'Admin',
-      sublabel: 'PAGE · /ADMIN',
-      href: '/admin',
-    });
-  }
   return pages;
 }
 

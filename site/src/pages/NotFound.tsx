@@ -1,13 +1,36 @@
 import { Link, useLocation } from 'react-router-dom';
 
-export default function NotFound() {
+interface NotFoundProps {
+  onZero?: () => void;
+  zeroLabel?: string;
+}
+
+export default function NotFound({ onZero, zeroLabel }: NotFoundProps) {
   const location = useLocation();
 
   return (
     <section className="shell py-16 md:py-24">
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 border-b border-line pb-6">
-        <p aria-hidden="true" className="font-mono text-6xl font-medium leading-none tracking-tight text-signal sm:text-8xl">
-          404
+        <p
+          aria-hidden={onZero ? undefined : true}
+          className="font-mono text-6xl font-medium leading-none tracking-tight text-signal sm:text-8xl"
+        >
+          {onZero ? (
+            <>
+              <span aria-hidden="true">4</span>
+              <button
+                type="button"
+                onClick={onZero}
+                aria-label={zeroLabel ?? 'Continue'}
+                className="cursor-pointer appearance-none border-0 bg-transparent p-0 leading-none text-signal transition-colors duration-200 hover:text-paper focus-visible:text-paper"
+              >
+                0
+              </button>
+              <span aria-hidden="true">4</span>
+            </>
+          ) : (
+            '404'
+          )}
         </p>
         <p className="label">Error / Route not resolved</p>
       </div>
