@@ -44,19 +44,24 @@ export default function EventRows({ events }: EventRowsProps) {
                 <Link
                   to={`/registrations/${encodeURIComponent(event.id)}`}
                   data-cursor="VIEW EVENT →"
-                  className="group flex flex-wrap items-baseline gap-x-6 gap-y-1 py-5 transition-colors duration-200 hover:text-signal"
+                  className="group grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1.5 py-5 transition-colors duration-200 hover:text-signal sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-1"
                 >
-                  <time dateTime={event.starts_at} className="w-24 shrink-0 font-mono text-xs text-muted group-hover:text-signal/80">
+                  {/* Phones: date + status share the top line, title gets the full width. */}
+                  <time
+                    dateTime={event.starts_at}
+                    className="col-start-1 row-start-1 font-mono text-xs text-muted group-hover:text-signal/80 sm:w-24 sm:shrink-0"
+                  >
                     {readableDate(event.starts_at)}
                   </time>
-                  <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-tight text-paper group-hover:text-signal">
+                  <span className="col-span-2 row-start-2 min-w-0 font-display text-lg font-bold tracking-tight text-paper group-hover:text-signal sm:flex-1 sm:truncate">
                     {event.title}
                   </span>
-                  <span className="flex shrink-0 items-center gap-3 font-mono text-xs">
+                  <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-3 font-mono text-xs">
                     <span className={live ? 'text-signal' : 'text-muted'}>
                       {status.glyph} {status.text}
                     </span>
-                    <span aria-hidden="true" className="text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    {/* Hover cue is desktop-only; on touch it would only steal title width. */}
+                    <span aria-hidden="true" className="hidden text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:inline">
                       VIEW EVENT →
                     </span>
                   </span>

@@ -38,9 +38,10 @@ function Row({ event }: { event: EventSummary }) {
       <Link
         to={`/registrations/${encodeURIComponent(event.id)}`}
         data-cursor="VIEW EVENT →"
-        className="group flex items-baseline gap-5 border-t border-line py-5 transition-colors duration-200 hover:bg-paper/[0.025] sm:gap-8 sm:px-3"
+        className="group grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-2 border-t border-line py-5 transition-colors duration-200 hover:bg-paper/[0.025] sm:flex sm:gap-8 sm:px-3"
       >
-        <div aria-hidden="true" className="w-14 shrink-0 font-mono leading-none">
+        {/* Phones: date + status share the top line, title gets the full width. */}
+        <div aria-hidden="true" className="col-start-1 row-start-1 w-14 shrink-0 font-mono leading-none">
           {parts ? (
             <>
               <span className="block text-sm text-paper">
@@ -52,17 +53,17 @@ function Row({ event }: { event: EventSummary }) {
             <span className="block text-sm text-muted">TBD</span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="col-span-2 row-start-2 min-w-0 sm:flex-1">
           <h3 className="font-display text-lg font-medium leading-snug text-paper transition-colors duration-200 group-hover:text-signal sm:text-xl">
             {event.title}
           </h3>
           {range && <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">{range}</p>}
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="col-start-2 row-start-1 flex shrink-0 flex-col items-end gap-2 justify-self-end">
           <StatusDot event={event} />
           <span
             aria-hidden="true"
-            className="font-mono text-[11px] uppercase tracking-wide text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="hidden font-mono text-[11px] uppercase tracking-wide text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline"
           >
             View event →
           </span>
