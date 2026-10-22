@@ -180,6 +180,7 @@ git commit -m "feat: hard-gate auth on email verification"
 ### Task 2: Site verify/reset pages + redirects
 
 **Files:**
+- Create: `site/src/components/PasswordField.tsx`
 - Modify: `site/src/lib/api.ts` (new client functions + `RegisterResponse`)
 - Modify: `site/src/lib/auth.tsx` (`register` no longer sets a session user)
 - Modify: `site/src/pages/Register.tsx` (navigate to verify-pending)
@@ -264,7 +265,130 @@ if (err instanceof ApiError && err.error === 'email_unverified') {
 
 (`navigate` is already imported and in scope.)
 
-- [ ] **Step 5: Create `site/src/pages/VerifyPending.tsx`**
+- [ ] **Step 5: Create `site/src/components/PasswordField.tsx`**
+
+Single shared password input with a show/hide toggle. Every password entry in
+the app uses it (login, register ×2, reset ×2, office-bearer code).
+
+```tsx
+import { useState } from 'react';
+
+interface PasswordFieldProps {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  disabled?: boolean;
+  describedBy?: string;
+  invalid?: boolean;
+  placeholder?: string;
+  label: string;
+}
+
+/** Password input with a Show/Hide toggle. Label + hint/error markup stays with the caller. */
+export default function PasswordField({
+  id, name, value, onChange, autoComplete, disabled, describedBy, invalid, placeholder, label,
+}: PasswordFieldProps) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        name={name}
+        type={visible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        required
+        disabled={disabled}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={describedBy}
+        className={`field pr-16 ${invalid ? 'field-invalid' : ''}`}
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={visible}
+        aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+        onClick={() => setVisible((v) => !v)}
+        className="link absolute right-2 top-1/2 -translate-y-1/2 text-sm"
+      >
+        {visible ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 6: Swap Login's password + office-bearer inputs in `site/src/pages/Login.tsx`**
+
+Add `import PasswordField from '../components/PasswordField';`. Replace the
+password `<input id="login-password" ... />` block (lines ~134-149) with:
+
+```tsx
+<PasswordField
+  id="login-password"
+  name="password"
+  label="password"
+  value={password}
+  onChange={setPassword}
+  autoComplete="current-password"
+  disabled={busy}
+/>
+```
+
+Replace the office-bearer `<input id="login-admin-code" ... />` block (lines ~151-165) with:
+
+```tsx
+<PasswordField
+  id="login-admin-code"
+  name="admin_code"
+  label="office bearer code"
+  value={adminCode}
+  onChange={setAdminCode}
+  autoComplete="off"
+  disabled={busy}
+/>
+```
+
+- [ ] **Step 7: Swap Register's password + confirm inputs in `site/src/pages/Register.tsx`**
+
+Add the `PasswordField` import. Replace the password `<input id="register-password" ... />`
+(lines ~178-193, keep the sibling hint/error `<p>` elements) with:
+
+```tsx
+<PasswordField
+  id="register-password"
+  name="password"
+  label="password"
+  value={password}
+  onChange={setPassword}
+  autoComplete="new-password"
+  disabled={pending}
+  describedBy={`register-password-hint${errors.password ? ' register-password-error' : ''}`}
+  invalid={!!errors.password}
+/>
+```
+
+Replace the confirm `<input id="register-confirm" ... />` (lines ~206-229, keep siblings) with:
+
+```tsx
+<PasswordField
+  id="register-confirm"
+  name="confirm"
+  label="password confirmation"
+  value={confirm}
+  onChange={setConfirm}
+  autoComplete="new-password"
+  disabled={pending}
+  describedBy={errors.confirm ? 'register-confirm-error' : undefined}
+  invalid={!!errors.confirm}
+/>
+```
+
+- [ ] **Step 8: Create `site/src/pages/VerifyPending.tsx` (unchanged — no password fields)**
 
 ```tsx
 import { useState } from 'react';
@@ -332,7 +456,7 @@ export default function VerifyPending() {
 }
 ```
 
-- [ ] **Step 6: Create `site/src/pages/VerifyEmail.tsx`**
+- [ ] **Step 9: Create `site/src/pages/VerifyEmail.tsx`**
 
 ```tsx
 import { useEffect, useState } from 'react';
@@ -387,13 +511,16 @@ export default function VerifyEmail() {
 
 No `?token=` makes no request (`missing` renders immediately) — the Review Focus case.
 
-- [ ] **Step 7: Create `site/src/pages/ResetPassword.tsx`**
+- [ ] **Step 10: Create `site/src/pages/ResetPassword.tsx`**
+
+Uses `PasswordField` for both entries (show/hide included).
 
 ```tsx
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, resetPassword } from '../lib/api';
+import PasswordField from '../components/PasswordField';
 
 function passwordProblem(password: string): string | null {
   if (password.length < 10) return 'Use at least 10 characters.';
@@ -452,14 +579,29 @@ export default function ResetPassword() {
           <form className="mt-6 space-y-4" onSubmit={handleSubmit} aria-busy={pending}>
             <div>
               <label htmlFor="reset-password" className="label">New password</label>
-              <input id="reset-password" name="password" type="password" autoComplete="new-password" required
-                disabled={pending} value={password} onChange={(event) => setPassword(event.target.value)} className="field" />
-              <p className="hint">At least 10 characters, including a letter and a number.</p>
+              <PasswordField
+                id="reset-password"
+                name="password"
+                label="new password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+                disabled={pending}
+                describedBy="reset-password-hint"
+              />
+              <p id="reset-password-hint" className="hint">At least 10 characters, including a letter and a number.</p>
             </div>
             <div>
               <label htmlFor="reset-confirm" className="label">Confirm password</label>
-              <input id="reset-confirm" name="confirm" type="password" autoComplete="new-password" required
-                disabled={pending} value={confirm} onChange={(event) => setConfirm(event.target.value)} className="field" />
+              <PasswordField
+                id="reset-confirm"
+                name="confirm"
+                label="password confirmation"
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+                disabled={pending}
+              />
             </div>
             {error && (<p role="alert" aria-live="assertive" className="error-text"><span aria-hidden="true">! </span>{error}</p>)}
             <button type="submit" disabled={pending} className="btn-primary w-full">
@@ -473,7 +615,7 @@ export default function ResetPassword() {
 }
 ```
 
-- [ ] **Step 8: Register routes in `site/src/App.tsx`**
+- [ ] **Step 11: Register routes in `site/src/App.tsx`**
 
 Add imports and routes:
 
@@ -489,18 +631,21 @@ import ResetPassword from './pages/ResetPassword';
 <Route path="/reset-password" element={<ResetPassword />} />
 ```
 
-- [ ] **Step 9: Run tests + build**
+- [ ] **Step 12: Run tests + build**
 
 Run: `npm test`
 Expected: 3 files, 42 tests, all pass.
 
+Toggle check (manual, any password form): click Show → input `type` flips to
+`text` and button reads Hide with `aria-pressed="true"`; click Hide → flips back.
+
 Run: `npm run build:site` (or `npm run build` for the teaser + `tsc -p site` equivalent the repo uses)
 Expected: typecheck clean, bundle succeeds.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
-git add site/src/lib/api.ts site/src/lib/auth.tsx site/src/pages/Register.tsx site/src/pages/Login.tsx site/src/App.tsx site/src/pages/VerifyPending.tsx site/src/pages/VerifyEmail.tsx site/src/pages/ResetPassword.tsx
+git add site/src/lib/api.ts site/src/lib/auth.tsx site/src/pages/Register.tsx site/src/pages/Login.tsx site/src/App.tsx site/src/components/PasswordField.tsx site/src/pages/VerifyPending.tsx site/src/pages/VerifyEmail.tsx site/src/pages/ResetPassword.tsx
 git commit -m "feat: verify-pending, verify-email and reset-password pages"
 ```
 
