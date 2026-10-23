@@ -28,7 +28,11 @@ export default function VerifyPending() {
       // Neutral: the endpoint never reveals whether the address exists.
       setNotice("If that email is registered and unverified, we've re-sent the link.");
     } catch (err) {
-      setError(err instanceof ApiError ? 'Could not reach the server. Check your connection and try again.' : 'Something went wrong. Please try again.');
+      if (err instanceof ApiError && err.error === 'rate_limited') {
+        setError('Too many attempts from this device. Wait about a minute, then try again.');
+      } else {
+        setError(err instanceof ApiError ? 'Could not reach the server. Check your connection and try again.' : 'Something went wrong. Please try again.');
+      }
     } finally {
       setPending(false);
     }

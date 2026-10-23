@@ -11,11 +11,13 @@ interface PasswordFieldProps {
   invalid?: boolean;
   placeholder?: string;
   label: string;
+  required?: boolean;
 }
 
 /** Password input with a Show/Hide toggle. Label + hint/error markup stays with the caller. */
 export default function PasswordField({
   id, name, value, onChange, autoComplete, disabled, describedBy, invalid, placeholder, label,
+  required,
 }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
   return (
@@ -25,7 +27,7 @@ export default function PasswordField({
         name={name}
         type={visible ? 'text' : 'password'}
         autoComplete={autoComplete}
-        required
+        required={required ?? true}
         disabled={disabled}
         value={value}
         onChange={(event) => onChange(event.target.value)}

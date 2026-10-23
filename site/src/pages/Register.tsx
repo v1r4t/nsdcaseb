@@ -58,7 +58,7 @@ export default function Register() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  // A successful register signs the member in, so leave the form behind.
+  // No session exists until verification — navigate to verify-pending.
   if (user) return <Navigate to="/" replace />;
 
   function validate(): FieldErrors {

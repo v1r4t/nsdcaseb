@@ -165,6 +165,7 @@ export default function Login() {
                 onChange={setAdminCode}
                 autoComplete="off"
                 disabled={busy}
+                required={false}
               />
             </div>
 
