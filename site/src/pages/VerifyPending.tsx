@@ -50,7 +50,7 @@ export default function VerifyPending() {
           <div>
             <label htmlFor="pending-email" className="label">Email</label>
             <input id="pending-email" name="email" type="email" autoComplete="email" required disabled={pending}
-              value={email} onChange={(event) => setEmail(event.target.value)} className="field" placeholder="you@amrita.edu" />
+              value={email} onChange={(event) => setEmail(event.target.value)} className="field" placeholder="you@bl.students.amrita.edu" />
           </div>
           {error && (<p role="alert" aria-live="assertive" className="error-text"><span aria-hidden="true">! </span>{error}</p>)}
           {notice && (<p role="status" aria-live="polite" className="hint">{notice}</p>)}

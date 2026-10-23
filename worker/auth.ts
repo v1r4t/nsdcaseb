@@ -91,6 +91,9 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
   const email = normalizeEmail(body.value.email);
   if (!email) return json({ error: 'invalid_email' }, 400);
 
+  // Only college addresses may hold accounts.
+  if (!email.endsWith('@bl.students.amrita.edu')) return json({ error: 'invalid_email' }, 400);
+
   const name = typeof body.value.name === 'string' ? body.value.name.trim() : '';
   if (!name || name.length > 120) return json({ error: 'invalid_name' }, 400);
 
@@ -100,8 +103,11 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
   const password = body.value.password;
   if (!isStrongPassword(password)) return json({ error: 'weak_password' }, 400);
 
-  // Role is derived only from the protected allowlist, never from client input.
-  const role = roleForEmail(email);
+  // Office bearer comes from a shared entry code, never from client-claimed
+  // role. The email allowlist remains as a fallback for pre-seeded accounts.
+  const obCode = typeof body.value.admin_code === 'string' ? body.value.admin_code : '';
+  const role =
+    obCode && env.ADMIN_ENTRY_CODE && obCode === env.ADMIN_ENTRY_CODE ? 'ob' : roleForEmail(email);
   const reg_number = regNumberFromEmail(email);
 
   const existing = await env.AUTH_DB
@@ -154,6 +160,9 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
 
   const email = normalizeEmail(body.value.email);
   if (!email) return json({ error: 'invalid_credentials' }, 401);
+
+  // Non-college addresses can hold no account; fail closed without revealing.
+  if (!email.endsWith('@bl.students.amrita.edu')) return json({ error: 'invalid_credentials' }, 401);
 
   if (
     !(await rateLimit(

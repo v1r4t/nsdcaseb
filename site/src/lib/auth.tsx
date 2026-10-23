@@ -20,7 +20,7 @@ export interface AuthContextValue {
   /** True while the initial `me()` probe is in flight. */
   loading: boolean;
   login: (email: string, password: string, remember?: boolean, admin_code?: string) => Promise<User>;
-  register: (input: { name: string; email: string; mobile: string; password: string }) => Promise<RegisterResponse>;
+  register: (input: { name: string; email: string; mobile: string; password: string; admin_code?: string }) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
 }
 
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user;
   }, []);
 
-  const register = useCallback(async (input: { name: string; email: string; mobile: string; password: string }) => {
+  const register = useCallback(async (input: { name: string; email: string; mobile: string; password: string; admin_code?: string }) => {
     const response = await apiRegister(input);
     // No session exists until the email is verified — deliberately not setUser.
     return response;

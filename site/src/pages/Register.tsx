@@ -30,7 +30,7 @@ function registerMessage(error: ApiError): string {
     case 'weak_password':
       return 'Choose a stronger password: at least 10 characters including a letter and a number.';
     case 'invalid_email':
-      return 'That email address is not valid. Use a normal address like you@amrita.edu.';
+      return 'Only @bl.students.amrita.edu college addresses can register.';
     case 'invalid_name':
       return 'Please enter your full name.';
     case 'invalid_mobile':
@@ -54,6 +54,7 @@ export default function Register() {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [adminCode, setAdminCode] = useState('');
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -82,7 +83,7 @@ export default function Register() {
 
     setPending(true);
     try {
-      await register({ name: name.trim(), email: email.trim(), mobile: mobile.trim(), password });
+      await register({ name: name.trim(), email: email.trim(), mobile: mobile.trim(), password, admin_code: adminCode.trim() || undefined });
       navigate('/verify-pending', { state: { email: email.trim() }, replace: true });
     } catch (err) {
       setFormError(err instanceof ApiError ? registerMessage(err) : 'Something went wrong. Please try again.');
@@ -167,7 +168,7 @@ export default function Register() {
               aria-invalid={errors.email ? true : undefined}
               aria-describedby={errors.email ? 'register-email-error' : undefined}
               className={`field ${errors.email ? 'field-invalid' : ''}`}
-              placeholder="you@amrita.edu"
+              placeholder="you@bl.students.amrita.edu"
             />
             {errors.email && (
               <p id="register-email-error" className="error-text">
@@ -224,6 +225,23 @@ export default function Register() {
                 {errors.confirm}
               </p>
             )}
+          </div>
+
+          <div>
+            <label htmlFor="register-ob-code" className="label">
+              Office bearer code (if you have one)
+            </label>
+            <PasswordField
+              id="register-ob-code"
+              name="admin_code"
+              label="office bearer code"
+              value={adminCode}
+              onChange={setAdminCode}
+              autoComplete="off"
+              disabled={pending}
+              required={false}
+            />
+            <p className="hint">Leave empty unless you were given an office bearer code.</p>
           </div>
 
           {formError && (

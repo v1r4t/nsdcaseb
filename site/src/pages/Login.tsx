@@ -134,7 +134,7 @@ export default function Login() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="field"
-                placeholder="you@amrita.edu"
+                placeholder="you@bl.students.amrita.edu"
               />
             </div>
 
@@ -220,7 +220,7 @@ export default function Login() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="field"
-                placeholder="you@amrita.edu"
+                placeholder="you@bl.students.amrita.edu"
               />
             </div>
 
