@@ -17,12 +17,18 @@ export interface ContentSection {
   sort_order: number;
 }
 
+export interface BearerLink {
+  label: string;
+  url: string;
+}
+
 export interface OfficeBearer {
   id: string;
   name: string;
   role: string;
   cohort: string | null;
   photo_url: string | null;
+  links: BearerLink[];
   sort_order: number;
 }
 
@@ -57,12 +63,12 @@ export const FALLBACK_CONTENT: SiteContent = {
     },
   ],
   bearers: [
-    { id: 'bearer-b-parswanadh', name: 'Balcha Venkata Parswanadh', role: 'President', cohort: '2024', photo_url: null, sort_order: 10 },
-    { id: 'bearer-aluvala-sai-vinya', name: 'Aluvala Sai Vinya', role: 'Vice President', cohort: '2024', photo_url: null, sort_order: 20 },
-    { id: 'bearer-dhruva-vura', name: 'Dhruva Vura', role: 'Vice President', cohort: '2025', photo_url: null, sort_order: 30 },
-    { id: 'bearer-k-shanmuga-priya', name: 'Konduru Shanmuga Priya', role: 'Treasurer', cohort: '2025', photo_url: null, sort_order: 40 },
-    { id: 'bearer-babbitha-b', name: 'Bovilla Babitha', role: 'Head of Executives', cohort: '2025', photo_url: null, sort_order: 50 },
-    { id: 'bearer-mentor-peeta', name: 'Dr. Peeta Basa Pati', role: 'Mentor', cohort: null, photo_url: null, sort_order: 60 },
+    { id: 'bearer-b-parswanadh', name: 'Balcha Venkata Parswanadh', role: 'President', cohort: '2024', photo_url: null, links: [], sort_order: 10 },
+    { id: 'bearer-aluvala-sai-vinya', name: 'Aluvala Sai Vinya', role: 'Vice President', cohort: '2024', photo_url: null, links: [], sort_order: 20 },
+    { id: 'bearer-dhruva-vura', name: 'Dhruva Vura', role: 'Vice President', cohort: '2025', photo_url: null, links: [], sort_order: 30 },
+    { id: 'bearer-k-shanmuga-priya', name: 'Konduru Shanmuga Priya', role: 'Treasurer', cohort: '2025', photo_url: null, links: [], sort_order: 40 },
+    { id: 'bearer-babbitha-b', name: 'Bovilla Babitha', role: 'Head of Executives', cohort: '2025', photo_url: null, links: [], sort_order: 50 },
+    { id: 'bearer-mentor-peeta', name: 'Dr. Peeta Basa Pati', role: 'Mentor', cohort: null, photo_url: null, links: [], sort_order: 60 },
   ],
   achievements: [
     { id: 'ach-hackathon-3rd', title: 'Third place at the IEEE-CIS Hackathon', description: 'Team NSDC placed third with Jadal \u2014 an agentic, physics-based system for canal water allocation in warabandi-style irrigation, built during the hackathon.', date: null, sort_order: 10 },
@@ -90,6 +96,27 @@ function isSection(item: unknown): boolean {
   return typeof row.key === 'string' && typeof row.title === 'string' && typeof row.body === 'string';
 }
 
+function isLink(item: unknown): item is BearerLink {
+  if (typeof item !== 'object' || item === null) return false;
+  const row = item as Record<string, unknown>;
+  return typeof row.label === 'string' && typeof row.url === 'string';
+}
+
+/** Coerce the `links` column (array, JSON string, or absent) to BearerLink[]. */
+function linkList(value: unknown): BearerLink[] {
+  const raw = typeof value === 'string' ? safeParseLinks(value) : value;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isLink);
+}
+
+function safeParseLinks(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function isBearer(item: unknown): boolean {
   if (typeof item !== 'object' || item === null) return false;
   const row = item as Record<string, unknown>;
@@ -103,34 +130,79 @@ function isAchievement(item: unknown): boolean {
 }
 
 function normalize(payload: unknown): SiteContent {
-  if (typeof payload !== 'object' || payload === null) return FALLBACK_CONTENT;
+  if (typeof payload !== 'object' || payload === null) {
+    markFallback();
+    return FALLBACK_CONTENT;
+  }
   const source = payload as Record<string, unknown>;
 
   const sections = pick<ContentSection>(source.sections, isSection);
-  const bearers = pick<OfficeBearer>(source.bearers, isBearer);
+  const rawBearers = pick<OfficeBearer>(source.bearers, isBearer);
   const achievements = pick<Achievement>(source.achievements, isAchievement);
 
   // A structurally broken payload falls back wholesale; an *empty* array is a
   // legitimate state the page renders as an empty message.
-  if (!sections || !bearers || !achievements) return FALLBACK_CONTENT;
+  if (!sections || !rawBearers || !achievements) {
+    markFallback();
+    return FALLBACK_CONTENT;
+  }
+
+  // Older payloads (or fallback rows) may lack `links` — coerce, never drop.
+  const bearers = rawBearers.map((b) => ({ ...b, links: linkList((b as { links?: unknown }).links) }));
 
   return { sections, bearers, achievements };
 }
 
+/**
+ * Flags fallback serving for ops visibility: `data-content="fallback"` on
+ * <html> (so monitors/e2e can detect it without parsing copy) plus a
+ * dev-only console note. Never alters rendered copy. Never throws.
+ */
+function markFallback(): void {
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.setAttribute('data-content', 'fallback');
+    }
+  } catch {
+    // Non-DOM runtimes (SSR/tests) — observability is best-effort.
+  }
+  try {
+    const env = (
+      import.meta as unknown as { env?: { DEV?: boolean } }
+    ).env;
+    if (env?.DEV) console.info('[content] serving fallback content');
+  } catch {
+    // import.meta unavailable — skip the dev note.
+  }
+}
+
+/** Hang-risk guard: a stalled /api/content must fall back, never hang paint. */
+const FETCH_TIMEOUT_MS = 15_000;
+
 /** GET /api/content, falling back to `FALLBACK_CONTENT` on any failure. */
 export async function fetchContent(): Promise<SiteContent> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const response = await fetch('/api/content', {
       method: 'GET',
       credentials: 'include',
       headers: { Accept: 'application/json' },
+      signal: controller.signal,
     });
-    if (!response.ok) return FALLBACK_CONTENT;
+    if (!response.ok) {
+      markFallback();
+      return FALLBACK_CONTENT;
+    }
 
     const payload: unknown = await response.json();
     return normalize(payload);
   } catch {
-    // Offline, CORS, blocked request, or a proxy answering with HTML.
+    // Offline, CORS, blocked request, a proxy answering with HTML,
+    // or our own timeout abort.
+    markFallback();
     return FALLBACK_CONTENT;
+  } finally {
+    clearTimeout(timer);
   }
 }

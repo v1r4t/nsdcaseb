@@ -33,6 +33,15 @@ function optionId(index: number): string {
   return `nsdc-palette-option-${index}`;
 }
 
+/** OS detection (evaluated once per mount): macOS → ⌘K, otherwise Ctrl K. */
+function isMacOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = nav.userAgentData?.platform ?? nav.platform ?? '';
+  if (/mac/i.test(platform)) return true;
+  return /mac/i.test(nav.userAgent ?? '');
+}
+
 function HighlightedLabel({ text, ranges }: { text: string; ranges: MatchRange[] }) {
   if (ranges.length === 0) return <>{text}</>;
   const parts: React.ReactNode[] = [];
@@ -70,6 +79,8 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
+  const isMac = useMemo(() => isMacOS(), []);
+  const toggleHint = isMac ? '⌘K' : 'Ctrl K';
 
   const closePalette = useCallback(() => setOpen(false), []);
 
@@ -86,7 +97,7 @@ export default function CommandPalette() {
   // Global open triggers: ⌘K / Ctrl+K toggle plus the orchestrator's DOM events.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -243,6 +254,7 @@ export default function CommandPalette() {
             aria-controls={LISTBOX_ID}
             aria-activedescendant={activeId}
             aria-autocomplete="list"
+            aria-keyshortcuts={isMac ? 'meta+k' : 'control+k'}
             autoComplete="off"
             spellCheck={false}
             placeholder="Type to search pages, events, people, media…"
@@ -252,7 +264,7 @@ export default function CommandPalette() {
               setActive(0);
             }}
             onKeyDown={onInputKeyDown}
-            className="w-full border-0 bg-transparent py-4 font-display text-base text-paper outline-none placeholder:text-muted/70 focus-visible:ring-0"
+            className="w-full border-0 bg-transparent py-4 font-display text-base text-paper outline-none placeholder:text-muted focus-visible:ring-0"
           />
           <kbd className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted">
             ESC
@@ -338,6 +350,9 @@ export default function CommandPalette() {
           </span>
           <span>
             <span aria-hidden="true">esc</span> close
+          </span>
+          <span>
+            <span aria-hidden="true">{toggleHint}</span> to toggle
           </span>
         </div>
 

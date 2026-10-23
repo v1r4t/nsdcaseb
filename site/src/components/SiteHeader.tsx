@@ -10,10 +10,20 @@ import { Link } from 'react-router-dom';
 import FullscreenMenu from './FullscreenMenu';
 import { useAuth } from '../lib/auth';
 
+/** OS detection (evaluated once per mount): macOS → ⌘K, otherwise Ctrl K. */
+function isMacOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = nav.userAgentData?.platform ?? nav.platform ?? '';
+  if (/mac/i.test(platform)) return true;
+  return /mac/i.test(nav.userAgent ?? '');
+}
+
 export default function SiteHeader() {
   const { user, loading, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [isMac] = useState(() => isMacOS());
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   async function handleSignOut() {
@@ -77,7 +87,7 @@ export default function SiteHeader() {
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('nsdc:open-palette'))}
-              aria-label="Search the site"
+              aria-label={`Search ${isMac ? '⌘K' : 'Ctrl K'}`}
               className="btn-ghost px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide min-[400px]:px-3"
             >
               {/* Icon-only below ~400px so Search / Menu never clip at 320px. */}
@@ -85,9 +95,9 @@ export default function SiteHeader() {
                 &#8981;
               </span>
               <span className="hidden min-[400px]:inline">
-                Search
+                Search{' '}
                 <span aria-hidden="true" className="ml-2 hidden text-muted sm:inline">
-                  ⌘K
+                  {isMac ? '⌘K' : 'Ctrl K'}
                 </span>
               </span>
             </button>
@@ -108,6 +118,25 @@ export default function SiteHeader() {
             </button>
           </div>
         </div>
+        {/* Compact desktop-only anchor row: direct in-page destinations without
+            opening the fullscreen MENU. Second slim line so row 1 (NSDC mark /
+            season marker / session cluster) never shifts. */}
+        <nav aria-label="Quick links" className="hidden border-t border-line lg:block">
+          <div className="flex items-center gap-6 px-12 py-1.5">
+            <Link to="/#about" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
+              About
+            </Link>
+            <Link to="/projects" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
+              Projects
+            </Link>
+            <Link to="/registrations" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
+              Events
+            </Link>
+            <Link to="/#people" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
+              People
+            </Link>
+          </div>
+        </nav>
       </header>
 
       <FullscreenMenu open={menuOpen} onClose={() => setMenuOpen(false)} returnFocusRef={menuButtonRef} />

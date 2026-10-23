@@ -93,6 +93,13 @@ export class ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
+/**
+ * Hang-risk guard: a stalled connection must surface as `network_error`
+ * (which every caller already renders as a friendly empty/error state)
+ * instead of hanging the page forever.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 function errorCode(payload: unknown, status: number): string {
   if (payload && typeof payload === 'object') {
     const code = (payload as { error?: unknown }).error;
@@ -105,15 +112,20 @@ function errorCode(payload: unknown, status: number): string {
 
 async function request<T>(path: string, method: Method = 'GET', body?: unknown): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     response = await fetch(path, {
       method,
       credentials: 'include',
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
   }
   const raw = await response.text().catch(() => '');
   let payload: unknown = null;
@@ -159,29 +171,4 @@ export function updateItem(id: string, patch: ItemPatch): Promise<OkResponse> {
 
 export function deleteItem(id: string): Promise<DeletedResponse> {
   return request<DeletedResponse>(`/api/media/items/${encodeURIComponent(id)}`, 'DELETE');
-}
-
-/** Human-readable message for the codes the media API returns. */
-export function mediaErrorMessage(err: unknown): string {
-  if (!(err instanceof ApiError)) return 'Something went wrong. Please try again.';
-  switch (err.error) {
-    case 'network_error':
-      return 'Could not reach the server. Check your connection and try again.';
-    case 'unauthenticated':
-      return 'Sign in as an admin to manage the gallery.';
-    case 'forbidden':
-      return 'Only admins can manage the gallery.';
-    case 'unknown_album':
-      return 'That album no longer exists.';
-    case 'unknown_item':
-      return 'That item no longer exists.';
-    case 'title_required':
-      return 'An album needs a title.';
-    case 'invalid_type':
-      return 'Type must be image or video.';
-    case 'invalid_url':
-      return 'Use an https URL. Videos must be a YouTube link.';
-    default:
-      return 'Could not save. Please try again.';
-  }
 }

@@ -11,18 +11,24 @@ test('390px: no horizontal overflow, event titles full-width', async ({ page }) 
   await page.goto('/registrations');
   await expect(page.getByRole('heading', { name: 'EVENTS' })).toBeVisible();
 
-  // The list renders after the events fetch resolves; wait for it so the
-  // count below doesn't race the API (an empty DB still skips cleanly).
-  await page
-    .waitForResponse((r) => r.url().includes('/api/events') && r.ok(), { timeout: 15000 })
-    .catch(() => null);
+  // The list renders after the events fetch resolves; wait for THAT request
+  // (not just any /api/ call) so the count doesn't race the fetch. Local D1
+  // is shared with concurrent verify-step writes, so a busy read may resolve
+  // empty — reload once before concluding the DB is empty.
+  const titles = page.locator('main li h3');
+  for (let attempt = 0; ; attempt++) {
+    await page
+      .waitForResponse((r) => r.url().includes('/api/events') && r.ok(), { timeout: 15000 })
+      .catch(() => null);
+    if ((await titles.count()) > 0 || attempt >= 1) break;
+    await page.reload();
+  }
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow, 'page must not scroll horizontally at 390px').toBeLessThanOrEqual(1);
 
-  const titles = page.locator('main li h3');
   const count = await titles.count();
   test.skip(count === 0, 'no events in DB — title width check needs seeded data');
   const box = await titles.first().boundingBox();

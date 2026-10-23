@@ -74,6 +74,9 @@ export const RATE_LIMITS = {
   loginPerIp: { limit: 10, windowSeconds: 60 * 15 },
   loginPerEmail: { limit: 5, windowSeconds: 60 * 15 },
   resendVerificationPerIp: { limit: 5, windowSeconds: 60 * 60 },
+  // Forgot-password sends mail per request; cap it like resend-verification
+  // so one IP cannot flood the outbox (or a victim's inbox) unbounded.
+  forgotPasswordPerIp: { limit: 5, windowSeconds: 60 * 60 },
 } as const;
 
 // ---------------------------------------------------------------------------

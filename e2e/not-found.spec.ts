@@ -11,9 +11,13 @@ test('unknown route renders a plain 404 with an inert zero', async ({ page }) =>
   await expect(page.getByRole('button', { name: 'Open admin console' })).toHaveCount(0);
 
   // The "404" digits are static text: the only buttons on the page are the
-  // "More about this error" cycler and the Back-home / Sign-in navigation.
+  // error-notes cycler (accessible name = its visible label, e.g.
+  // "Error / Route not resolved") and the Back-home / Sign-in navigation.
   const buttons = page.getByRole('button');
   await expect(buttons.filter({ hasText: '0' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'More about this error' })).toBeVisible();
+  const cycler = page.getByRole('button', { name: /Error \// });
+  await expect(cycler).toBeVisible();
+  await cycler.click();
+  await expect(page.getByRole('button', { name: /Error \// })).not.toHaveText(/Route not resolved/);
   await expect(page.getByRole('link', { name: 'Back to home' })).toBeVisible();
 });

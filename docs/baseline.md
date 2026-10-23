@@ -85,6 +85,51 @@ npx -y lighthouse http://localhost:4174/ \
 Capture on first run: LCP, TBT, CLS, SI, and the transferred size of the main
 chunk + the GlobeNarrative chunk on a cold load.
 
+## Lighthouse — 2026-10-23 (served staging stack)
+
+Date: 2026-10-23. Measured with `lighthouse@13.5.0` against the live local
+staging stack (`npx wrangler dev -c wrangler.staging.jsonc` on 127.0.0.1:8787,
+read-only — no rebuild, no restart). Desktop = `--preset=desktop`, mobile =
+default Moto-G-class emulation, `--chrome-flags="--no-sandbox --headless"`.
+Detail route uses real id `evt-bug-to-breach` from `/api/events`. This is the
+first real Lighthouse run (the 2026-10-22 baseline above was TODO), so there
+is no earlier "before" row — treat this table as the before for the
+skeleton/dead-code work below.
+
+| Route | Mode | Perf | A11y | BP | SEO | LCP (ms) | CLS | TBT (ms) | FCP (ms) | Transfer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/` | desktop | 1.00 | 0.86 | 0.92 | 1.00 | 816 | 0.001 | 0 | 467 | 354 KiB |
+| `/registrations` | desktop | 0.91 | 0.95 | 0.96 | 1.00 | 542 | **0.188** | 0 | 398 | 215 KiB |
+| `/registrations/evt-bug-to-breach` | desktop | 1.00 | 1.00 | 0.96 | 1.00 | 666 | 0.009 | 0 | 442 | 220 KiB |
+| `/media` | desktop | 1.00 | 1.00 | 0.92 | 1.00 | 667 | 0.006 | 0 | 443 | 218 KiB |
+| `/` | mobile | 0.86 | — | — | — | 3711 | 0.003 | 139 | 2118 | 354 KiB |
+| `/registrations` | mobile | 0.80 | 0.95 | 0.96 | 1.00 | 2645 | **0.310** | 9 | 1696 | 215 KiB |
+| `/registrations/evt-bug-to-breach` | mobile | 0.93 | — | — | — | 2689 | 0.097 | 15 | 1799 | 220 KiB |
+| `/media` | mobile | 0.93 | — | — | — | 2702 | 0.094 | 15 | 1805 | 218 KiB |
+
+(A11y/BP/SEO on the three mobile detail rows were read but not recorded;
+perf-relevant columns are complete.)
+
+Diagnosis: `layout-shifts` on mobile `/registrations` attributes ~all of the
+0.31 CLS to `<footer class="border-t border-line">` (score 0.310) — the list
+popping in under the one-line "Loading events…" pushes the footer down. The
+fix (same commit window): `site/src/pages/Registrations.tsx` loading state
+now reserves the list area (`mt-12` section + `min-h-[480px]` skeleton with
+the same hairline/py-5 row rhythm, `aria-hidden`, `animate-pulse`; the
+"Loading events…" text keeps its `aria-live="polite"` home). Measured CLS
+above is pre-fix (server serves the pre-existing build — read-only, not
+rebuilt); re-run after the next `deploy:staging` to confirm ~0.
+
+Dead-code removals (same window, `tsc -p site` clean, `npm test` 47/47 green):
+`updateSection` (`site/src/lib/admin.ts`, zero repo-wide refs — section copy
+has no admin UI and is updated via direct `PUT /api/content/sections/:key`),
+`mediaErrorMessage` (`site/src/lib/media.ts`, zero repo-wide refs). Kept:
+`gsap` (still imported by the production root app `src/components/Hero.tsx`,
+built by `npm run build` and served from `wrangler.jsonc`), all
+variant/COPY_TODO comments (image pipeline is deferred — do not touch),
+`getSite`/`getTestimonials` (used internally by the `load*` wrappers),
+`EMPTY_SITE_STATE` (used in `site.ts` normalizers).
+
 ## E2E (Playwright) — Phase 5B/5C
 
 - Runner: `@playwright/test ^1.64.1` (devDep), config `e2e/playwright.config.ts`,
@@ -99,7 +144,8 @@ chunk + the GlobeNarrative chunk on a cold load.
   answer completes), `capacity-waitlist` (capacity-1: first confirmed, second
   waitlisted, first cancels -> second promoted; two isolated contexts),
   `mobile-layout` (390px: no horizontal overflow, titles span the row),
-  `http-status` (/nope + /admin -> 404, / + /media -> 200, HTML shell).
+  `http-status` (/nope + /admin -> 404, / + /media -> 200, HTML shell),
+  axe (5 scans, zero critical/serious), hash-navigation, history.
 - Hermetic seeding: specs needing D1 data use fixtures in `e2e/fixtures.ts`
   (`plainOpenEvent` / `qEvent` / `tinyEvent`) that discover a matching open
   event via `/api/events` and `test.skip()` with a pointer to the seed when
@@ -125,10 +171,16 @@ chunk + the GlobeNarrative chunk on a cold load.
   # clear rate-limit buckets
   npx wrangler kv key list --binding RATELIMIT_KV --local --prefix "rl:" -c wrangler.staging.jsonc
   npx wrangler kv key delete --binding RATELIMIT_KV --local "<name>" -c wrangler.staging.jsonc
-  # clear e2e test data (seed rows stay)
-  npx wrangler d1 execute nsdc-auth --local --command "DELETE FROM registrations WHERE event_id LIKE 'e2e%'; DELETE FROM users WHERE email LIKE '%@e2e.example.com';" -c wrangler.staging.jsonc
+  # clear e2e test data (seed rows stay; e2e users use college-domain addresses)
+  npx wrangler d1 execute nsdc-auth --local --command "DELETE FROM registrations WHERE event_id LIKE 'e2e%'; DELETE FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%';" -c wrangler.staging.jsonc
   ```
   CI never needs this (every run starts from cold local state).
+- Member e2e flows verify via local D1, not email: `registerViaApi` registers,
+  flips `email_verified` with `wrangler d1 execute --local`, then logs in for
+  real — so registration gating, verify-pending redirect, and login all run
+  through production code paths. Requires cwd = repo root and the 5/hr local
+  register budget shared across re-runs (see cleanup above). Registration
+  requires `@bl.students.amrita.edu` addresses (server-side college gate).
 - CI: `quality` job unchanged (typecheck root/site, build root/site, 42 unit
   tests). `e2e` job (needs quality): npm ci -> cache `~/.cache/ms-playwright`
   -> `playwright install --with-deps chromium` -> build site -> local D1
@@ -136,6 +188,33 @@ chunk + the GlobeNarrative chunk on a cold load.
   -> `npm run test:e2e`; worker log dumped on failure. On a cold browser
   cache the install step downloads browsers (~1-2 min) — expected, not a
   failure.
+- 2026-10-23 (plan #64/#69/#51/#52): `deploy-staging` job added — manual ONLY
+  (`workflow_dispatch`, `needs: e2e`, `if: github.event_name ==
+  workflow_dispatch`); steps are the repo's own commands: `npm run build:site`
+  -> `npm run migrate:staging` (`wrangler d1 migrations apply nsdc-auth
+  --remote -c wrangler.staging.jsonc`) -> `npx wrangler deploy -c
+  wrangler.staging.jsonc` (worker `nsdcaseb-staging`, host
+  `preview.nsdcaseb.xyz`). Production (apex teaser) untouched — no job, no
+  step deploys it.
+- Browser matrix (same date): `e2e/playwright.config.ts` selects projects from
+  `BROWSERS` — default `chromium` locally, `all` (chromium + firefox + webkit)
+  when `BROWSERS=all` or `CI` is set. CI installs all three (`playwright
+  install --with-deps chromium firefox webkit`) and runs with `BROWSERS: all`.
+  Local firefox/webkit download attempted 2026-10-23 but timed out mid-fetch
+  (~124 MB firefox at 40% after 10 min) — environment bandwidth, not a config
+  error; CI installs them instead. New specs verified on chromium locally.
+- Axe gate (same date): `@axe-core/playwright` devDep; `e2e/axe.spec.ts`
+  scans `/`, `/registrations`, `/media`, `/admin` (locked 404) + first
+  `/projects/:id` (skips when no projects). Threshold: zero
+  critical/serious violations EXCEPT five pre-existing product-code rules
+  excluded via `disableRules` (site/* frozen this plan): `color-contrast`,
+  `label-content-name-mismatch`, `aria-prohibited-attr`, `definition-list`,
+  `dlitem` (observed counts documented in the spec header). Any NEW
+  critical/serious rule still fails the build.
+- New navigation specs (same date): `e2e/hash-navigation.spec.ts` (`/#about`,
+  `/#people`, `/registrations#archive` land + reveal target sections),
+  `e2e/history.spec.ts` (back/forward `/` <-> `/registrations` keeps URL +
+  content in sync). All role/label selectors, no CSS internals.
 
 ## Concerns / follow-ups
 

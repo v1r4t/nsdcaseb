@@ -64,14 +64,19 @@ function errorCode(payload: unknown, status: number): string {
 
 async function request<T>(path: string): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
   try {
     response = await fetch(path, {
       method: 'GET',
       credentials: 'include',
       headers: { Accept: 'application/json' },
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
   }
   const raw = await response.text().catch(() => '');
   let payload: unknown = null;

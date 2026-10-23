@@ -13,7 +13,7 @@
  */
 
 import { fetchContent } from './content';
-import { listEvents } from './events';
+import { formatEventDate, listEvents } from './events';
 import type { EventSummary } from './events';
 import { listMedia } from './media';
 
@@ -101,19 +101,17 @@ export function buildStaticIndex(): SearchItem[] {
 
 // Remote index (lazy, cached, failure-tolerant) --------------------------------
 
-function formatEventDate(iso: string): string {
-  const ms = Date.parse(iso);
-  if (Number.isNaN(ms)) return 'DATE TBC';
-  return new Date(ms)
-    .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    .toUpperCase();
-}
-
 function eventStatusWord(event: EventSummary): string {
   if (!event.registration_open) return 'CLOSED';
   if (event.spots_left !== null && event.spots_left <= 0) return 'WAITLIST';
   if (event.spots_left !== null && event.spots_left <= 5) return 'FILLING FAST';
   return 'OPEN';
+}
+
+/** IST event date for palette sublabels; invalid ISO stays 'DATE TBC'. */
+function eventSublabelDate(iso: string): string {
+  if (Number.isNaN(Date.parse(iso))) return 'DATE TBC';
+  return formatEventDate(iso);
 }
 
 async function loadEventItems(): Promise<SearchItem[]> {
@@ -122,7 +120,7 @@ async function loadEventItems(): Promise<SearchItem[]> {
     id: `event-${event.id}`,
     domain: 'events' as const,
     label: event.title,
-    sublabel: `${formatEventDate(event.starts_at)} · ${eventStatusWord(event)}`,
+    sublabel: `${eventSublabelDate(event.starts_at)} · ${eventStatusWord(event)}`,
     href: `/registrations/${encodeURIComponent(event.id)}`,
     startsAt: event.starts_at,
   }));

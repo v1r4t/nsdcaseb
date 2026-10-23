@@ -60,10 +60,40 @@ export default function AdminContent({ notify }: PanelProps) {
   );
 }
 
+/** One link per line: `Label https://…`. Returns null on any bad line. */
+function parseLinksText(raw: string): { label: string; url: string }[] | null {
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const out: { label: string; url: string }[] = [];
+  for (const line of lines) {
+    const cut = line.lastIndexOf(' ');
+    if (cut <= 0) return null;
+    const label = line.slice(0, cut).trim();
+    const url = line.slice(cut + 1).trim();
+    if (!label || label.length > 60) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    out.push({ label, url: parsed.toString() });
+  }
+  if (out.length > 10) return null;
+  return out;
+}
+
+function linksText(links: { label: string; url: string }[]): string {
+  return links.map((link) => `${link.label} ${link.url}`).join('\n');
+}
+
 function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m: string) => Promise<void> }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
-  const [edits, setEdits] = useState<Record<string, { name: string; role: string }>>({});
+  const [edits, setEdits] = useState<Record<string, { name: string; role: string; links: string }>>({});
   async function run(fn: () => Promise<unknown>, msg: string): Promise<void> {
     try {
       await fn();
@@ -72,17 +102,33 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
       await onDone(errText(err));
     }
   }
+  async function save(id: string, ed: { name: string; role: string; links: string }, fallbackName: string): Promise<void> {
+    const links = parseLinksText(ed.links);
+    if (links === null) {
+      await onDone('Links must be one "Label https://…" per line.');
+      return;
+    }
+    await run(() => updateBearer(id, { name: ed.name, role: ed.role, links }), `Saved ${ed.name || fallbackName}.`);
+  }
   return (
     <div className="mt-6 border-t border-line pt-5">
       <h3 className="label">Office bearers</h3>
       <ul className="mt-4">
         {bearers.map((x) => {
-          const ed = edits[x.id] ?? { name: x.name, role: x.role };
+          const ed = edits[x.id] ?? { name: x.name, role: x.role, links: linksText(x.links) };
           return (
             <li key={x.id} className="flex flex-wrap items-center gap-2 border-t border-line py-3">
               <input aria-label="Bearer name" value={ed.name} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, name: e.target.value } })} className="field min-w-[9rem] flex-1" />
               <input aria-label="Bearer role" value={ed.role} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, role: e.target.value } })} className="field min-w-[9rem] flex-1" />
-              <button type="button" className="btn-ghost shrink-0" onClick={() => void run(() => updateBearer(x.id, { name: ed.name, role: ed.role }), `Saved ${ed.name}.`)}>
+              <textarea
+                aria-label="Bearer links, one Label and URL per line"
+                value={ed.links}
+                onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, links: e.target.value } })}
+                placeholder="Label https://… (one per line)"
+                rows={2}
+                className="field min-w-[9rem] flex-1"
+              />
+              <button type="button" className="btn-ghost shrink-0" onClick={() => void save(x.id, ed, x.name)}>
                 Save
               </button>
               <button

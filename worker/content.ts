@@ -26,9 +26,32 @@ export interface BearerRow {
   role: string;
   cohort: string | null;
   photo_url: string | null;
+  links: string | null;
   sort_order: number;
 }
 
+export interface BearerLink {
+  label: string;
+  url: string;
+}
+
+/** Parse the `links` JSON column defensively; anything malformed becomes []. */
+function parseLinks(raw: unknown): BearerLink[] {
+  if (typeof raw !== 'string' || !raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is BearerLink =>
+        !!item &&
+        typeof item === 'object' &&
+        typeof (item as BearerLink).label === 'string' &&
+        typeof (item as BearerLink).url === 'string',
+    );
+  } catch {
+    return [];
+  }
+}
 export interface AchievementRow {
   id: string;
   title: string;
@@ -40,7 +63,7 @@ export interface AchievementRow {
 const SECTIONS_SQL =
   'SELECT key, title, body, sort_order FROM content_sections ORDER BY sort_order ASC, key ASC';
 const BEARERS_SQL =
-  'SELECT id, name, role, cohort, photo_url, sort_order FROM office_bearers ORDER BY sort_order ASC, name ASC';
+  'SELECT id, name, role, cohort, photo_url, links, sort_order FROM office_bearers ORDER BY sort_order ASC, name ASC';
 const ACHIEVEMENTS_SQL =
   'SELECT id, title, description, date, sort_order FROM achievements ORDER BY sort_order ASC, title ASC';
 
@@ -70,7 +93,7 @@ export async function handleContentApi(request: Request, env: Env): Promise<Resp
 
   return json({
     sections: sections.results,
-    bearers: bearers.results,
+    bearers: (bearers.results ?? []).map((row) => ({ ...row, links: parseLinks(row.links) })),
     achievements: achievements.results,
   });
 }

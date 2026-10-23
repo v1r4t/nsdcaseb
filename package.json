@@ -28,6 +28,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@cloudflare/workers-types": "^5.20261003.1",
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",

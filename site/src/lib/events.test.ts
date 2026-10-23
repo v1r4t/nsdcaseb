@@ -9,6 +9,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
   cancelRegistration,
+  eventDateParts,
+  formatEventDate,
+  formatEventDateTime,
+  formatEventTimeRange,
   getEvent,
   listEvents,
   myRegistration,
@@ -90,6 +94,35 @@ describe('registerForEvent / cancelRegistration / myRegistration', () => {
   it('resolves a null registration', async () => {
     stubFetch(async () => jsonResponse({ registration: null }));
     await expect(myRegistration('e1')).resolves.toEqual({ registration: null });
+  });
+});
+
+describe('event date helpers (Asia/Kolkata)', () => {
+  it('formats the IST calendar date even when UTC is a day earlier', () => {
+    // 20:00Z on the 16th is 01:30 IST on the 17th.
+    expect(formatEventDate('2025-10-16T20:00:00Z')).toBe('17 OCT 2025');
+  });
+
+  it('falls back to the raw string for invalid dates', () => {
+    expect(formatEventDate('not-a-date')).toBe('not-a-date');
+  });
+
+  it('marks time ranges IST and returns empty for invalid input', () => {
+    const range = formatEventTimeRange('2025-10-17T09:00:00Z', '2025-10-17T11:00:00Z');
+    expect(range).toContain('IST');
+    expect(range.length).toBeGreaterThan(3);
+    expect(formatEventTimeRange('bad', '2025-10-17T11:00:00Z')).toBe('');
+  });
+
+  it('formats registration deadlines with date and IST marker', () => {
+    const dt = formatEventDateTime('2025-10-16T20:00:00Z');
+    expect(dt).toContain('17 OCT 2025');
+    expect(dt).toContain('IST');
+  });
+
+  it('splits IST date parts for the list-row calendar block', () => {
+    expect(eventDateParts('2025-10-16T20:00:00Z')).toEqual({ day: '17', mon: 'OCT', year: '2025' });
+    expect(eventDateParts('not-a-date')).toBeNull();
   });
 });
 

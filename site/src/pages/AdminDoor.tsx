@@ -14,7 +14,7 @@ export default function AdminDoor() {
   const [unlocked, setUnlocked] = useState(false);
 
   if (!unlocked) {
-    return <NotFound onZero={() => setUnlocked(true)} zeroLabel="Open admin console" />;
+    return <NotFound onZero={() => setUnlocked(true)} zeroLabel="0 · Open admin console" />;
   }
 
   return (

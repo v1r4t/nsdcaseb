@@ -82,7 +82,7 @@ function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => 
     <button
       type="button"
       onClick={() => onOpen(item)}
-      aria-label={`Open photo: ${item.title || item.caption || 'untitled'}`}
+      aria-label={`Open photo: ${item.caption || item.title || 'untitled'}`}
       data-cursor="EXPAND →"
       className="group block w-full overflow-hidden border border-line text-left transition-colors duration-200 hover:border-paper/40"
     >

@@ -16,7 +16,7 @@ const MARQUEE_ITEMS = [
   'BUILD',
   'LEARN',
   'SHIP',
-  '12.9716° N, 77.5946° E',
+  '12.8947° N, 77.6756° E',
   'BENGALURU',
   'NATIONAL STUDENT DATA CORPS',
   '26—27',

@@ -1,33 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ApiError, listEvents } from '../lib/events';
+import { ApiError, eventDateParts, formatEventDate, formatEventTimeRange, listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 import { useAuth } from '../lib/auth';
 import StatusDot from '../components/StatusDot';
 import Reveal from '../components/Reveal';
 
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
 function dateParts(iso: string): { day: string; mon: string; year: string } | null {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return {
-    day: String(d.getDate()).padStart(2, '0'),
-    mon: MONTHS[d.getMonth()] ?? '',
-    year: String(d.getFullYear()),
-  };
+  return eventDateParts(iso);
 }
 
 function timeRange(starts: string, ends: string): string {
-  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
-  try {
-    const s = new Date(starts);
-    const e = new Date(ends);
-    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '';
-    return `${s.toLocaleTimeString(undefined, opts)} – ${e.toLocaleTimeString(undefined, opts)}`;
-  } catch {
-    return '';
-  }
+  return formatEventTimeRange(starts, ends);
 }
 
 function Row({ event }: { event: EventSummary }) {
@@ -70,6 +54,53 @@ function Row({ event }: { event: EventSummary }) {
         </div>
       </Link>
     </li>
+  );
+}
+
+function FeaturedNext({ event }: { event: EventSummary }) {
+  const range = timeRange(event.starts_at, event.ends_at);
+  const cta = event.mine?.status === 'registered' || event.mine?.status === 'waitlisted'
+    ? 'View registration →'
+    : event.registration_open
+      ? 'Register →'
+      : 'View event →';
+  return (
+    <section aria-label="Next event" className="mt-12 border border-line p-4 sm:p-6">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="min-w-0 truncate font-mono text-[11px] uppercase tracking-wide text-muted">
+          Next up
+        </h2>
+        <StatusDot event={event} />
+      </div>
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+        {event.poster_url && (
+          <img
+            src={event.poster_url}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            className="h-32 w-full border border-line object-cover sm:h-28 sm:w-44 sm:shrink-0"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
+            {formatEventDate(event.starts_at)}
+            {range ? ` / ${range}` : ''}
+          </p>
+          <h3 className="mt-2 font-display text-2xl font-semibold leading-tight text-paper sm:text-3xl">
+            {event.title}
+          </h3>
+          <Link
+            to={`/registrations/${encodeURIComponent(event.id)}`}
+            data-cursor="VIEW EVENT →"
+            className="link mt-3 inline-block text-sm"
+          >
+            {cta}
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -137,7 +168,7 @@ export default function Registrations() {
     };
   }, []);
 
-  const { upcoming, archive } = useMemo(() => {
+  const { upcoming, archive, archiveByYear } = useMemo(() => {
     const now = Date.now();
     const up: EventSummary[] = [];
     const arch: EventSummary[] = [];
@@ -148,7 +179,15 @@ export default function Registrations() {
     }
     up.sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at));
     arch.sort((a, b) => +new Date(b.starts_at) - +new Date(a.starts_at));
-    return { upcoming: up, archive: arch };
+    const byYear = new Map<string, EventSummary[]>();
+    for (const e of arch) {
+      const year = dateParts(e.starts_at)?.year ?? String(new Date(e.starts_at).getFullYear());
+      const list = byYear.get(year);
+      if (list) list.push(e);
+      else byYear.set(year, [e]);
+    }
+    const years = [...byYear.entries()].sort((a, b) => Number(b[0]) - Number(a[0]));
+    return { upcoming: up, archive: arch, archiveByYear: years };
   }, [events]);
 
   return (
@@ -175,13 +214,32 @@ export default function Registrations() {
         </p>
       )}
       {!error && events === null && (
-        <p aria-live="polite" className="mt-8 font-mono text-xs uppercase tracking-wide text-muted">
-          Loading events…
-        </p>
+        <div aria-live="polite" aria-busy="true" className="mt-12">
+          <p className="font-mono text-xs uppercase tracking-wide text-muted">Loading events…</p>
+          {/* Skeleton reserves ~the list area (6 rows + hairlines) so the rows
+              popping in don't shift layout. Same shell rhythm (mt-12 section,
+              border-t hairline, py-5 rows) as Group below. */}
+          <div aria-hidden="true" className="mt-4 min-h-[480px] animate-pulse border-t border-line">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-2 border-b border-line py-5 sm:flex sm:gap-8 sm:px-3"
+              >
+                <div className="col-start-1 row-start-1 h-8 w-14 shrink-0 bg-line" />
+                <div className="col-span-2 row-start-2 min-w-0 sm:flex-1">
+                  <div className="h-5 w-3/4 bg-line" />
+                  <div className="mt-2 h-3 w-1/3 bg-line" />
+                </div>
+                <div className="col-start-2 row-start-1 h-4 w-16 shrink-0 justify-self-end bg-line" />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {events !== null && !error && (
         <>
+          {upcoming.length > 0 && <FeaturedNext event={upcoming[0]} />}
           <Group label="Upcoming" count={upcoming.length} events={upcoming} empty="No upcoming events" />
           {!user && (
             <p className="mt-8 font-mono text-[11px] uppercase tracking-wide text-muted">
@@ -190,14 +248,39 @@ export default function Registrations() {
               </Link>
             </p>
           )}
-          <Group
-            id="archive"
-            label="Archive"
-            count={archive.length}
-            events={archive}
-            empty="Nothing in the archive yet"
-            dimmed
-          />
+          <section aria-label="Archive" id="archive" className="mt-12 scroll-mt-24">
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-mono text-[11px] uppercase tracking-wide text-muted">Archive</h2>
+              <span aria-hidden="true" className="font-mono text-[11px] text-muted">
+                {String(archive.length).padStart(2, '0')}
+              </span>
+            </div>
+            {archive.length === 0 ? (
+              <p className="border-t border-line py-8 font-mono text-xs uppercase tracking-wide text-muted">
+                Nothing in the archive yet
+              </p>
+            ) : (
+              archiveByYear.map(([year, yearEvents]) => (
+                <div key={year} className="mt-8 first:mt-4">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <h3 className="min-w-0 truncate font-mono text-[11px] uppercase tracking-wide text-paper/80">
+                      {year}
+                    </h3>
+                    <span aria-hidden="true" className="shrink-0 font-mono text-[11px] text-muted">
+                      {String(yearEvents.length).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <ul>
+                    {yearEvents.map((e) => (
+                      <Row key={e.id} event={e} />
+                    ))}
+                    {/* Closing hairline for the last row */}
+                    <li aria-hidden="true" className="border-t border-line" />
+                  </ul>
+                </div>
+              ))
+            )}
+          </section>
         </>
       )}
     </div>

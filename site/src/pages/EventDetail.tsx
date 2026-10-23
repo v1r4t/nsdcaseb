@@ -4,6 +4,9 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ApiError,
   cancelRegistration,
+  formatEventDate,
+  formatEventDateTime,
+  formatEventTimeRange,
   getEvent,
   myRegistration,
   registerForEvent,
@@ -56,21 +59,11 @@ function message(error: ApiError): string {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+  return formatEventDate(iso);
 }
 
 function formatTimeRange(starts: string, ends: string): string {
-  const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
-  try {
-    const s = new Date(starts);
-    const e = new Date(ends);
-    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return '';
-    return `${s.toLocaleTimeString(undefined, opts)} – ${e.toLocaleTimeString(undefined, opts)}`;
-  } catch {
-    return '';
-  }
+  return formatEventTimeRange(starts, ends);
 }
 
 export default function EventDetailPage() {
@@ -218,6 +211,7 @@ export default function EventDetailPage() {
   }
 
   const closed = !event.registration_open;
+  const ended = !Number.isNaN(Date.parse(event.ends_at)) && Date.parse(event.ends_at) <= Date.now();
   const showMeter =
     event.registration_open && event.capacity !== null && event.spots_left !== null;
   const isActive = status === 'registered' || status === 'waitlisted';
@@ -241,6 +235,14 @@ export default function EventDetailPage() {
             <dd className="text-paper/80">{timeRange}</dd>
           </div>
         )}
+        <div className="mt-1 flex gap-3">
+          <dt>Reg opens</dt>
+          <dd className="text-paper/80">{formatEventDateTime(event.reg_opens_at)}</dd>
+        </div>
+        <div className="mt-1 flex gap-3">
+          <dt>Reg closes</dt>
+          <dd className="text-paper/80">{formatEventDateTime(event.reg_closes_at)}</dd>
+        </div>
       </dl>
 
       <h1 className="mt-4 max-w-4xl font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">
@@ -274,7 +276,7 @@ export default function EventDetailPage() {
                     href={project.url}
                     target="_blank"
                     rel="noopener"
-                    aria-label={`${project.title} (opens in a new tab)`}
+                    aria-label={`Visit ${project.title} (opens in a new tab)`}
                     className="group flex items-baseline justify-between gap-4"
                   >
                     <span className="font-display text-lg font-medium text-paper transition-colors duration-200 group-hover:text-signal">
@@ -288,7 +290,11 @@ export default function EventDetailPage() {
                     </span>
                   </a>
                 ) : (
-                  <Link to="/projects" className="group flex items-baseline justify-between gap-4">
+                  <Link
+                    to={`/projects/${encodeURIComponent(project.id)}`}
+                    aria-label={`${project.title} (project details)`}
+                    className="group flex items-baseline justify-between gap-4"
+                  >
                     <span className="font-display text-lg font-medium text-paper transition-colors duration-200 group-hover:text-signal">
                       {project.title}
                     </span>
@@ -296,7 +302,7 @@ export default function EventDetailPage() {
                       aria-hidden="true"
                       className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted"
                     >
-                      Index →
+                      Details →
                     </span>
                   </Link>
                 )}
@@ -422,11 +428,11 @@ export default function EventDetailPage() {
         </p>
       )}
 
-      {/* ---- Closed event ---- */}
+      {/* ---- Closed / ended event ---- */}
       {!isActive && status !== 'cancelled' && closed && (
-        <section aria-label="Registration closed" className="mt-12 border-t border-line pt-8">
+        <section aria-label={ended ? 'Event ended' : 'Registration closed'} className="mt-12 border-t border-line pt-8">
           <p role="status" className="font-mono text-xs uppercase tracking-wide text-muted">
-            Registration closed
+            {ended ? `This event has ended — ${formatDate(event.starts_at)}` : 'Registration closed'}
           </p>
           <Link to="/registrations#archive" className="link mt-3 inline-block text-sm">
             Browse the archive

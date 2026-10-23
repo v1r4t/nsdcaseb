@@ -10,7 +10,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
  * fallback permanently.
  *
  * The fallback is a plain `<section>` with the exact same geometry as the
- * real globe section (`relative h-[250vh] bg-ink`), so swapping it for the
+ * real globe section (`relative h-[170vh] bg-ink`), so swapping it for the
  * live globe causes no layout shift.
  */
 const GlobeNarrative = lazy(() => import('./GlobeNarrative'));
@@ -23,8 +23,14 @@ function prefersReducedMotion(): boolean {
 /** Same static gradient the globe renders when WebGL fails — no CLS. */
 function GlobeFallback() {
   return (
-    <section aria-label="Our story" className="relative h-[250vh] bg-ink">
+    <section aria-label="Our story" className="relative h-[170vh] bg-ink">
       <div className="sticky top-0 h-screen overflow-hidden">
+        <a
+          href="#about"
+          className="absolute left-6 top-14 z-10 font-mono text-[11px] uppercase tracking-wide text-muted underline underline-offset-4 transition-colors duration-200 hover:text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal md:left-12"
+        >
+          Skip the story ↓
+        </a>
         <div
           aria-hidden="true"
           className="absolute inset-0"
@@ -69,7 +75,8 @@ export default function LazyGlobe() {
         }
       },
       // Start fetching ~one viewport before the section scrolls into view.
-      { rootMargin: '400px 0px 400px 0px' },
+      // The section is now ~170vh, so a tighter margin still preloads in time.
+      { rootMargin: '200px 0px 200px 0px' },
     );
     io.observe(node);
     return () => io.disconnect();

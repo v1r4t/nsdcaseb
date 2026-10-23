@@ -4,7 +4,7 @@ import { NarrativeGlobe } from '../lib/narrative-globe';
 /**
  * GlobeNarrative — scroll-linked globe storytelling section.
  *
- * A ~250vh tall wrapper with a sticky 100vh stage: scroll position drives
+ * A ~170vh tall wrapper with a sticky 100vh stage: scroll position drives
  * the globe timeline (assemble → Bengaluru marker → network → dissolve)
  * while asymmetric copy overlays cross-fade. No props — the orchestrator
  * renders `<GlobeNarrative />` wherever it belongs in the page order.
@@ -40,8 +40,8 @@ const STAGES: Stage[] = [
 ];
 
 function stageForProgress(p: number): number {
-  if (p < 0.42) return 0;
-  if (p < 0.7) return 1;
+  if (p < 0.34) return 0;
+  if (p < 0.67) return 1;
   return 2;
 }
 
@@ -113,8 +113,14 @@ export default function GlobeNarrative() {
   const showAll = reduced || failed;
 
   return (
-    <section ref={wrapRef} aria-label="Our story" className="relative h-[250vh] bg-ink">
+    <section ref={wrapRef} aria-label="Our story" className="relative h-[170vh] bg-ink">
       <div className="sticky top-0 h-screen overflow-hidden">
+        <a
+          href="#about"
+          className="absolute left-6 top-14 z-10 font-mono text-[11px] uppercase tracking-wide text-muted underline underline-offset-4 transition-colors duration-200 hover:text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal md:left-12"
+        >
+          Skip the story ↓
+        </a>
         {failed ? (
           <div
             aria-hidden="true"
@@ -160,7 +166,7 @@ export default function GlobeNarrative() {
             }`}
           >
             <p className="font-mono text-[11px] uppercase tracking-wide text-signal">
-              12.9716° N, 77.5946° E
+              12.8947° N, 77.6756° E
             </p>
             <p className="label mt-1">BENGALURU</p>
           </div>

@@ -190,7 +190,7 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
                   to={item.to}
                   onClick={onClose}
                   aria-current={isActiveItem(item.to) ? 'page' : undefined}
-                  className="group flex items-baseline gap-4 py-4 md:gap-8 md:py-5"
+                  className="group flex min-h-[44px] items-baseline gap-4 py-5 md:gap-8 md:py-5"
                 >
                   <span className="label w-8 shrink-0 pt-[0.6em] font-mono">{item.index}</span>
                   <span className="min-w-0 flex-1">
@@ -208,14 +208,14 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
         </nav>
 
         <a
-          href="https://www.google.com/maps/search/?api=1&query=12.9716,77.5946"
+          href="https://www.google.com/maps/search/?api=1&query=12.894702,77.675574"
           target="_blank"
           rel="noopener noreferrer"
           data-cursor="OPEN MAP →"
           aria-label="Open campus location in Google Maps"
           className="label mt-10 inline-block transition-colors hover:text-signal"
         >
-          12.9716&deg; N, 77.5946&deg; E
+          12.8947&deg; N, 77.6756&deg; E
         </a>
       </div>
     </div>

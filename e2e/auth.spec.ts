@@ -1,9 +1,11 @@
-import { test, expect, uniqueEmail } from './fixtures';
+import { test, expect, verifyUserEmail, uniqueEmail } from './fixtures';
 
-// Full credential loop with a fresh address per run: register (auto sign-in)
-// -> sign out -> sign back in. Needs no seeded data.
+// Full credential loop with a fresh address per run: register (lands on
+// verify-pending since new accounts verify first) -> emulate the
+// verify-email click -> sign in -> sign out -> sign back in.
+// Needs seeded D1 only for the wrangler CLI; no seeded rows required.
 
-test('register -> logout -> login', async ({ page }) => {
+test('register -> verify -> login -> logout -> login', async ({ page }) => {
   const email = uniqueEmail('auth');
   const password = 'E2eTest123456';
 
@@ -18,8 +20,17 @@ test('register -> logout -> login', async ({ page }) => {
   await page.getByLabel('Confirm password').fill(password);
   await page.getByRole('button', { name: 'Create account' }).click();
 
-  // A successful register signs the member in and leaves the form behind.
-  await expect(page).toHaveURL(/\/$/);
+  // A fresh register creates no session: the member must verify first.
+  await expect(page).toHaveURL(/\/verify-pending$/);
+  await verifyUserEmail(email);
+
+  // Sign in with the verified credentials.
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await page.getByLabel('Email').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 
   // Sign out via the site header.
@@ -30,8 +41,8 @@ test('register -> logout -> login', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
+  await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeVisible();
 });

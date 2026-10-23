@@ -262,6 +262,18 @@ async function handleMe({ request, env }: RouteContext): Promise<Response> {
 }
 
 async function handleForgotPassword({ request, env }: RouteContext): Promise<Response> {
+  // Unbounded mail sends = outbox flood + victim inbox spam; cap per IP.
+  const ip = clientIp(request);
+  if (
+    !(await rateLimit(
+      env,
+      `forgot-password:ip:${ip}`,
+      RATE_LIMITS.forgotPasswordPerIp.limit,
+      RATE_LIMITS.forgotPasswordPerIp.windowSeconds,
+    ))
+  ) {
+    return json({ error: 'rate_limited' }, 429);
+  }
   // Never reveal whether an account exists, and never fail the request: any
   // error (including a mail/KV outage) still yields the uniform 202.
   try {

@@ -24,6 +24,7 @@ export const SITEMAP_STATIC_ROUTES: readonly string[] = ['/', '/registrations', 
 
 const EVENT_ROUTE_RE = /^\/registrations\/([^/]+)\/?$/;
 const EVENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const PROJECT_ROUTE_RE = /^\/projects\/([^/]+)\/?$/;
 
 export const DEFAULT_SITE_NAME = 'NSDC — National Student Data Corps';
 export const DEFAULT_DESCRIPTION =
@@ -42,6 +43,7 @@ export function isKnownRoute(pathname: string): boolean {
   const path = normalizePath(pathname);
   if (path === '/admin') return false;
   if ((KNOWN_STATIC_ROUTES as readonly string[]).includes(path)) return true;
+  if (PROJECT_ROUTE_RE.test(path)) return true;
   return EVENT_ROUTE_RE.test(path);
 }
 

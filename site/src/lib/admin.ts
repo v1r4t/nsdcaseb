@@ -32,15 +32,20 @@ function errorCode(payload: unknown, status: number): string {
 
 async function request<T>(path: string, method: Method = 'GET', body?: unknown): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
   try {
     response = await fetch(path, {
       method,
       credentials: 'include',
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
     throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
   }
   const raw = await response.text().catch(() => '');
   let payload: unknown = null;
@@ -180,15 +185,9 @@ export function adminUpdateEvent(
   return request<{ ok: true }>(`/api/events/${encodeURIComponent(eventId)}`, 'PATCH', patch);
 }
 
-export function updateSection(
-  key: string,
-  patch: { title?: string; body?: string },
-): Promise<{ ok: true }> {
-  return request<{ ok: true }>(
-    `/api/content/sections/${encodeURIComponent(key)}`,
-    'PUT',
-    patch,
-  );
+export interface BearerLinkInput {
+  label: string;
+  url: string;
 }
 
 export function createBearer(input: {
@@ -196,13 +195,14 @@ export function createBearer(input: {
   role: string;
   cohort?: string;
   photo_url?: string;
+  links?: BearerLinkInput[];
 }): Promise<{ id: string }> {
   return request<{ id: string }>('/api/content/bearers', 'POST', input);
 }
 
 export function updateBearer(
   id: string,
-  patch: { name?: string; role?: string; cohort?: string | null; photo_url?: string | null },
+  patch: { name?: string; role?: string; cohort?: string | null; photo_url?: string | null; links?: BearerLinkInput[] },
 ): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/content/bearers/${encodeURIComponent(id)}`, 'PATCH', patch);
 }

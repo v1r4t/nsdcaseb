@@ -48,7 +48,6 @@ export default function NotFound({ onZero, zeroLabel }: NotFoundProps) {
         <button
           type="button"
           onClick={() => setNote((current) => (current + 1) % FIELD_NOTES.length)}
-          aria-label="More about this error"
           className="label cursor-pointer appearance-none border-0 bg-transparent p-0 text-left"
         >
           {FIELD_NOTES[note]}

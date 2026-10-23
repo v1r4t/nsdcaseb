@@ -15,7 +15,12 @@ import * as THREE from 'three';
  *  0.75–1    dissolves / fades as the section exits
  *
  * Draw calls: 1 Points (globe) + 1 LineSegments (network) + 3 tiny
- * marker meshes. No postprocessing.
+ * marker meshes. No postprocessing. No setInterval — one rAF loop that
+ * skips all draw work while the tab is hidden or the stage is offscreen.
+ *
+ * Mobile cost: DPR capped at 1.5 and the point cloud shrinks on narrow
+ * screens / low-power devices (see isLowPower), plus low-power devices
+ * render at most every other frame.
  */
 
 const VERT = /* glsl */ `
@@ -88,6 +93,32 @@ function stage(p: number, edge0: number, edge1: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/** Narrow viewport: matchMedia when available, innerWidth as fallback. */
+function isNarrowViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.matchMedia === 'function') {
+    try {
+      if (window.matchMedia('(max-width: 640px)').matches) return true;
+    } catch {
+      /* fall through to innerWidth */
+    }
+  }
+  return window.innerWidth < 640;
+}
+
+/** Low-power heuristic: few cores or little device memory. */
+function isLowPower(): boolean {
+  const nav = navigator as Navigator & { hardwareConcurrency?: unknown; deviceMemory?: unknown };
+  const cores = typeof nav.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : 8;
+  const mem = typeof nav.deviceMemory === 'number' ? nav.deviceMemory : 8;
+  return cores <= 4 || mem <= 4;
+}
+
+/** DPR cap: ≤1.5 on narrow screens, ≤2 elsewhere. */
+function pixelRatioCap(): number {
+  return isNarrowViewport() ? 1.5 : 2;
+}
+
 function latLonToVec3(lat: number, lon: number, r: number): THREE.Vector3 {
   const phi = ((90 - lat) * Math.PI) / 180;
   const theta = ((lon + 180) * Math.PI) / 180;
@@ -122,6 +153,8 @@ export class NarrativeGlobe {
   private current = 0;
   private elapsed = 0;
   private last = 0;
+  private lowPower = false;
+  private frame = 0;
   private onResize: () => void;
   private onVisibility: () => void;
 
@@ -141,7 +174,7 @@ export class NarrativeGlobe {
     }
     this.renderer = renderer;
     renderer.setClearColor(0x080808, 1); // --bg
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap()));
 
     const parent = canvas.parentElement ?? canvas;
     const w = parent.clientWidth || canvas.clientWidth || window.innerWidth;
@@ -151,8 +184,10 @@ export class NarrativeGlobe {
     this.camera = new THREE.PerspectiveCamera(42, w / Math.max(h, 1), 0.1, 100);
     this.fitDistance(w, h);
 
-    const isMobile = Math.min(window.innerWidth, w) < 640;
-    const count = isMobile ? 2500 : 6000;
+    const narrow = isNarrowViewport();
+    this.lowPower = isLowPower();
+    // Narrow screens get a smaller cloud; low-power devices get smaller still.
+    const count = narrow ? (this.lowPower ? 1500 : 2500) : this.lowPower ? 3500 : 6000;
 
     // Sphere slots (fibonacci) + scatter seeds + network targets.
     const positions = new Float32Array(count * 3);
@@ -216,8 +251,8 @@ export class NarrativeGlobe {
         uDissolve: { value: 0 },
         uTime: { value: 0 },
         uGlobalAlpha: { value: 0 },
-        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) },
-        uSize: { value: isMobile ? 22 : 26 },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, pixelRatioCap()) },
+        uSize: { value: narrow ? 22 : 26 },
       },
     });
     this.points = new THREE.Points(this.geo, this.mat);
@@ -246,7 +281,7 @@ export class NarrativeGlobe {
     this.group.add(this.lines);
 
     // Bengaluru marker: dot + landing ring + faint outer ring.
-    const home = latLonToVec3(12.9716, 77.5946, RADIUS + 0.02);
+    const home = latLonToVec3(12.894702, 77.675574, RADIUS + 0.02);
     const dir = home.clone().normalize();
     this.marker.position.copy(home);
     this.marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
@@ -313,6 +348,13 @@ export class NarrativeGlobe {
     this.last = performance.now();
     const loop = (t: number) => {
       if (this.disposed) return;
+      // Background tab: rAF is throttled anyway, but do zero work here and
+      // keep `last` fresh so there is no dt jump on return.
+      if (document.hidden) {
+        this.last = t;
+        this.raf = requestAnimationFrame(loop);
+        return;
+      }
       const dt = Math.min((t - this.last) / 1000, 0.05);
       this.last = t;
       const k = 1 - Math.pow(0.001, dt); // frame-rate independent lerp
@@ -322,7 +364,10 @@ export class NarrativeGlobe {
       } else {
         this.current += diff * k;
       }
-      if (this.visible && !document.hidden) {
+      // Frame-skip guard: low-power devices draw at most every other frame
+      // (~30fps). The progress lerp above still runs every frame.
+      const skip = this.lowPower && this.frame++ % 2 === 1;
+      if (this.visible && !skip) {
         this.elapsed += dt;
         this.applyState(this.current, this.elapsed);
         this.renderer.render(this.scene, this.camera);
@@ -350,6 +395,11 @@ export class NarrativeGlobe {
       this.last = performance.now();
       const loop = (t: number) => {
         if (this.disposed) return;
+        if (document.hidden) {
+          this.last = t;
+          this.raf = requestAnimationFrame(loop);
+          return;
+        }
         const dt = Math.min((t - this.last) / 1000, 0.05);
         this.last = t;
         const k = 1 - Math.pow(0.001, dt);
@@ -359,7 +409,8 @@ export class NarrativeGlobe {
         } else {
           this.current += diff * k;
         }
-        if (this.visible && !document.hidden) {
+        const skip = this.lowPower && this.frame++ % 2 === 1;
+        if (this.visible && !skip) {
           this.elapsed += dt;
           this.applyState(this.current, this.elapsed);
           this.renderer.render(this.scene, this.camera);
@@ -379,7 +430,7 @@ export class NarrativeGlobe {
     this.camera.aspect = w / Math.max(h, 1);
     this.camera.updateProjectionMatrix();
     this.fitDistance(w, h);
-    const pr = Math.min(window.devicePixelRatio || 1, 2);
+    const pr = Math.min(window.devicePixelRatio || 1, pixelRatioCap());
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(w, h, false);
     (this.mat.uniforms.uPixelRatio as { value: number }).value = pr;

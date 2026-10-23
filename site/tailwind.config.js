@@ -11,7 +11,7 @@ export default {
       colors: {
         ink: '#080808',
         paper: '#f5f5f2',
-        muted: '#777777',
+        muted: '#8a8a8a',
         line: '#242424',
         signal: '#ff5a36',
       },

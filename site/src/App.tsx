@@ -21,6 +21,7 @@ import ResetPassword from './pages/ResetPassword';
 import Registrations from './pages/Registrations';
 import AnnouncementBanner from './components/AnnouncementBanner';
 const EventDetail = lazy(() => import('./pages/EventDetail'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Media = lazy(() => import('./pages/Media'));
 const Projects = lazy(() => import('./pages/Projects'));
 
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="/registrations/:id" element={<EventDetail />} />
               <Route path="/media" element={<Media />} />
               <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/admin" element={<AdminDoor />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

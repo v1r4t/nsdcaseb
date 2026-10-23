@@ -54,6 +54,28 @@ function nonEmpty(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/** Optional bearer `links`: array of { label, url } with http(s) URLs only. */
+function validLinks(value: unknown): { label: string; url: string }[] | null {
+  if (!Array.isArray(value)) return null;
+  if (value.length > 10) return null;
+  const out: { label: string; url: string }[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return null;
+    const { label, url } = item as Record<string, unknown>;
+    if (typeof label !== 'string' || !label.trim() || label.length > 60) return null;
+    if (typeof url !== 'string' || url.length > 500) return null;
+    let parsed: URL;
+    try {
+      parsed = new URL(url.trim());
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    out.push({ label: label.trim(), url: parsed.toString() });
+  }
+  return out;
+}
+
 function methodNotAllowed(allow: string): Response {
   return json({ error: 'method_not_allowed' }, 405, { Allow: allow });
 }
@@ -354,11 +376,17 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     if (method === 'POST' && bearerId === null) {
       const body = await parseJson(request);
       if (!body.ok) return body.response;
-      const { name, role, cohort, photo_url: photoUrl } = body.value;
+      const { name, role, cohort, photo_url: photoUrl, links } = body.value;
       if (!nonEmpty(name) || !nonEmpty(role)) return json({ error: 'name_role_required' }, 400);
+      let linksJson = '[]';
+      if (links !== undefined) {
+        const clean = validLinks(links);
+        if (clean === null) return json({ error: 'invalid_links' }, 400);
+        linksJson = JSON.stringify(clean);
+      }
       const id = crypto.randomUUID();
       await env.AUTH_DB.prepare(
-        `INSERT INTO office_bearers (id, name, role, cohort, photo_url) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO office_bearers (id, name, role, cohort, photo_url, links) VALUES (?, ?, ?, ?, ?, ?)`,
       )
         .bind(
           id,
@@ -366,6 +394,7 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
           (role as string).trim(),
           typeof cohort === 'string' ? cohort : null,
           typeof photoUrl === 'string' ? photoUrl : null,
+          linksJson,
         )
         .run();
       await audit(env, user, 'bearer_create', JSON.stringify({ id }));
@@ -383,12 +412,16 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       if (!body.ok) return body.response;
       const patch: string[] = [];
       const args: unknown[] = [];
-      for (const field of ['name', 'role', 'cohort', 'photo_url'] as const) {
+      for (const field of ['name', 'role', 'cohort', 'photo_url', 'links'] as const) {
         const value = body.value[field];
         if (value === undefined) continue;
         if (field === 'name' || field === 'role') {
           if (!nonEmpty(value)) return json({ error: `invalid_${field}` }, 400);
           args.push((value as string).trim());
+        } else if (field === 'links') {
+          const clean = validLinks(value);
+          if (clean === null) return json({ error: 'invalid_links' }, 400);
+          args.push(JSON.stringify(clean));
         } else {
           if (value !== null && typeof value !== 'string') return json({ error: `invalid_${field}` }, 400);
           args.push(value);

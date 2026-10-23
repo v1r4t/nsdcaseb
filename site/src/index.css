@@ -1,8 +1,8 @@
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import './tokens.css';
 
 @layer base {
   html {
@@ -59,7 +59,7 @@
   }
 
   .field {
-    @apply w-full rounded-sm border border-line bg-transparent px-3 py-2.5 text-sm text-paper placeholder:text-muted/70 transition-colors focus:border-signal;
+    @apply w-full rounded-sm border border-line bg-transparent px-3 py-2.5 text-sm text-paper placeholder:text-muted transition-colors focus:border-signal;
   }
 
   select.field {

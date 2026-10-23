@@ -46,6 +46,22 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
                     {bearer.role}
                     {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
                   </p>
+                  {bearer.links.length > 0 && (
+                    <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] uppercase tracking-wide">
+                      {bearer.links.map((link) => (
+                        <a
+                          key={`${link.label}-${link.url}`}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${bearer.name} — ${link.label} (opens in a new tab)`}
+                          className="text-muted underline decoration-line underline-offset-4 transition-colors duration-200 hover:text-signal"
+                        >
+                          ↗ {link.label}
+                        </a>
+                      ))}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

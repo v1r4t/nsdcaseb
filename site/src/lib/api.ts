@@ -60,6 +60,13 @@ interface RequestOptions {
   body?: unknown;
 }
 
+/**
+ * Hang-risk guard: a stalled connection must surface as `network_error`
+ * (which every caller already renders as a friendly empty/error state)
+ * instead of hanging the page forever.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /** Pull a server error code out of `{ error }`, falling back to status-derived codes. */
 function errorCode(payload: unknown, status: number): string {
   if (payload && typeof payload === 'object') {
@@ -75,16 +82,22 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const { method = 'GET', body } = options;
 
   let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     response = await fetch(path, {
       method,
       credentials: 'include',
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch {
-    // Offline, DNS failure, CORS, or a blocked mixed-content request.
+    // Offline, DNS failure, CORS, a blocked mixed-content request,
+    // or our own timeout abort — all hang-risk, all `network_error`.
     throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
   }
 
   if (response.status === 204) return undefined as T;

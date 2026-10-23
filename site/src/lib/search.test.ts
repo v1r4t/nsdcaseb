@@ -4,10 +4,9 @@
  * Covers only currently-exported pure logic: buildStaticIndex, fuzzyMatch,
  * matchItem, searchPalette, and ensureRemoteIndex (with fetch stubbed).
  *
- * NOTE (untestable as-is, no refactor allowed): formatEventDate and
- * eventStatusWord are module-private; they are exercised *indirectly* through
- * ensureRemoteIndex sublabels below. If finer-grained coverage is wanted,
- * extract them to an exported helper in a follow-up.
+ * NOTE: event date rendering now lives in lib/events (formatEventDate,
+ * pinned to Asia/Kolkata) and is exercised *indirectly* through
+ * ensureRemoteIndex sublabels below.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {

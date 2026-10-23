@@ -3,6 +3,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -26,8 +27,9 @@ jobs:
         run: npm test
 
   # Real e2e: builds the site, seeds a local D1, serves the staging worker on
-  # :8787, and runs Playwright. Browsers are cached; first runs on a cold
-  # cache install them via `playwright install --with-deps chromium`.
+  # :8787, and runs Playwright on chromium + firefox + webkit (BROWSERS=all).
+  # Browsers are cached; first runs on a cold cache install them via
+  # `playwright install --with-deps chromium firefox webkit`.
   e2e:
     # Runs whenever e2e specs exist (they do now) — no path filter needed.
     needs: quality
@@ -47,7 +49,7 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Build (site)
         run: npm run build:site
       - name: Apply local D1 migrations
@@ -65,7 +67,29 @@ jobs:
             if [ "$i" = 60 ]; then echo "worker never came up"; tail -50 /tmp/wrangler-dev.log; exit 1; fi
           done
       - name: Run Playwright e2e
+        env:
+          BROWSERS: all
         run: npm run test:e2e
       - name: Dump worker log on failure
         if: failure()
         run: tail -100 /tmp/wrangler-dev.log || true
+
+  # Staging deploy: manual ONLY (workflow_dispatch) and only after e2e is
+  # green. Production (apex teaser worker) is never touched here.
+  deploy-staging:
+    needs: e2e
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build (site)
+        run: npm run build:site
+      - name: Apply staging D1 migrations
+        run: npm run migrate:staging
+      - name: Deploy staging worker
+        run: npx wrangler deploy -c wrangler.staging.jsonc

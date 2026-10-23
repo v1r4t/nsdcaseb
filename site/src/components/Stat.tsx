@@ -26,7 +26,7 @@ function pad(value: number): string {
  * under prefers-reduced-motion or without IntersectionObserver support.
  */
 export default function Stat({ label, value, suffix, glyph }: StatProps) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const target = typeof value === 'number' && Number.isFinite(value) ? value : null;
   const [frame, setFrame] = useState<number | null>(null);
 
@@ -68,16 +68,23 @@ export default function Stat({ label, value, suffix, glyph }: StatProps) {
   }, [target]);
 
   const figure = glyph ?? pad(frame ?? 0);
+  // Glyphs (e.g. "∞") are static. Numeric figures stay hidden until the first
+  // frame is set, so a `0` fallback passed while data is still loading never
+  // renders as a misleading "000".
+  const ready = glyph !== undefined || frame !== null;
 
   return (
-    <div ref={ref}>
-      <dd className="font-mono text-6xl tracking-tight text-paper sm:text-7xl" aria-label={`${figure}${suffix ?? ''} ${label.toLowerCase()}`}>
-        <span aria-hidden="true">
+    <>
+      <dt className="label order-2 mt-3">{label}</dt>
+      <dd ref={ref} className="order-1 font-mono text-6xl tracking-tight text-paper sm:text-7xl">
+        <span className="sr-only">
+          {ready ? `${figure}${suffix ?? ''} ${label.toLowerCase()}` : `${label.toLowerCase()} loading`}
+        </span>
+        <span aria-hidden="true" className={ready ? undefined : 'invisible'}>
           {figure}
           {suffix ? <span className="text-signal">{suffix}</span> : null}
         </span>
       </dd>
-      <dt className="label mt-3">{label}</dt>
-    </div>
+    </>
   );
 }

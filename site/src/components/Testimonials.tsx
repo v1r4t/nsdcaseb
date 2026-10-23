@@ -47,8 +47,10 @@ interface TestimonialsProps {
  * deliberately pushed off the centre line. Renders nothing when there is
  * nothing to say — no heading, no empty state, no placeholder quote.
  *
- * Auto-advance stops on hover and on keyboard focus, and does not run at all
- * under prefers-reduced-motion: the first quote simply waits to be stepped.
+ * Auto-advance stops on hover and while focus is inside the block
+ * (focus-within, so tabbing between the controls keeps it paused), and does
+ * not run at all under prefers-reduced-motion: the first quote simply waits
+ * to be stepped.
  */
 export default function Testimonials({
   testimonials,
@@ -129,7 +131,12 @@ export default function Testimonials({
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onBlur={(e) => {
+        // Focus moving between the buttons/dots inside must keep rotation
+        // paused; resume only when focus truly leaves the block.
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setPaused(false);
+      }}
     >
       {/* Live region: the quote and its attribution only, so a rotation is
           announced without the controls being read out. */}

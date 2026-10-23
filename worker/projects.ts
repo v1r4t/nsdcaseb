@@ -27,6 +27,7 @@ interface ProjectRow {
   status: string;
   event_id: string | null;
   author: string;
+  featured: number;
   sort_order: number;
 }
 
@@ -84,6 +85,20 @@ function asText(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+/**
+ * Rendered-URL guard: `url` lands in an <a href> and `cover_url` in an
+ * <img src>, so a `javascript:`/`data:` scheme would be stored XSS for
+ * every visitor. Allow http(s) absolute URLs plus relative/scheme-less
+ * values (existing rows, labels); reject every other scheme.
+ */
+function safeUrlScheme(value: string): boolean {
+  const trimmed = value.trim();
+  const match = /^[A-Za-z][A-Za-z0-9+.-]*:/.exec(trimmed);
+  if (!match) return true;
+  const scheme = match[0].slice(0, -1).toLowerCase();
+  return scheme === 'http' || scheme === 'https';
+}
+
 export async function handleProjectsApi(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -102,7 +117,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
     if (method === 'GET') {
       const rows = (
         await env.AUTH_DB.prepare(
-          `SELECT id, title, summary, description, stack, url, cover_url, status, event_id, author, sort_order
+          `SELECT id, title, summary, description, stack, url, cover_url, status, event_id, author, featured, sort_order
            FROM projects ORDER BY sort_order ASC, created_at ASC`,
         ).all<ProjectRow>()
       ).results ?? [];
@@ -118,6 +133,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
           status: r.status,
           event_id: r.event_id,
           author: r.author,
+          featured: r.featured === 1,
           sort_order: r.sort_order,
         })),
       });
@@ -138,10 +154,15 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
       }
       const urlText = asText(v.url);
       const coverUrl = asText(v.cover_url);
+      if (v.featured !== undefined && typeof v.featured !== 'boolean') {
+        return json({ error: 'invalid_featured' }, 400);
+      }
       if (v.url !== undefined && v.url !== null && urlText === null) return json({ error: 'invalid_url' }, 400);
       if (v.cover_url !== undefined && v.cover_url !== null && coverUrl === null) {
         return json({ error: 'invalid_cover_url' }, 400);
       }
+      if (urlText !== null && !safeUrlScheme(urlText)) return json({ error: 'invalid_url' }, 400);
+      if (coverUrl !== null && !safeUrlScheme(coverUrl)) return json({ error: 'invalid_cover_url' }, 400);
       let eventId: string | null = null;
       if (v.event_id !== undefined && v.event_id !== null && v.event_id !== '') {
         if (typeof v.event_id !== 'string') return json({ error: 'unknown_event' }, 400);
@@ -153,8 +174,8 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
       }
       const id = crypto.randomUUID();
       await env.AUTH_DB.prepare(
-        `INSERT INTO projects (id, title, summary, description, stack, url, cover_url, status, event_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO projects (id, title, summary, description, stack, url, cover_url, status, event_id, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
         .bind(
           id,
@@ -166,6 +187,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
           coverUrl,
           status,
           eventId,
+          v.featured === true ? 1 : 0,
         )
         .run();
       await audit(env, user, 'project.create', JSON.stringify({ id }));
@@ -225,6 +247,9 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
         if (v[field] !== null && typeof v[field] !== 'string') {
           return json({ error: `invalid_${field}` }, 400);
         }
+        if (typeof v[field] === 'string' && !safeUrlScheme(v[field] as string)) {
+          return json({ error: `invalid_${field}` }, 400);
+        }
         patch.push(`${field} = ?`);
         args.push(v[field]);
       }
@@ -249,6 +274,11 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
       }
       patch.push('sort_order = ?');
       args.push(v.sort_order);
+    }
+    if (v.featured !== undefined) {
+      if (typeof v.featured !== 'boolean') return json({ error: 'invalid_featured' }, 400);
+      patch.push('featured = ?');
+      args.push(v.featured ? 1 : 0);
     }
     if (patch.length === 0) return json({ error: 'nothing_to_update' }, 400);
     args.push(id);
