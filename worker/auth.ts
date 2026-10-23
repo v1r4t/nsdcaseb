@@ -35,6 +35,7 @@ import {
 } from './auth-helpers';
 import { sha256Base64Url } from './auth-crypto';
 import { roleForEmail, regNumberFromEmail } from './role-allowlists';
+import { verificationEmail, passwordResetEmail, verifiedWelcomeEmail } from './email';
 
 // Re-export shared types so existing imports (`./auth`) keep working,
 // e.g. mailer.ts `import type { Env } from './auth'` and staging.ts.
@@ -127,11 +128,7 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
 
   try {
     const verifyToken = await createEmailToken(env, id, 'verify');
-    await trySendEmail(env, {
-      to: email,
-      subject: 'Verify your NSDC account',
-      text: `Verify your email: ${new URL(request.url).origin}/verify-email?token=${verifyToken}`,
-    });
+    await trySendEmail(env, { to: email, ...verificationEmail(new URL(request.url).origin, verifyToken) });
   } catch (err) {
     console.error('[auth] verification email setup failed', err);
   }
@@ -223,11 +220,7 @@ async function handleResendVerification({ request, env }: RouteContext): Promise
           .first<{ id: string; email_verified: number }>();
         if (row && !row.email_verified) {
           const token = await createEmailToken(env, row.id, 'verify');
-          await trySendEmail(env, {
-            to: email,
-            subject: 'Verify your NSDC account',
-            text: `Verify your email: ${new URL(request.url).origin}/verify-email?token=${token}`,
-          });
+          await trySendEmail(env, { to: email, ...verificationEmail(new URL(request.url).origin, token) });
         }
       }
     }
@@ -273,11 +266,7 @@ async function handleForgotPassword({ request, env }: RouteContext): Promise<Res
           .first<{ id: string }>();
         if (row) {
           const token = await createEmailToken(env, row.id, 'reset');
-          await trySendEmail(env, {
-            to: email,
-            subject: 'Reset your NSDC password',
-            text: `Reset your password: ${new URL(request.url).origin}/reset-password?token=${token}`,
-          });
+          await trySendEmail(env, { to: email, ...passwordResetEmail(new URL(request.url).origin, token) });
         }
       }
     }
@@ -322,11 +311,7 @@ async function handleVerifyEmail({ request, env }: RouteContext): Promise<Respon
   // Confirmation mail is best-effort and never affects the response.
   const user = await loadUserById(env, userId);
   if (user) {
-    await trySendEmail(env, {
-      to: user.email,
-      subject: 'Your NSDC email is verified',
-      text: 'Your email address has been verified. Welcome to NSDC!',
-    });
+    await trySendEmail(env, { to: user.email, ...verifiedWelcomeEmail() });
   }
   return json({ ok: true });
 }

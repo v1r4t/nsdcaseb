@@ -2,10 +2,9 @@
 
 // Phase 5: email templates + outbox queue + scheduled sweep.
 //
-// Delivery activates later: `sendEmail` (mailer.ts) logs and returns
-// `{ delivered: false }` until the M365 credentials land. Everything here is
-// built around that — failures are counted, never thrown, so the queue simply
-// waits until the seam goes live.
+// Delivery via Resend (`mailer.ts` -> api.resend.com). Without
+// `RESEND_API_KEY` the seam returns `{ delivered: false }` — failures are
+// counted, never thrown, so the queue simply waits until the seam goes live.
 
 import type { Env } from './auth-helpers';
 import { sendEmail } from './mailer';
@@ -13,6 +12,60 @@ import { sendEmail } from './mailer';
 export interface EmailTemplate {
   subject: string;
   text: string;
+}
+
+/** Shared content shape for auth mails: text mirror always sent with html. */
+export interface TemplatedEmail {
+  subject: string;
+  text: string;
+  html: string;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Single-column dark card; every mail passes action URL + fallback text. */
+function mailShell(title: string, intro: string, actionLabel: string | null, actionUrl: string | null, outro: string): string {
+  const button =
+    actionLabel && actionUrl
+      ? `<p style="margin:24px 0"><a href="${escapeHtml(actionUrl)}" style="display:inline-block;padding:12px 24px;background:#e8ff47;color:#111;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(actionLabel)}</a></p>`
+      : '';
+  const fallback =
+    actionUrl
+      ? `<p style="font-size:12px;color:#888;word-break:break-all">Button not working? Paste this link:<br>${escapeHtml(actionUrl)}</p>`
+      : '';
+  return `<!doctype html><html><body style="margin:0;padding:24px;background:#0b0b0c;font-family:system-ui,sans-serif;color:#f2f2f0"><div style="max-width:480px;margin:0 auto;background:#151517;border:1px solid #2a2a2e;border-radius:12px;padding:32px"><h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(title)}</h1><p style="font-size:14px;line-height:1.6;color:#c9c9c6">${escapeHtml(intro)}</p>${button}<p style="font-size:14px;line-height:1.6;color:#c9c9c6">${escapeHtml(outro)}</p>${fallback}</div></body></html>`;
+}
+
+export function verificationEmail(origin: string, token: string): TemplatedEmail {
+  const url = `${origin}/verify-email?token=${token}`;
+  return {
+    subject: 'Verify your NSDC account',
+    text: `Verify your email: ${url}\n\nThis link works once and expires after an hour.`,
+    html: mailShell('Verify your email', 'Confirm this address to activate your NSDC account.', 'Verify email', url, 'This link works once and expires after an hour.'),
+  };
+}
+
+export function passwordResetEmail(origin: string, token: string): TemplatedEmail {
+  const url = `${origin}/reset-password?token=${token}`;
+  return {
+    subject: 'Reset your NSDC password',
+    text: `Reset your password: ${url}\n\nThis link works once and expires after an hour. If you did not ask for this, ignore this mail.`,
+    html: mailShell('Reset your password', 'Someone asked to reset the password for this address.', 'Set a new password', url, 'This link works once and expires after an hour. If that was not you, ignore this mail.'),
+  };
+}
+
+export function verifiedWelcomeEmail(): TemplatedEmail {
+  return {
+    subject: 'Your NSDC email is verified',
+    text: 'Your email address has been verified. Welcome to NSDC! Sign in to register for events.',
+    html: mailShell('You are verified', 'Your email address has been verified.', null, null, 'Welcome to NSDC — sign in to register for events.'),
+  };
 }
 
 const MAX_ATTEMPTS = 5;
