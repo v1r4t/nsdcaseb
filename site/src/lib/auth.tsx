@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ApiError, login as apiLogin, logout as apiLogout, me as apiMe, register as apiRegister } from './api';
-import type { User } from './api';
+import type { RegisterResponse, User } from './api';
 
 /**
  * A 200 with an unusable payload must not be mistaken for a live session --
@@ -20,7 +20,7 @@ export interface AuthContextValue {
   /** True while the initial `me()` probe is in flight. */
   loading: boolean;
   login: (email: string, password: string, remember?: boolean, admin_code?: string) => Promise<User>;
-  register: (input: { name: string; email: string; mobile: string; password: string }) => Promise<User>;
+  register: (input: { name: string; email: string; mobile: string; password: string }) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
 }
 
@@ -58,9 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (input: { name: string; email: string; mobile: string; password: string }) => {
-    const user = requireUser(await apiRegister(input));
-    setUser(user);
-    return user;
+    const response = await apiRegister(input);
+    // No session exists until the email is verified — deliberately not setUser.
+    return response;
   }, []);
 
   const logout = useCallback(async () => {

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, forgotPassword } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import PasswordField from '../components/PasswordField';
 
 type Mode = 'signin' | 'forgot';
 
@@ -27,6 +28,8 @@ function signInMessage(error: ApiError): string {
   switch (error.error) {
     case 'invalid_credentials':
       return 'That email and password combination did not work. Check both and try again.';
+    case 'email_unverified':
+      return 'Verify your email first — check your inbox for the link.';
     case 'rate_limited':
       return 'Too many attempts from this device. Wait about a minute, then try again.';
     case 'unauthenticated':
@@ -66,6 +69,10 @@ export default function Login() {
       await login(email, password, remember, adminCode);
       navigate(redirectTarget(location.state), { replace: true });
     } catch (err) {
+      if (err instanceof ApiError && err.error === 'email_unverified') {
+        navigate('/verify-pending', { state: { email }, replace: true });
+        return;
+      }
       setError(err instanceof ApiError ? signInMessage(err) : 'Something went wrong. Please try again.');
     } finally {
       setPending(false);
@@ -135,16 +142,14 @@ export default function Login() {
               <label htmlFor="login-password" className="label">
                 Password
               </label>
-              <input
+              <PasswordField
                 id="login-password"
                 name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                disabled={busy}
+                label="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="field"
+                onChange={setPassword}
+                autoComplete="current-password"
+                disabled={busy}
               />
             </div>
 
@@ -152,15 +157,14 @@ export default function Login() {
               <label htmlFor="login-admin-code" className="label">
                 Office bearer code (if applicable)
               </label>
-              <input
+              <PasswordField
                 id="login-admin-code"
                 name="admin_code"
-                type="password"
+                label="office bearer code"
+                value={adminCode}
+                onChange={setAdminCode}
                 autoComplete="off"
                 disabled={busy}
-                value={adminCode}
-                onChange={(event) => setAdminCode(event.target.value)}
-                className="field"
               />
             </div>
 

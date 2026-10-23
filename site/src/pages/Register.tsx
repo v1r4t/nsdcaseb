@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import PasswordField from '../components/PasswordField';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,6 +48,7 @@ function registerMessage(error: ApiError): string {
 
 export default function Register() {
   const { user, register } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
@@ -81,7 +83,7 @@ export default function Register() {
     setPending(true);
     try {
       await register({ name: name.trim(), email: email.trim(), mobile: mobile.trim(), password });
-      // AuthProvider now holds the session; the Navigate above takes over.
+      navigate('/verify-pending', { state: { email: email.trim() }, replace: true });
     } catch (err) {
       setFormError(err instanceof ApiError ? registerMessage(err) : 'Something went wrong. Please try again.');
       setPending(false);
@@ -179,18 +181,16 @@ export default function Register() {
             <label htmlFor="register-password" className="label">
               Password
             </label>
-            <input
+            <PasswordField
               id="register-password"
               name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              disabled={pending}
+              label="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              aria-invalid={errors.password ? true : undefined}
-              aria-describedby={`register-password-hint${errors.password ? ' register-password-error' : ''}`}
-              className={`field ${errors.password ? 'field-invalid' : ''}`}
+              onChange={setPassword}
+              autoComplete="new-password"
+              disabled={pending}
+              describedBy={`register-password-hint${errors.password ? ' register-password-error' : ''}`}
+              invalid={!!errors.password}
             />
             <p id="register-password-hint" className="hint">
               At least 10 characters, including a letter and a number.
@@ -207,18 +207,16 @@ export default function Register() {
             <label htmlFor="register-confirm" className="label">
               Confirm password
             </label>
-            <input
+            <PasswordField
               id="register-confirm"
               name="confirm"
-              type="password"
-              autoComplete="new-password"
-              required
-              disabled={pending}
+              label="password confirmation"
               value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-              aria-invalid={errors.confirm ? true : undefined}
-              aria-describedby={errors.confirm ? 'register-confirm-error' : undefined}
-              className={`field ${errors.confirm ? 'field-invalid' : ''}`}
+              onChange={setConfirm}
+              autoComplete="new-password"
+              disabled={pending}
+              describedBy={errors.confirm ? 'register-confirm-error' : undefined}
+              invalid={!!errors.confirm}
             />
             {errors.confirm && (
               <p id="register-confirm-error" className="error-text">

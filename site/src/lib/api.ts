@@ -26,6 +26,11 @@ export interface LoginResponse {
 
 export interface RegisterResponse {
   user: User;
+  verify_pending: true;
+}
+
+export interface VerifyEmailResponse {
+  ok: true;
 }
 
 export interface MeResponse {
@@ -128,4 +133,16 @@ export function me(): Promise<MeResponse> {
 
 export function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
   return request<ForgotPasswordResponse>('/api/auth/forgot-password', { method: 'POST', body: { email } });
+}
+
+export function verifyEmail(token: string): Promise<VerifyEmailResponse> {
+  return request<VerifyEmailResponse>('/api/auth/verify-email', { method: 'POST', body: { token } });
+}
+
+export function resetPassword(token: string, password: string): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/auth/reset-password', { method: 'POST', body: { token, password } });
+}
+
+export function resendVerification(email: string): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/auth/resend-verification', { method: 'POST', body: { email } });
 }
