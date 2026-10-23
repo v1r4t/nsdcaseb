@@ -10,7 +10,6 @@
 // unaudited here; see Phase 5 report.)
 
 import { getSessionUser, json, requireMinRole, createEmailToken, normalizeRole, type Env, type User } from './auth-helpers';
-import { roleForEmail } from './role-allowlists';
 import { enqueueEmail } from './email';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
@@ -136,7 +135,8 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     }
     const rows = (
       await env.AUTH_DB.prepare(
-        `SELECT id, to_email, subject, status, attempts, created_at, sent_at
+        `SELECT id, to_email, subject, status, attempts, created_at, sent_at,
+                substr(text, 1, 500) AS preview
          FROM email_outbox WHERE status = ? ORDER BY created_at DESC LIMIT 50`,
       )
         .bind(status)
@@ -148,9 +148,26 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
           attempts: number;
           created_at: string;
           sent_at: string | null;
+          preview: string | null;
         }>()
     ).results ?? [];
     return json({ outbox: rows });
+  }
+
+  // POST /api/admin/outbox/:id/retry — reset a failed (or stuck pending)
+  // entry back to pending with a clean attempt counter so the mailer seam
+  // picks it up on its next pass. Audited like every other admin mutation.
+  const outboxRetryMatch = /^\/api\/admin\/outbox\/([^/]+)\/retry$/.exec(path);
+  if (outboxRetryMatch) {
+    if (method !== 'POST') return methodNotAllowed('POST');
+    const entryId = decodeURIComponent(outboxRetryMatch[1]);
+    const entry = await env.AUTH_DB.prepare(`SELECT id, status FROM email_outbox WHERE id = ?`).bind(entryId).first<{ id: string; status: string }>();
+    if (!entry) return json({ error: 'outbox_not_found' }, 404);
+    await env.AUTH_DB.prepare(
+      `UPDATE email_outbox SET status = 'pending', attempts = 0, sent_at = NULL WHERE id = ?`,
+    ).bind(entryId).run();
+    await audit(env, user, 'outbox_retry', JSON.stringify({ id: entryId, from: entry.status }));
+    return json({ ok: true });
   }
 
   // POST /api/admin/broadcast
@@ -276,24 +293,6 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       .run();
     await audit(env, user, 'verified_update', JSON.stringify({ userId, verified: value === true || value === 1 }));
     return json({ ok: true });
-  }
-
-  if (path === '/api/admin/users/sync-roles' && method === 'POST') {
-    await parseJson(request);
-    const users = (await env.AUTH_DB.prepare(`SELECT id, email, role FROM users`).all<{ id: string; email: string; role: string }>()).results ?? [];
-    let changed = 0;
-    for (const u of users) {
-      const derived = roleForEmail(u.email);
-      if (normalizeRole(u.role) !== derived) {
-        await env.AUTH_DB
-          .prepare(`UPDATE users SET role = ?, is_executive = ? WHERE id = ?`)
-          .bind(derived, derived === 'executive' || derived === 'ob' ? 1 : 0, u.id)
-          .run();
-        changed += 1;
-      }
-    }
-    await audit(env, user, 'role_sync', JSON.stringify({ changed }));
-    return json({ changed });
   }
 
   if (path === '/api/admin/users/send-verification' && method === 'POST') {

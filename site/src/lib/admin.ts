@@ -70,6 +70,8 @@ export interface OutboxEntry {
   attempts: number;
   created_at: string;
   sent_at: string | null;
+  /** First 500 chars of the queued body (may be absent on old workers). */
+  preview?: string | null;
 }
 
 export interface RosterEntry {
@@ -124,6 +126,35 @@ export function getAuditLog(): Promise<{ entries: AuditEntry[] }> {
   return request<{ entries: AuditEntry[] }>('/api/admin/audit-log');
 }
 
+/** Requeue a failed (or stuck) outbox entry: resets status + attempts. */
+export function retryOutbox(id: string): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/admin/outbox/${encodeURIComponent(id)}/retry`, 'POST', {});
+}
+
+/** Event shape for the admin console, including the soft-archive flags. */
+export interface AdminEventSummary {
+  id: string;
+  title: string;
+  description: string;
+  starts_at: string;
+  ends_at: string;
+  reg_opens_at: string;
+  reg_closes_at: string;
+  capacity: number | null;
+  spots_left: number | null;
+  registration_open: boolean;
+  archived: boolean;
+  archived_at: string | null;
+  poster_url: string | null;
+}
+
+/** Admin event list. Pass true to include soft-archived events. */
+export function listAdminEvents(includeArchived = false): Promise<{ events: AdminEventSummary[] }> {
+  return request<{ events: AdminEventSummary[] }>(
+    `/api/events${includeArchived ? '?include_archived=1' : ''}`,
+  );
+}
+
 export function getEventRoster(eventId: string): Promise<{ registrations: RosterEntry[] }> {
   return request<{ registrations: RosterEntry[] }>(
     `/api/events/${encodeURIComponent(eventId)}/registrations`,
@@ -143,6 +174,7 @@ export function adminUpdateEvent(
     capacity: number | null;
     force_closed: boolean;
     questions: unknown[];
+    archived: boolean;
   }>,
 ): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/events/${encodeURIComponent(eventId)}`, 'PATCH', patch);
@@ -222,10 +254,6 @@ export function updateAdminUserVerified(id: string, email_verified: boolean): Pr
   return request<{ ok: true }>(`/api/admin/users/${encodeURIComponent(id)}/verified`, 'PATCH', { email_verified });
 }
 
-export function syncAdminRoles(): Promise<{ changed: number }> {
-  return request<{ changed: number }>('/api/admin/users/sync-roles', 'POST', {});
-}
-
 export function sendAdminVerification(ids?: string[]): Promise<{ queued: number }> {
   return request<{ queued: number }>('/api/admin/users/send-verification', 'POST', { ids });
 }
@@ -245,7 +273,9 @@ export async function adminCreateEvent(input: {
   capacity?: number | null;
   force_closed?: boolean;
   questions?: unknown[];
-  poster: File;
+  // Optional in local dev without club storage (the worker accepts a
+  // poster-less create there); required once storage is connected.
+  poster?: File;
 }): Promise<{ id: string; poster_url: string | null }> {
   const data = {
     id: input.id,
@@ -261,7 +291,7 @@ export async function adminCreateEvent(input: {
   };
   const form = new FormData();
   form.append('data', JSON.stringify(data));
-  form.append('poster', input.poster);
+  if (input.poster) form.append('poster', input.poster);
   const res = await fetch('/api/events', {
     method: 'POST',
     credentials: 'include',

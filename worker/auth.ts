@@ -34,7 +34,6 @@ import {
   type UserRow,
 } from './auth-helpers';
 import { sha256Base64Url } from './auth-crypto';
-import { roleForEmail, regNumberFromEmail } from './role-allowlists';
 import { verificationEmail, passwordResetEmail, verifiedWelcomeEmail } from './email';
 
 // Re-export shared types so existing imports (`./auth`) keep working,
@@ -104,11 +103,12 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
   if (!isStrongPassword(password)) return json({ error: 'weak_password' }, 400);
 
   // Office bearer comes from a shared entry code, never from client-claimed
-  // role. The email allowlist remains as a fallback for pre-seeded accounts.
+  // role. Everyone else registers as a member; admins can promote later.
   const obCode = typeof body.value.admin_code === 'string' ? body.value.admin_code : '';
-  const role =
-    obCode && env.ADMIN_ENTRY_CODE && obCode === env.ADMIN_ENTRY_CODE ? 'ob' : roleForEmail(email);
-  const reg_number = regNumberFromEmail(email);
+  const role: Role =
+    obCode && env.ADMIN_ENTRY_CODE && obCode === env.ADMIN_ENTRY_CODE ? 'ob' : 'member';
+  // College registration numbers are not collected yet.
+  const reg_number: string | null = null;
 
   const existing = await env.AUTH_DB
     .prepare('SELECT id FROM users WHERE email = ?')
@@ -118,7 +118,7 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
 
   const id = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
-  const isExecutive = role === 'executive' || role === 'ob' ? 1 : 0;
+  const isExecutive = role === 'ob' ? 1 : 0;
   try {
     await env.AUTH_DB
       .prepare('INSERT INTO users (id, email, name, mobile, reg_number, password_hash, role, is_executive) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
