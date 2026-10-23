@@ -32,6 +32,10 @@ interface EventRow {
   force_closed: number;
   questions: string;
   poster_key: string | null;
+  // Added by 0016_event_archive. Rows read from a DB that has not applied
+  // the migration simply lack the property (SELECT *), which we treat as
+  // "not archived" — so old dev DBs keep working.
+  archived_at?: string | null;
 }
 
 type RegStatus = 'registered' | 'waitlisted' | 'cancelled';
@@ -59,6 +63,7 @@ async function parseJson(request: Request): Promise<{ ok: true; value: Record<st
 }
 
 function registrationOpen(row: EventRow, now: number): boolean {
+  if (row.archived_at) return false;
   if (row.force_closed) return false;
   const opens = Date.parse(row.reg_opens_at);
   const closes = Date.parse(row.reg_closes_at);
@@ -142,6 +147,12 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       const user = await getSessionUser(env, request);
       const events = (await env.AUTH_DB.prepare(`SELECT * FROM events ORDER BY starts_at ASC`).all<EventRow>()).results ?? [];
       const counts = await registeredCounts(env);
+      // Soft-archive filter: public callers never see archived events.
+      // `?include_archived=1` opts in (used by the admin console); the
+      // filter is applied in JS rather than SQL so a DB that has not yet
+      // applied 0016 (no archived_at column) keeps working — such rows
+      // simply have `archived_at` undefined and are treated as live.
+      const includeArchived = url.searchParams.get('include_archived') === '1';
       let mine = new Map<string, RegStatus>();
       if (user) {
         const rows = (await env.AUTH_DB.prepare(
@@ -150,7 +161,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         mine = new Map(rows.map((r) => [r.event_id, r.status as RegStatus]));
       }
       return json({
-        events: events.map((e) => {
+        events: events.filter((e) => includeArchived || !e.archived_at).map((e) => {
           const registered = counts.get(e.id) ?? 0;
           const status = user ? mine.get(e.id) ?? null : null;
           return {
@@ -160,6 +171,8 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
             capacity: e.capacity,
             spots_left: e.capacity === null ? null : Math.max(0, e.capacity - registered),
             registration_open: registrationOpen(e, now),
+            archived: !!e.archived_at,
+            archived_at: e.archived_at ?? null,
             poster_url: posterUrl(env, e.poster_key),
             mine: status ? { status } : null,
           };
@@ -201,15 +214,19 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       if (questions === null) return json({ error: 'invalid_questions' }, 400);
 
       const id = typeof v.id === 'string' && ID_RE.test(v.id) ? v.id : crypto.randomUUID();
-      if (!posterBuffer) {
-        return json({ error: 'poster_required' }, 400);
-      }
-
       let posterKey: string | null = null;
       if (posterBuffer) {
-        posterKey = `events/${id}/poster.webp`;
-        const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
-        if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+        if (!storageConfigured(env)) {
+          // Local dev fallback: no Supabase storage configured, so the event
+          // is created without a stored poster rather than failing the request.
+          posterKey = null;
+        } else {
+          posterKey = `events/${id}/poster.webp`;
+          const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+          if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+        }
+      } else if (storageConfigured(env)) {
+        return json({ error: 'poster_required' }, 400);
       }
 
       await env.AUTH_DB.prepare(
@@ -256,6 +273,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         if (file instanceof File) { buffer = await file.arrayBuffer(); mime = file.type || mime; }
       }
       if (!buffer) return json({ error: 'poster_required' }, 400);
+      if (!storageConfigured(env)) return json({ error: 'storage_not_configured' }, 503);
       const key = `events/${id}/poster.webp`;
       const ok = await uploadPoster(env, key, buffer, mime);
       if (!ok) return json({ error: 'poster_upload_failed' }, 502);
@@ -287,6 +305,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
           capacity: event.capacity,
           spots_left: event.capacity === null ? null : Math.max(0, event.capacity - registered),
           registration_open: registrationOpen(event, now),
+          // Single-event GET deliberately includes archived events (unlike
+          // the list) and flags them, so the admin edit panel can load an
+          // archived event for review or unarchiving.
+          archived: !!event.archived_at,
+          archived_at: event.archived_at ?? null,
           poster_url: posterUrl(env, event.poster_key),
           mine, questions,
         },
@@ -343,16 +366,27 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       if (v.force_closed !== undefined) {
         patch.push('force_closed = ?'); args.push(v.force_closed ? 1 : 0);
       }
+      if (v.archived !== undefined) {
+        if (typeof v.archived !== 'boolean') return json({ error: 'invalid_archived' }, 400);
+        // Soft archive: timestamp the archival so rosters/history survive;
+        // unarchive clears it. Uses SQL datetime so the worker clock wins.
+        if (v.archived) patch.push(`archived_at = datetime('now')`);
+        else patch.push(`archived_at = NULL`);
+      }
       if (v.questions !== undefined) {
         const q = validateQuestions(v.questions);
         if (q === null) return json({ error: 'invalid_questions' }, 400);
         patch.push('questions = ?'); args.push(JSON.stringify(q));
       }
       if (posterBuffer) {
-        const posterKey = `events/${id}/poster.webp`;
-        const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
-        if (!ok) return json({ error: 'poster_upload_failed' }, 502);
-        patch.push('poster_key = ?'); args.push(posterKey);
+        if (!storageConfigured(env)) {
+          // Storage is not configured; ignore upload in local dev.
+        } else {
+          const posterKey = `events/${id}/poster.webp`;
+          const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+          if (!ok) return json({ error: 'poster_upload_failed' }, 502);
+          patch.push('poster_key = ?'); args.push(posterKey);
+        }
       }
       if (patch.length === 0) return json({ error: 'nothing_to_update' }, 400);
       args.push(id);

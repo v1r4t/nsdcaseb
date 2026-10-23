@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Reveal from '../components/Reveal';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { ApiError, listProjects } from '../lib/projects';
 import type { Project } from '../lib/projects';
 import { listEvents } from '../lib/events';
@@ -9,6 +10,18 @@ import type { EventSummary } from '../lib/events';
 function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
+
+// TODO(cover-variants): cover_url is a full-size original with no resized
+// derivatives. When a variant pipeline lands, the expected convention is a
+// width-suffixed derivative (e.g. `?width=800` / `-800w` key) with 480w / 800w
+// candidates. Until then return the original as the only source — never invent
+// variant URLs that would 404.
+function coverSources(url: string): { src: string; srcSet: string | undefined } {
+  return { src: url, srcSet: undefined };
+}
+
+// Cover spans full width below md, ~5/12 of the row above it.
+const COVER_SIZES = '(max-width: 768px) 100vw, 42vw';
 
 function StackTokens({ stack }: { stack: string[] }) {
   if (stack.length === 0) return null;
@@ -38,6 +51,7 @@ function Row({
   const even = index % 2 === 1;
   const textCols = even ? 'md:col-span-7 md:col-start-6' : 'md:col-span-7';
   const imageCols = even ? 'md:col-span-5 md:col-start-1 md:row-start-1' : 'md:col-span-5';
+  const cover = project.cover_url ? coverSources(project.cover_url) : null;
   return (
     <li className="grid gap-6 border-t border-line py-10 md:grid-cols-12 md:gap-8">
       <div className={textCols}>
@@ -77,14 +91,18 @@ function Row({
           )}
         </p>
       </div>
-      {project.cover_url && (
+      {cover && (
         <div className={imageCols}>
           <img
-            src={project.cover_url}
-            alt={project.title}
+            src={cover.src}
+            srcSet={cover.srcSet}
+            sizes={COVER_SIZES}
+            alt={`${project.title} project cover`}
             loading="lazy"
             decoding="async"
-            className="w-full border border-line object-cover"
+            width={800}
+            height={450}
+            className="aspect-video w-full border border-line object-cover"
           />
         </div>
       )}
@@ -96,6 +114,12 @@ export default function Projects() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [eventsById, setEventsById] = useState<Map<string, EventSummary> | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useDocumentMeta({
+    title: 'Projects — NSDC',
+    description:
+      'Student-built projects from the NSDC community at Amrita Bengaluru — active builds and shipped work across data, AI and emerging technology.',
+  });
 
   useEffect(() => {
     let active = true;

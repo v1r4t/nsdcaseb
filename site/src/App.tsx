@@ -6,6 +6,9 @@ import CommandPalette from './components/CommandPalette';
 import ContextCursor from './components/ContextCursor';
 import Backdrop from './components/Backdrop';
 import FolioRail from './components/FolioRail';
+import ErrorBoundary from './components/ErrorBoundary';
+import EasterEggs from './components/EasterEggs';
+import './a11y-eggs.css';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -25,11 +28,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <a href="#main" className="nsdc-skip-link">
+          Skip to content
+        </a>
         <Backdrop />
         <div className="relative z-10 flex min-h-screen flex-col">
           <SiteHeader />
           <AnnouncementBanner />
-          <main className="flex-1">
+          <main id="main" tabIndex={-1} className="flex-1">
+            <ErrorBoundary>
             <Suspense fallback={<p className="shell py-12 font-mono text-xs uppercase tracking-wide text-muted">Loading…</p>}>
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -46,11 +53,13 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
+            </ErrorBoundary>
           </main>
           <SiteFooter />
         </div>
         <FolioRail />
         <CommandPalette />
+        <EasterEggs />
         <ContextCursor />
       </AuthProvider>
     </BrowserRouter>

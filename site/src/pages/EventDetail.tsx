@@ -12,9 +12,23 @@ import type { EventDetail, RegistrationStatus } from '../lib/events';
 import { listProjects } from '../lib/projects';
 import type { Project } from '../lib/projects';
 import { useAuth } from '../lib/auth';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 import SeatMeter from '../components/SeatMeter';
 
 type Step = 1 | 2 | 3;
+
+// TODO(poster-variants): poster_url is a full-size Supabase public object URL
+// with no resized derivatives (see worker/supabase-storage.ts — plain object
+// GET, no transform params). If Supabase Image Transformations get enabled,
+// the convention would be appending `?width=768&quality=75` and listing 480w /
+// 768w / 1200w candidates here. Until then return the original as the only
+// source — never invent variant URLs that would 404.
+function posterSources(url: string): { src: string; srcSet: string | undefined } {
+  return { src: url, srcSet: undefined };
+}
+
+// Poster is capped at max-w-2xl (672px), full-bleed below that.
+const POSTER_SIZES = '(max-width: 672px) 100vw, 672px';
 
 const STEP_LABELS: Record<Step, string> = {
   1: '01 / Your details',
@@ -78,6 +92,13 @@ export default function EventDetailPage() {
   const [busy, setBusy] = useState(false);
   const [confirmArmed, setConfirmArmed] = useState(false);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useDocumentMeta({
+    title: event ? `${event.title} — NSDC` : 'Event — NSDC',
+    description: event
+      ? event.description
+      : 'Event details and registration.',
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -200,6 +221,7 @@ export default function EventDetailPage() {
   const showMeter =
     event.registration_open && event.capacity !== null && event.spots_left !== null;
   const isActive = status === 'registered' || status === 'waitlisted';
+  const poster = event.poster_url ? posterSources(event.poster_url) : null;
 
   return (
     <div className="shell py-12 md:py-16">
@@ -224,8 +246,16 @@ export default function EventDetailPage() {
       <h1 className="mt-4 max-w-4xl font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">
         {event.title}
       </h1>
-      {event.poster_url && (
-        <img src={event.poster_url} alt={`${event.title} poster`} className="mt-6 max-w-2xl border border-line" />
+      {poster && (
+        <img
+          src={poster.src}
+          srcSet={poster.srcSet}
+          sizes={POSTER_SIZES}
+          alt={`${event.title} poster`}
+          loading="lazy"
+          decoding="async"
+          className="mt-6 h-auto w-full max-w-2xl border border-line"
+        />
       )}
       <p className="mt-6 max-w-2xl whitespace-pre-wrap text-base leading-relaxed text-paper/70">
         {event.description}

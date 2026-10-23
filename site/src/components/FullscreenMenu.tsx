@@ -9,7 +9,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useFocusTrap } from '../lib/focus-trap';
 
 interface MenuItem {
   index: string;
@@ -76,6 +77,18 @@ export interface FullscreenMenuProps {
 export default function FullscreenMenu({ open, onClose, returnFocusRef }: FullscreenMenuProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
+  const location = useLocation();
+
+  /** Active index entry gets `aria-current="page"` (hash-aware). */
+  const isActiveItem = (to: string): boolean => {
+    const hashIndex = to.indexOf('#');
+    if (hashIndex === -1) return location.pathname === to;
+    const path = to.slice(0, hashIndex) || '/';
+    return location.pathname === path && location.hash === to.slice(hashIndex);
+  };
+
+  // Tab wraps inside the panel (shared hook); Escape closes (below).
+  useFocusTrap(panelRef, open, FOCUSABLE);
 
   // `mounted` outlives `open` so the panel can fade out; `entered` drives the
   // directional transition one frame after mount.
@@ -128,23 +141,6 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
       if (event.key === 'Escape') {
         event.preventDefault();
         onClose();
-        return;
-      }
-      if (event.key !== 'Tab' || !panelRef.current) return;
-
-      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-
-      // Wrap at both ends so the page behind the overlay stays unreachable.
-      if (event.shiftKey && (active === first || active === panelRef.current)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
       }
     },
     [onClose],
@@ -193,6 +189,7 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
                 <Link
                   to={item.to}
                   onClick={onClose}
+                  aria-current={isActiveItem(item.to) ? 'page' : undefined}
                   className="group flex items-baseline gap-4 py-4 md:gap-8 md:py-5"
                 >
                   <span className="label w-8 shrink-0 pt-[0.6em] font-mono">{item.index}</span>
@@ -210,7 +207,16 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
           </ol>
         </nav>
 
-        <p className="label mt-10">12.9716&deg; N, 77.5946&deg; E</p>
+        <a
+          href="https://www.google.com/maps/search/?api=1&query=12.9716,77.5946"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-cursor="OPEN MAP →"
+          aria-label="Open campus location in Google Maps"
+          className="label mt-10 inline-block transition-colors hover:text-signal"
+        >
+          12.9716&deg; N, 77.5946&deg; E
+        </a>
       </div>
     </div>
   );

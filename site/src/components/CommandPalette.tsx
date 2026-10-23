@@ -21,6 +21,8 @@ import {
   searchPalette,
 } from '../lib/search';
 import type { MatchRange, SearchItem } from '../lib/search';
+import { dispatchShip, secretLineFor } from '../lib/easter-eggs';
+import { useFocusTrap } from '../lib/focus-trap';
 
 /** Keep the exit timer in sync with the `duration-200` transition below. */
 const EXIT_MS = 200;
@@ -71,10 +73,15 @@ export default function CommandPalette() {
 
   const closePalette = useCallback(() => setOpen(false), []);
 
+  // Tab wraps inside the panel (shared hook); Escape closes (effect below).
+  useFocusTrap(panelRef, open, FOCUSABLE);
+
   const statics = useMemo(() => buildStaticIndex(), []);
   const groups = useMemo(() => searchPalette(query, statics, remote), [query, statics, remote]);
   const flat = useMemo(() => groups.flatMap((group) => group.results), [groups]);
   const total = flat.length;
+  // Egg 2 — exact-match signal line only; normal matching stays untouched.
+  const secret = secretLineFor(query);
 
   // Global open triggers: ⌘K / Ctrl+K toggle plus the orchestrator's DOM events.
   useEffect(() => {
@@ -148,28 +155,13 @@ export default function CommandPalette() {
     };
   }, [open ]);
 
-  // Escape closes; Tab wraps inside the panel so the page behind stays
-  // unreachable (mirrors FullscreenMenu).
+  // Escape closes (Tab wrap lives in the shared focus-trap hook above).
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         setOpen(false);
-        return;
-      }
-      if (event.key !== 'Tab' || !panelRef.current) return;
-      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const current = document.activeElement;
-      if (event.shiftKey && (current === first || current === panelRef.current)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && current === last) {
-        event.preventDefault();
-        first.focus();
       }
     };
     document.addEventListener('keydown', onKeyDown);
@@ -266,6 +258,25 @@ export default function CommandPalette() {
             ESC
           </kbd>
         </div>
+
+        {secret && (
+          <div aria-live="polite" className="border-b border-line px-4 py-2.5">
+            {secret.tappable ? (
+              <button
+                type="button"
+                onClick={() => {
+                  dispatchShip();
+                  closePalette();
+                }}
+                className="w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-left font-mono text-xs uppercase tracking-wide text-signal transition-colors hover:text-paper"
+              >
+                {secret.text}
+              </button>
+            ) : (
+              <p className="font-mono text-xs uppercase tracking-wide text-signal">{secret.text}</p>
+            )}
+          </div>
+        )}
 
         {total > 0 ? (
           <ul

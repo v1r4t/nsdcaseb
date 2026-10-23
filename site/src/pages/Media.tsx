@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Reveal from '../components/Reveal';
+import { useFocusTrap } from '../lib/focus-trap';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { ApiError, listMedia } from '../lib/media';
 import type { MediaAlbum, MediaItem } from '../lib/media';
 import { listEvents } from '../lib/events';
@@ -31,6 +34,20 @@ function chipClass(on: boolean): string {
     : 'rounded-sm border border-line px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:border-paper/40 hover:text-paper';
 }
 
+// TODO(media-variants): the gallery API serves full-size original URLs only —
+// there is no thumb/full variant pipeline yet. When one lands, the expected
+// convention is `<original-url>` with a width suffix (e.g. `?width=640` or a
+// `-640w` derived key) so `srcSet` below can list a 640w thumb + 1280w full.
+// Until then this helper intentionally returns the original as the only
+// source (no invented URLs that would 404); `srcSet` stays undefined and the
+// `sizes` wiring on each <img> is already in place for when variants exist.
+function variantSources(url: string): { src: string; srcSet: string | undefined } {
+  return { src: url, srcSet: undefined };
+}
+
+// Grid tiles render at 50vw (2-col) below md, 25vw (4-col) at md+.
+const TILE_SIZES = '(max-width: 768px) 50vw, 25vw';
+
 function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => void }) {
   if (item.type === 'video') {
     const src = embedUrl(item.url);
@@ -58,6 +75,9 @@ function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => 
       </figure>
     );
   }
+  // aspect-video reserves a 16:9 box so grid tiles never shift layout (CLS);
+  // width/height mirror that box. object-cover crops off-ratio originals.
+  const sources = variantSources(item.url);
   return (
     <button
       type="button"
@@ -67,10 +87,14 @@ function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => 
       className="group block w-full overflow-hidden border border-line text-left transition-colors duration-200 hover:border-paper/40"
     >
       <img
-        src={item.url}
-        alt={item.title || item.caption || 'Event photo'}
+        src={sources.src}
+        srcSet={sources.srcSet}
+        sizes={TILE_SIZES}
+        alt={item.title ? (item.caption && item.caption !== item.title ? `${item.title} — ${item.caption}` : item.title) : item.caption || 'Event photo'}
         loading="lazy"
         decoding="async"
+        width={640}
+        height={360}
         className="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.03]"
       />
       {item.caption && (
@@ -90,6 +114,15 @@ export default function Media() {
   const [lightbox, setLightbox] = useState<{ items: MediaItem[]; index: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  useDocumentMeta({
+    title: 'Media — NSDC',
+    description:
+      'Photos and recordings from NSDC workshops, meetups and hack nights. Browse the gallery by album.',
+  });
+
+  // Tab wraps inside the lightbox (shared hook); Escape/Arrows stay below.
+  useFocusTrap(dialogRef, !!lightbox);
 
   useEffect(() => {
     let alive = true;
@@ -152,6 +185,17 @@ export default function Media() {
     triggerRef.current?.focus(); // hand focus back to the thumbnail
   }, []);
 
+  // Escape closes, arrows step; Tab-wrap comes from the shared useFocusTrap
+  // hook above (document-level listener, active only while the lightbox is open).
+  const handleDialogKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); return; }
+    },
+    [close, step],
+  );
+
   const open = useCallback(
     (item: MediaItem) => {
       const index = photos.indexOf(item);
@@ -176,6 +220,8 @@ export default function Media() {
   }, [lightbox]);
 
   const current = lightbox ? lightbox.items[lightbox.index] : null;
+  // Resolved once per render; still the original until variants exist (see TODO above).
+  const currentSources = current ? variantSources(current.url) : null;
 
   return (
     <div className="shell py-12 md:py-16">
@@ -256,11 +302,7 @@ export default function Media() {
           aria-label={`Photo ${lightbox.index + 1} of ${lightbox.items.length}`}
           tabIndex={-1}
           ref={dialogRef}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { e.preventDefault(); close(); }
-            else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
-            else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
-          }}
+          onKeyDown={handleDialogKeyDown}
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-ink/95 p-4 sm:p-8"
         >
           <button
@@ -290,8 +332,11 @@ export default function Media() {
 
           <img
             key={current.id}
-            src={current.url}
-            alt={current.title || current.caption || 'Event photo'}
+            src={currentSources?.src ?? current.url}
+            srcSet={currentSources?.srcSet}
+            sizes="100vw"
+            alt={current.title ? (current.caption && current.caption !== current.title ? `${current.title} — ${current.caption}` : current.title) : current.caption || 'Event photo'}
+            decoding="async"
             className="max-h-[72vh] w-auto max-w-full object-contain"
           />
 

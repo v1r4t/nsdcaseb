@@ -31,7 +31,7 @@ export default function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-line bg-ink/80 backdrop-blur">
-        <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-x-4 px-6 md:grid-cols-3 md:px-12">
+        <div className="grid h-16 grid-cols-[1fr_auto] items-center gap-x-2 px-3 min-[400px]:gap-x-4 min-[400px]:px-6 md:grid-cols-3 md:px-12">
           <Link
             to="/"
             className="justify-self-start font-display text-base font-medium tracking-tight text-paper transition-colors hover:text-signal"
@@ -44,7 +44,7 @@ export default function SiteHeader() {
             26&mdash;27
           </span>
 
-          <div className="col-start-2 flex items-center justify-self-end gap-3 md:col-start-3">
+          <div className="col-start-2 flex items-center justify-self-end gap-1.5 min-[400px]:gap-3 md:col-start-3">
             {loading ? (
               <span role="status" aria-live="polite" className="label hidden sm:inline">
                 Checking session&hellip;
@@ -63,13 +63,13 @@ export default function SiteHeader() {
                   type="button"
                   onClick={handleSignOut}
                   disabled={signingOut}
-                  className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+                  className="btn-ghost px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide min-[400px]:px-3"
                 >
                   {signingOut ? 'Signing out' : 'Sign out'}
                 </button>
               </>
             ) : (
-              <Link to="/login" className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide">
+              <Link to="/login" className="btn-ghost px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide min-[400px]:px-3">
                 Sign in
               </Link>
             )}
@@ -78,11 +78,17 @@ export default function SiteHeader() {
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('nsdc:open-palette'))}
               aria-label="Search the site"
-              className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+              className="btn-ghost px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide min-[400px]:px-3"
             >
-              Search
-              <span aria-hidden="true" className="ml-2 hidden text-muted sm:inline">
-                ⌘K
+              {/* Icon-only below ~400px so Search / Menu never clip at 320px. */}
+              <span aria-hidden="true" className="min-[400px]:hidden">
+                &#8981;
+              </span>
+              <span className="hidden min-[400px]:inline">
+                Search
+                <span aria-hidden="true" className="ml-2 hidden text-muted sm:inline">
+                  ⌘K
+                </span>
               </span>
             </button>
 
@@ -93,9 +99,12 @@ export default function SiteHeader() {
               aria-expanded={menuOpen}
               aria-controls="nsdc-menu"
               aria-haspopup="dialog"
-              className="btn-ghost px-3 py-1.5 font-mono text-[11px] uppercase tracking-wide"
+              className="btn-ghost px-2 py-1.5 font-mono text-[11px] uppercase tracking-wide min-[400px]:px-3"
             >
-              Menu
+              <span aria-hidden="true" className="min-[400px]:hidden">
+                &#9776;
+              </span>
+              <span className="hidden min-[400px]:inline">Menu</span>
             </button>
           </div>
         </div>

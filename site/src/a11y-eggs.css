@@ -1,0 +1,133 @@
+/**
+ * Skip link + Signal Trail payoff styles.
+ *
+ * This file owns ONLY the accessibility chrome and egg effects listed here.
+ * The design system stays in index.css / tokens.css — do not move rules
+ * between them.
+ */
+
+/* ---- Skip link: off-screen until keyboard-focused ---------------------- */
+.nsdc-skip-link {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  z-index: 100;
+  border-radius: 2px;
+  background: var(--accent);
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--bg);
+  text-decoration: none;
+  transition: top var(--dur-micro) var(--ease-out-expo);
+}
+
+.nsdc-skip-link:focus-visible {
+  top: 1rem;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+
+/* ---- Signal toast: fixed bottom-right, never intercepts input ----------- */
+.nsdc-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 80;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: var(--bg);
+  padding: 0.65rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text);
+  box-shadow: 0 0 24px var(--accent-soft);
+  animation: nsdc-toast-in 200ms var(--ease-out-expo);
+}
+
+.nsdc-toast-accent {
+  color: var(--accent);
+}
+
+@keyframes nsdc-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Signal sweep: one full-width orange line, top → bottom ------------- */
+.nsdc-sweep {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 80;
+  height: 1px;
+  pointer-events: none;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  animation: nsdc-sweep-y 800ms var(--ease-out-expo) forwards;
+}
+
+@keyframes nsdc-sweep-y {
+  from {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100vh);
+    opacity: 1;
+  }
+}
+
+/* ---- Reduced motion: toast fades via the global rule; sweep never runs -- */
+@media (prefers-reduced-motion: reduce) {
+  .nsdc-toast {
+    animation: none;
+  }
+  .nsdc-sweep {
+    display: none;
+  }
+  .nsdc-konami {
+    display: none;
+  }
+}
+
+/* ---- Konami overlay: glyph rain over a translucent backdrop -------------- */
+/* aria-hidden + pointer-events-none: never intercepts input, never blocks nav. */
+.nsdc-konami {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background: rgba(8, 8, 8, 0.55);
+  animation: nsdc-konami-in 300ms var(--ease-out-expo);
+}
+
+.nsdc-konami-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes nsdc-konami-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

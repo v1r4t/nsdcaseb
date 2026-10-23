@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { fetchContent, FALLBACK_CONTENT } from '../lib/content';
 import type { SiteContent } from '../lib/content';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { listEvents, type EventSummary } from '../lib/events';
 import { listProjects } from '../lib/projects';
 import { listMedia } from '../lib/media';
 import Reveal from '../components/Reveal';
 import Stat from '../components/Stat';
 import CinematicOrigin from '../components/CinematicOrigin';
-import GlobeNarrative from '../components/GlobeNarrative';
+import LazyGlobe from '../components/LazyGlobe';
 import PeopleList from '../components/PeopleList';
 import NowSection from '../components/NowSection';
 import ProjectStrip from '../components/ProjectStrip';
@@ -46,6 +47,11 @@ function SectionHead({ index, name, meta }: { index: string; name: string; meta?
 }
 
 export default function Landing() {
+  useDocumentMeta({
+    title: 'NSDC — National Student Data Corps',
+    description:
+      'NSDC — National Student Data Corps. A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru. We bring students together to learn, build, experiment and compete across data, AI and emerging technology.',
+  });
   const { user, loading } = useAuth();
   const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
   // null = in flight or failed; sections degrade to honest empty states.
@@ -185,8 +191,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 1. THE NETWORK — scroll-linked globe narrative -------------------- */}
-      <GlobeNarrative />
+      {/* 1. THE NETWORK — scroll-linked globe narrative (lazy: three.js loads near viewport) ---- */}
+      <LazyGlobe />
 
       {/* 2. WHAT WE DO ---------------------------------------------------- */}
       <section id="about" aria-label="What we do" data-folio="02 / About" className="rule">
