@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#151517"/>
+  <rect x="24" y="24" width="1152" height="627" fill="none" stroke="#2a2a2e" stroke-width="2" stroke-dasharray="12 8"/>
+  <text x="600" y="315" font-family="monospace" font-size="42" fill="#e8ff47" text-anchor="middle" letter-spacing="6">[SAMPLE] PHOTO 2</text>
+  <text x="600" y="365" font-family="monospace" font-size="24" fill="#888" text-anchor="middle">Replace with a real event photo</text>
+</svg>
