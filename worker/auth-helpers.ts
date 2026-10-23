@@ -19,6 +19,8 @@ export interface Env {
   ADMIN_ENTRY_CODE?: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  RESEND_API_KEY?: string;
+  MAIL_FROM?: string;
 }
 
 export type Role = 'member' | 'executive' | 'ob';
@@ -71,6 +73,7 @@ export const RATE_LIMITS = {
   registerPerIp: { limit: 5, windowSeconds: 60 * 60 },
   loginPerIp: { limit: 10, windowSeconds: 60 * 15 },
   loginPerEmail: { limit: 5, windowSeconds: 60 * 15 },
+  resendVerificationPerIp: { limit: 5, windowSeconds: 60 * 60 },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -280,6 +283,14 @@ export async function getSessionUser(env: Env, request: Request): Promise<User |
     .first<UserRow & { expires_at: string }>();
   if (!row) return null;
   if (Date.parse(row.expires_at) <= Date.now()) {
+    await env.AUTH_DB
+      .prepare('DELETE FROM sessions WHERE token_hash = ?')
+      .bind(tokenHash)
+      .run()
+      .catch(() => {});
+    return null;
+  }
+  if (!row.email_verified) {
     await env.AUTH_DB
       .prepare('DELETE FROM sessions WHERE token_hash = ?')
       .bind(tokenHash)

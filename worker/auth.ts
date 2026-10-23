@@ -136,8 +136,7 @@ async function handleRegister({ request, env }: RouteContext): Promise<Response>
     console.error('[auth] verification email setup failed', err);
   }
 
-  const { token } = await createSession(env, id, request, false);
-  return json({ user }, 201, { 'set-cookie': sessionCookie(token, false) });
+  return json({ user, verify_pending: true }, 201);
 }
 
 async function handleLogin({ request, env }: RouteContext): Promise<Response> {
@@ -181,6 +180,8 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
   const valid = await verifyPassword(password, row ? row.password_hash : DUMMY_PASSWORD_HASH);
   if (!row || !valid) return json({ error: 'invalid_credentials' }, 401);
 
+  if (!row.email_verified) return json({ error: 'email_unverified' }, 403);
+
   if (normalizeRole(row.role) === 'ob' && env.ADMIN_ENTRY_CODE) {
     const adminCode = typeof body.value.admin_code === 'string' ? body.value.admin_code : '';
     if (adminCode !== env.ADMIN_ENTRY_CODE) {
@@ -195,6 +196,45 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
     200,
     { 'set-cookie': sessionCookie(token, remember) },
   );
+}
+
+async function handleResendVerification({ request, env }: RouteContext): Promise<Response> {
+  const ip = clientIp(request);
+  if (
+    !(await rateLimit(
+      env,
+      `resend-verify:ip:${ip}`,
+      RATE_LIMITS.resendVerificationPerIp.limit,
+      RATE_LIMITS.resendVerificationPerIp.windowSeconds,
+    ))
+  ) {
+    return json({ error: 'rate_limited' }, 429);
+  }
+
+  // Never reveal whether an account exists: every path yields the same 202.
+  try {
+    const body = await readJsonBody(request);
+    if (body.ok) {
+      const email = normalizeEmail(body.value.email);
+      if (email) {
+        const row = await env.AUTH_DB
+          .prepare('SELECT id, email_verified FROM users WHERE email = ?')
+          .bind(email)
+          .first<{ id: string; email_verified: number }>();
+        if (row && !row.email_verified) {
+          const token = await createEmailToken(env, row.id, 'verify');
+          await trySendEmail(env, {
+            to: email,
+            subject: 'Verify your NSDC account',
+            text: `Verify your email: ${new URL(request.url).origin}/verify-email?token=${token}`,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[auth] resend-verification side effect failed', err);
+  }
+  return json({ ok: true }, 202);
 }
 
 async function handleLogout({ request, env }: RouteContext): Promise<Response> {
@@ -309,6 +349,7 @@ const ROUTES: ReadonlyArray<{ method: string; path: string; handler: RouteHandle
   { method: 'POST', path: '/api/auth/forgot-password', handler: handleForgotPassword },
   { method: 'POST', path: '/api/auth/reset-password', handler: handleResetPassword },
   { method: 'POST', path: '/api/auth/verify-email', handler: handleVerifyEmail },
+  { method: 'POST', path: '/api/auth/resend-verification', handler: handleResendVerification },
   { method: 'GET', path: '/api/admin/_ping', handler: handleAdminPing },
 ];
 
