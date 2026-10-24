@@ -231,10 +231,10 @@ export default function Landing() {
               </Link>
             ) : recruitmentOpen === true ? (
               <Link
-                to="/registrations"
+                to="/recruit"
                 className="mt-3 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:text-paper"
               >
-                Recruitment open — apply via registrations
+                Recruitment open — apply now
               </Link>
             ) : (
               <Link

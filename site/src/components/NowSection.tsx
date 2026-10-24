@@ -65,13 +65,14 @@ export default function NowSection({ events, mediaCount = 0 }: NowSectionProps) 
           ? {
               key: 'recruitment',
               body: 'Recruitment open',
-              hint: 'Registration page',
-              to: '/registrations',
+              hint: 'Application form',
+              to: '/recruit',
             }
           : {
               key: 'recruitment',
               body: 'Recruitment closed',
               hint: 'Recruitment status',
+              to: '/recruit',
             },
       );
     }
