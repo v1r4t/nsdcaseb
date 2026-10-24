@@ -166,7 +166,7 @@ export default function GlobeNarrative() {
             }`}
           >
             <p className="font-mono text-[11px] uppercase tracking-wide text-signal">
-              12.8947° N, 77.6756° E
+              12.894702° N, 77.675574° E
             </p>
             <p className="label mt-1">BENGALURU</p>
           </div>

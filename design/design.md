@@ -84,7 +84,7 @@ Tiny. NSDC / Amrita Vishwa Vidyapeetham / Bengaluru, social links, `© 2026`,
 ## DATA LANGUAGE
 
 The site speaks data: section indices (`01 / ABOUT`), coordinates
-(`12.8947° N, 77.6756° E`), timestamps, statuses (`SYSTEM.STATUS · ONLINE`),
+(`12.894702° N, 77.675574° E`), timestamps, statuses (`SYSTEM.STATUS · ONLINE`),
 counts (`084 MEMBERS`). This creates identity without extra graphics.
 
 ## COPY

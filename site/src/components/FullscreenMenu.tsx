@@ -215,7 +215,7 @@ export default function FullscreenMenu({ open, onClose, returnFocusRef }: Fullsc
           aria-label="Open campus location in Google Maps"
           className="label mt-10 inline-block transition-colors hover:text-signal"
         >
-          12.8947&deg; N, 77.6756&deg; E
+          12.894702&deg; N, 77.675574&deg; E
         </a>
       </div>
     </div>

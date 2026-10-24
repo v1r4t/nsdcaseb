@@ -172,7 +172,7 @@ export default function Landing() {
         <CornerMarks />
         <div className="shell grid min-h-screen grid-cols-12 gap-x-6 pb-16 pt-14 sm:pt-20">
           <Reveal className="col-span-12 md:col-span-7">
-            <p className="label">12.8947° N, 77.6756° E · EST. 2024</p>
+            <p className="label">12.894702° N, 77.675574° E · EST. 2024</p>
             <h1 className="mt-6 text-left font-display text-6xl font-bold leading-[0.95] tracking-tight text-paper sm:text-8xl">
               NATIONAL
               <br />
@@ -328,7 +328,7 @@ export default function Landing() {
       {/* 5. PROJECTS -------------------------------------------------------- */}
       <section aria-label="Projects" data-folio="05 / Projects" className="rule">
         <div className="shell py-16 sm:py-24">
-          <SectionHead index="05" name="Projects" meta="12.8947° N, 77.6756° E" />
+          <SectionHead index="05" name="Projects" meta="12.894702° N, 77.675574° E" />
           <h2 className="mt-8 font-display text-2xl font-bold tracking-tight text-paper sm:text-3xl">
             Selected work.
           </h2>

@@ -344,7 +344,7 @@ export default function CinematicOrigin({ title, body }: CinematicOriginProps) {
   const heading = (
     <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
       <h2 className="label">02 / The origin</h2>
-      <p className="font-mono text-[11px] uppercase tracking-wide text-muted">12.8947° N, 77.6756° E</p>
+      <p className="font-mono text-[11px] uppercase tracking-wide text-muted">12.894702° N, 77.675574° E</p>
     </div>
   );
 
