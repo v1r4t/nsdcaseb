@@ -134,6 +134,128 @@ export async function verifyUserEmail(email: string): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Local D1 mutations (staging DB only)
+// ---------------------------------------------------------------------------
+
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+function safeEmail(email: string, caller: string): string {
+  const normalized = email.trim().toLowerCase();
+  if (!EMAIL_RE.test(normalized)) {
+    throw new Error(`${caller} refused suspicious address: ${email}`);
+  }
+  return normalized;
+}
+
+/**
+ * Run SQL against the local staging D1 (same file the dev server uses).
+ * Values interpolated into `sql` are the caller's responsibility; all helpers
+ * below validate their inputs first. Serial workers keep contention rare but
+ * the dev server writes concurrently, so retry SQLITE_BUSY a few times.
+ */
+async function executeLocalD1(sql: string, label: string): Promise<void> {
+  const repoRoot = path.resolve(process.cwd());
+  const dir = mkdtempSync(path.join(tmpdir(), 'nsdc-e2e-d1-'));
+  const sqlFile = path.join(dir, 'e2e.sql');
+  writeFileSync(sqlFile, sql.endsWith('\n') ? sql : `${sql}\n`);
+  try {
+    let lastErr: unknown = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await execFileAsync(
+          'npx',
+          ['wrangler', 'd1', 'execute', 'nsdc-auth', '--local', '--file', `"${sqlFile}"`, '-c', 'wrangler.staging.jsonc'],
+          { cwd: repoRoot, timeout: 90_000, shell: process.platform === 'win32' },
+        );
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    if (lastErr) throw lastErr;
+  } catch (err) {
+    throw new Error(`${label} failed: ${(err as Error).message}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Promote (or demote) an account for admin e2e flows. Local D1 only. */
+export async function setUserRole(
+  email: string,
+  role: 'member' | 'executive' | 'ob',
+): Promise<void> {
+  const address = safeEmail(email, 'setUserRole');
+  await executeLocalD1(
+    `UPDATE users SET role = '${role}', is_executive = ${role === 'ob' ? 1 : 0} WHERE email = '${address}';`,
+    `setUserRole(${address})`,
+  );
+}
+
+/**
+ * Register an office bearer through the real auth API: register (member role),
+ * verify via local D1 (email delivery is unavailable), promote with a local
+ * D1 update, then log in through the API so the request context holds a live
+ * `ob` session. `adminCode` is only needed when the target worker sets
+ * ADMIN_ENTRY_CODE (the local staging config does not).
+ */
+export async function registerObViaApi(
+  request: APIRequestContext,
+  input: { name: string; email: string; mobile: string; password: string; adminCode?: string },
+): Promise<void> {
+  const res = await request.post('/api/auth/register', {
+    data: {
+      name: input.name,
+      email: input.email,
+      mobile: input.mobile,
+      password: input.password,
+    },
+  });
+  if (!res.ok()) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`registerObViaApi failed for ${input.email}: ${res.status()} ${text}`);
+  }
+  await verifyUserEmail(input.email);
+  await setUserRole(input.email, 'ob');
+  const login = await request.post('/api/auth/login', {
+    data: {
+      email: input.email,
+      password: input.password,
+      ...(input.adminCode ? { admin_code: input.adminCode } : {}),
+    },
+  });
+  if (!login.ok()) {
+    const text = await login.text().catch(() => '');
+    throw new Error(`registerObViaApi login failed for ${input.email}: ${login.status()} ${text}`);
+  }
+}
+
+/** Remove an e2e recruitment application and its decision email. */
+export async function deleteRecruitmentApplication(email: string): Promise<void> {
+  const address = safeEmail(email, 'deleteRecruitmentApplication');
+  await executeLocalD1(
+    `DELETE FROM recruitment_applications WHERE email = '${address}';
+     DELETE FROM email_outbox WHERE to_email = '${address}';`,
+    `deleteRecruitmentApplication(${address})`,
+  );
+}
+
+/** Remove an e2e account plus rows that reference it. */
+export async function deleteUserByEmail(email: string): Promise<void> {
+  const address = safeEmail(email, 'deleteUserByEmail');
+  await executeLocalD1(
+    `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = '${address}');
+     DELETE FROM email_tokens WHERE user_id IN (SELECT id FROM users WHERE email = '${address}');
+     DELETE FROM admin_audit_log WHERE admin_user_id IN (SELECT id FROM users WHERE email = '${address}');
+     DELETE FROM email_outbox WHERE to_email = '${address}';
+     DELETE FROM users WHERE email = '${address}';`,
+    `deleteUserByEmail(${address})`,
+  );
+}
+
 const NEED_SEED =
   'needs seeded D1 data — apply e2e/seed.sql to the local D1 DB ' +
   '(npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc)';

@@ -68,6 +68,40 @@ export function verifiedWelcomeEmail(): TemplatedEmail {
   };
 }
 
+/**
+ * Final recruitment verdict. Sent once, when an OB selects or rejects a
+ * pending application. Both variants say no reply is needed so applicants
+ * do not write back to an unmonitored inbox.
+ */
+export function recruitmentDecisionEmail(
+  status: 'selected' | 'rejected',
+  name?: string,
+): EmailTemplate {
+  const greeting = name && name.trim() ? `Hi ${name.trim()},` : 'Hi,';
+  if (status === 'selected') {
+    return {
+      subject: 'NSDC recruitment: you are selected',
+      text:
+        `${greeting}\n\n` +
+        `Good news — your application to join NSDC has been selected. ` +
+        `We will follow up by email with onboarding details and next steps.\n\n` +
+        `You do not need to reply to this message.\n\n` +
+        `— NSDC`,
+    };
+  }
+  return {
+    subject: 'NSDC recruitment: application update',
+    text:
+      `${greeting}\n\n` +
+      `Thank you for applying to join NSDC. After reviewing this round's ` +
+      `applications, we are unable to offer you a place this time.\n\n` +
+      `This is not a reflection of your potential, and we would be glad to ` +
+      `see you apply again in a future round. You do not need to reply to ` +
+      `this message.\n\n` +
+      `— NSDC`,
+  };
+}
+
 const MAX_ATTEMPTS = 5;
 
 /** Confirmation for a fresh registration, or a waitlist notice with position. */

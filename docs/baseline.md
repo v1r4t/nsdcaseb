@@ -235,3 +235,56 @@ variant/COPY_TODO comments (image pipeline is deferred — do not touch),
 5. `@testing-library/react` / `@testing-library/jest-dom` deliberately NOT
    installed (deps kept minimal — pure-logic tests only). Add when component
    render tests land.
+
+## Recruitment e2e — 2026-10-24
+
+- New specs (3 tests; suite now 20 tests / 13 spec files):
+  - `e2e/recruitment.spec.ts` (2): `/recruit` open state renders the heading +
+    form; client validation rejects a bad college email and short phone
+    (`aria-invalid` + inline copy, no request); a real submit yields
+    "Application received" + a UUID reference; status lookup shows
+    "Under review"; a second submit on a fresh page gets HTTP 409
+    `already_applied` and the page renders "already applied" copy.
+  - `e2e/recruitment-admin.spec.ts` (1): registers an `ob` through the real
+    API, verifies via local D1 (`verifyUserEmail`), promotes with a local D1
+    `UPDATE users SET role='ob'`, logs in through the API, unlocks `/admin`,
+    finds the pending application in the Recruitment tab, accepts the confirm
+    dialog and clicks Select, asserts the row leaves `pending` and appears
+    under `selected`, checks `GET /api/recruit/status` (200, `selected`,
+    non-null `decided_at`) and the public page ("Selected"), then verifies
+    `GET /api/admin/recruitment.csv?status=selected` (content type,
+    attachment filename, header row, applicant row).
+- Fixture helpers added (additive only; `registerViaApi` unchanged):
+  `setUserRole`, `registerObViaApi`, `deleteRecruitmentApplication`,
+  `deleteUserByEmail`. They write via `wrangler d1 execute --local` to the
+  same staging DB the dev server uses, validate emails before interpolation,
+  and retry three times for SQLITE_BUSY.
+- Isolation: one application per spec with unique emails; both specs clean up
+  in `finally` (application + decision email; admin spec also removes its
+  throwaway `ob` user, sessions, tokens and audit rows). Local DB was verified
+  back to its pre-run recruitment row count after the focused run.
+- Verified: `npx tsc --noEmit -p e2e/tsconfig.json` clean;
+  `npx playwright test -c e2e/playwright.config.ts recruitment` → 3 passed;
+  full `npm run test:e2e` → **20 passed** (chromium, 2 workers, 31.2 s).
+- Rate-limit note from verification: the first full run was 17 passed / 3
+  failed — `capacity-waitlist` (second `registerViaApi`), `recruitment-admin`,
+  and `required-questions`, all HTTP 429 `rate_limited` from
+  `POST /api/auth/register`. The 5/hr/IP register budget had already absorbed
+  3 hits from the focused runs earlier in the same hour, and the suite needs 5
+  (auth, capacity ×2, required-questions, recruitment-admin). No spec was
+  weakened. After clearing `rl:*` KV buckets and re-applying `e2e/seed.sql`
+  (which also frees `e2e-tiny-cap1`), the full suite passed 20/20.
+- Cleanup used (local only):
+  ```powershell
+  # all rate-limit buckets
+  $keys = npx wrangler kv key list --binding RATELIMIT_KV --local --prefix "rl:" -c wrangler.staging.jsonc | ConvertFrom-Json
+  $keys | ForEach-Object { npx wrangler kv key delete --binding RATELIMIT_KV --local $_.name -c wrangler.staging.jsonc }
+  # deterministic event/registration state
+  npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc
+  # accounts left by account-creating specs
+  npx wrangler d1 execute nsdc-auth --local --command "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%'); DELETE FROM email_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%'); DELETE FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%';" -c wrangler.staging.jsonc
+  Remove-Item -Recurse -Force test-results -ErrorAction SilentlyContinue
+  ```
+- Not covered by e2e: the closed state. `site_settings.recruitment_open` is
+  global, so toggling it mid-run would race the admin spec's submit; the
+  runbook documents the close/open procedure instead.

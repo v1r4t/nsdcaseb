@@ -92,3 +92,48 @@ async function request<T>(path: string, method: Method = 'GET', body?: unknown):
 export function listProjects(): Promise<ProjectListResponse> {
   return request<ProjectListResponse>('/api/projects');
 }
+
+export interface ProjectCreateInput {
+  title: string;
+  summary?: string;
+  description?: string;
+  stack?: string[];
+  url?: string | null;
+  cover_url?: string | null;
+  status?: ProjectStatus;
+  event_id?: string | null;
+  featured?: boolean;
+}
+
+export interface ProjectPatch {
+  title?: string;
+  summary?: string;
+  description?: string;
+  stack?: string[];
+  url?: string | null;
+  cover_url?: string | null;
+  status?: ProjectStatus;
+  event_id?: string | null;
+  featured?: boolean;
+  sort_order?: number;
+}
+
+/**
+ * Admin: create a project. Mirrors the worker POST shape.
+ * NOTE: the worker ignores `sort_order` and `author` on POST (INSERT lists
+ * neither) — callers that need a non-zero sort_order must follow up with
+ * updateProject(id, { sort_order }). `author` is API read-only (seeded).
+ */
+export function createProject(input: ProjectCreateInput): Promise<{ id: string }> {
+  return request<{ id: string }>('/api/projects', 'POST', input);
+}
+
+/** Admin: partial project update, including the `featured` flag. */
+export function updateProject(id: string, patch: ProjectPatch): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/projects/${encodeURIComponent(id)}`, 'PATCH', patch);
+}
+
+/** Admin: delete a project. */
+export function deleteProject(id: string): Promise<{ deleted: true }> {
+  return request<{ deleted: true }>(`/api/projects/${encodeURIComponent(id)}`, 'DELETE');
+}

@@ -307,6 +307,52 @@ export async function adminCreateEvent(input: {
   return payload as { id: string; poster_url: string | null };
 }
 
+// ---------------------------------------------------------------------------
+// Recruitment applications
+// ---------------------------------------------------------------------------
+
+export type RecruitmentStatus = 'pending' | 'selected' | 'rejected';
+
+export interface RecruitmentApplication {
+  id: string;
+  name: string;
+  email: string;
+  reg_number: string;
+  phone: string;
+  year: string;
+  branch: string;
+  why_join: string;
+  contribute: string;
+  time_commitment: string;
+  remarks: string;
+  status: RecruitmentStatus;
+  created_at: string;
+  decided_at: string | null;
+}
+
+/**
+ * Admin application list. Omit `status` for every application; the panel
+ * fetches each status explicitly so counts stay correct either way.
+ */
+export function listRecruitmentApplications(
+  status?: RecruitmentStatus,
+): Promise<{ applications: RecruitmentApplication[] }> {
+  const query = status ? `?status=${status}` : '';
+  return request<{ applications: RecruitmentApplication[] }>(`/api/admin/recruitment${query}`);
+}
+
+/** Finalise a pending application. A second decision returns 409 already_decided. */
+export function decideRecruitmentApplication(
+  id: string,
+  status: Exclude<RecruitmentStatus, 'pending'>,
+): Promise<{ ok: true; status: Exclude<RecruitmentStatus, 'pending'> }> {
+  return request<{ ok: true; status: Exclude<RecruitmentStatus, 'pending'> }>(
+    `/api/admin/recruitment/${encodeURIComponent(id)}`,
+    'PATCH',
+    { status },
+  );
+}
+
 export function adminUploadPoster(eventId: string, file: File): Promise<{ poster_url: string | null } | { ok: true; poster_url?: string | null }> {
   const form = new FormData();
   form.append('data', JSON.stringify({}));

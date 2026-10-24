@@ -13,6 +13,7 @@ members get 403.
 | Overview | Admin → Overview | Read-only stats (members, events, registrations, email queue). |
 | Events | Admin → Events | Create / edit events: title, description, schedule, registration window, capacity (blank = unlimited), force-closed flag, poster upload, up to 20 registration questions. "Show archived" reveals soft-archived events; Archive/Unarchive toggles them. Registration Open/Close flips `force_closed`. |
 | Registrations | Admin → Roster | Pick an event → roster table (search by email/name, status filter), "Download CSV (server)" for the full export. |
+| Recruitment | Admin → Recruitment | Review applications (newest first), filter by status, expand "Answers", Select/Reject with a final-decision confirm, Download CSV. |
 | Email | Admin → Email and audit | Broadcast to all or one event (subject + body), outbox queue with pending/sent/failed filter, retry failed, audit-log table. Note: queueing works; actual delivery starts once club email is connected ("Delivery: not configured" banner). |
 | Content | Admin → Content | Office bearers (name, role, links as `Label https://…` one per line) and Achievements (title, description) — add / edit inline / delete with confirm. |
 | Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification. |
@@ -42,6 +43,67 @@ session cookie with curl. Mutations are audit-logged.
   `/api/media/albums/:id`, `/api/media/items/:id`. Images need https URLs;
   videos must be YouTube links. No admin UI — this is the one area where an
   admin tab is still missing.
+
+## Recruitment applications
+
+Public form and status lookup live at `/recruit`; review happens in
+`Admin → Recruitment`.
+
+**Where they live.** Applications are D1 rows in `recruitment_applications`
+(migration `0019_recruitment.sql`), not emails or files. Columns: `name`,
+college `email` (normalized lowercase, unique), `reg_number`, `phone`, `year`
+(`1|2|3`), `branch`, the two long answers (`why_join`, `contribute`),
+`time_commitment`, optional `remarks`, `status` (`pending|selected|rejected`),
+`created_at`, `decided_at`. The admin list shows all three statuses; the
+filter chips only narrow what is on screen (their counts are global).
+
+**Decide.** Open `Admin → Recruitment` (the tab needs an `ob` session and the
+usual AdminDoor unlock), find the applicant, expand `Answers` for the full
+submission, then `Select` or `Reject`. The browser asks for confirmation and
+the decision is **final** — the worker only updates rows that are still
+`pending` (a second attempt gets 409 `already_decided`). Each decision writes
+`admin_audit_log` and queues the applicant email in `email_outbox`; actual
+delivery still waits on the club mail setup, same as other email.
+
+**Status lookup.** `/recruit` → "Check your application status", or
+`GET /api/recruit/status?email=<college email>&reg_number=<register id>`.
+Both fields must match; the response is
+`{ application: { status, created_at, decided_at } }`. Pending renders as
+"Under review", selected as "Selected", rejected as "Not selected". Bad or
+non-matching pairs return 404 `not_found` (the endpoint never reveals which
+field was wrong). Public lookup is rate-limited to 20 checks / 15 min per IP.
+
+**CSV.** `Download CSV` exports the rows for the filter currently selected
+(`/api/admin/recruitment.csv?status=...`, header row included, all answers and
+timestamps in plain text). It is an `ob`-only endpoint; open it from a signed-in
+admin session.
+
+**Open / close recruitment.** The page reads the `recruitment_open` row in
+`site_settings` (`'1'` = open). Flip it either from a signed-in `ob` session:
+
+```bash
+curl -X PUT https://<host>/api/site \
+  -H 'content-type: application/json' \
+  -b 'nsdc_session=<ob cookie>' \
+  -d '{"recruitment_open": false}'
+```
+
+or directly in the database (local/staging D1):
+
+```sql
+UPDATE site_settings SET value = '0', updated_at = datetime('now')
+WHERE key = 'recruitment_open';
+```
+
+While closed, `/recruit` hides the form and shows "Applications are closed.";
+`POST /api/recruit` answers 403 `recruitment_closed`. The status lookup stays
+available. Reopen with `'1'` / `true`.
+
+**Rules in force.** College email (`@bl.students.amrita.edu` only), unique
+application per email (duplicate → 409 `already_applied`), phone 10–15 digits,
+register ID 3–40 characters, and both long answers at least 40 characters on
+the public form (the API floor is 10). Public submissions are limited to
+10 / 15 min per IP.
 
 ## When fallback content shows
 

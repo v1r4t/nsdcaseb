@@ -378,31 +378,28 @@ export default function Landing() {
                 <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
                   Who can apply
                 </p>
-                {/* COPY_TODO(owner): replace the sentence below with the real eligibility criteria — e.g. which years/branches, must be enrolled at Amrita Bengaluru, any prerequisites? Keep it to 2–4 short sentences or a short list. */}
                 <p className="mt-2 text-sm leading-relaxed text-paper/70">
-                  Eligibility is confirmed by the team each cycle and published here when
-                  recruitment opens.
+                  Open to 1st, 2nd and 3rd-year students of all branches at Amrita Bengaluru.
                 </p>
               </div>
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
                   How to apply
                 </p>
-                {/* COPY_TODO(owner): replace the sentence below with the real application steps — where the form lives, deadlines, selection rounds, and who to contact with questions. */}
                 <p className="mt-2 text-sm leading-relaxed text-paper/70">
-                  Application steps are published here when recruitment opens.
+                  Submit the application form. Every application is reviewed and you will be
+                  notified whether you are selected or not.
                 </p>
               </div>
             </div>
-            {/* COPY_TODO(owner): there is no notification channel (no mailing list, form, or contact route) in the site, so the closed-state button below points at the registrations archive where the next opening will appear — confirm that destination, or tell us what "Get notified" should link to. */}
             <p className="mt-8 flex flex-wrap gap-3">
               {recruitmentOpen === true ? (
-                <Link to="/registrations" className="btn-primary">
-                  Apply via registrations
+                <Link to="/recruit" className="btn-primary">
+                  Apply now
                 </Link>
               ) : recruitmentOpen === false ? (
-                <Link to="/registrations#archive" className="btn-ghost">
-                  Get notified
+                <Link to="/recruit" className="btn-ghost">
+                  Check application status
                 </Link>
               ) : null}
             </p>

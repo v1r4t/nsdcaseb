@@ -5,15 +5,19 @@ import { useAuth } from '../lib/auth';
 const AdminOverview = lazy(() => import('../components/admin/AdminOverview'));
 const AdminEvents = lazy(() => import('../components/admin/AdminEvents'));
 const AdminRegistrations = lazy(() => import('../components/admin/AdminRegistrations'));
+const AdminRecruitment = lazy(() => import('../components/admin/AdminRecruitment'));
 const AdminEmail = lazy(() => import('../components/admin/AdminEmail'));
 const AdminContent = lazy(() => import('../components/admin/AdminContent'));
+const AdminProjects = lazy(() => import('../components/admin/AdminProjects'));
 const AdminAccounts = lazy(() => import('../components/admin/AdminAccounts'));
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'events', label: 'Events' },
   { id: 'registrations', label: 'Registrations' },
+  { id: 'recruitment', label: 'Recruitment' },
   { id: 'email', label: 'Email' },
+  { id: 'projects', label: 'Projects' },
   { id: 'content', label: 'Content' },
   { id: 'accounts', label: 'Accounts' },
 ] as const;
@@ -90,7 +94,9 @@ export default function Admin() {
             {tab === 'overview' && <AdminOverview busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'events' && <AdminEvents busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'registrations' && <AdminRegistrations busy={busy} setBusy={setBusy} notify={setNotice} />}
+            {tab === 'recruitment' && <AdminRecruitment busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'email' && <AdminEmail busy={busy} setBusy={setBusy} notify={setNotice} />}
+            {tab === 'projects' && <AdminProjects busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'content' && <AdminContent busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'accounts' && <AdminAccounts busy={busy} setBusy={setBusy} notify={setNotice} />}
           </Suspense>

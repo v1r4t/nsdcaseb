@@ -24,6 +24,7 @@ const EventDetail = lazy(() => import('./pages/EventDetail'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Media = lazy(() => import('./pages/Media'));
 const Projects = lazy(() => import('./pages/Projects'));
+const Recruit = lazy(() => import('./pages/Recruit'));
 
 export default function App() {
   return (
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="/media" element={<Media />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
+              <Route path="/recruit" element={<Recruit />} />
               <Route path="/admin" element={<AdminDoor />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

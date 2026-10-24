@@ -6,6 +6,7 @@ import { handleEventsApi } from './events';
 import { handleAdminApi } from './admin';
 import { handleMediaApi } from './media';
 import { handleProjectsApi } from './projects';
+import { handleRecruitmentApi } from './recruitment';
 import { handleScheduled } from './email';
 import { applySecurityHeaders } from './security-headers';
 import { buildSitemap, fetchEventMeta, injectEventMeta, isKnownRoute, matchEventRoute } from './meta';
@@ -113,6 +114,7 @@ export default {
         (await handleEventsApi(request, env)) ??
         (await handleMediaApi(request, env)) ??
         (await handleProjectsApi(request, env)) ??
+        (await handleRecruitmentApi(request, env)) ??
         (await handleAdminApi(request, env)) ??
         handleApi(request, env)
       );
