@@ -8,6 +8,7 @@ import Backdrop from './components/Backdrop';
 import FolioRail from './components/FolioRail';
 import ErrorBoundary from './components/ErrorBoundary';
 import EasterEggs from './components/EasterEggs';
+import HashScroll from './components/HashScroll';
 import './a11y-eggs.css';
 import { AuthProvider } from './lib/auth';
 import Landing from './pages/Landing';
@@ -34,6 +35,7 @@ export default function App() {
           Skip to content
         </a>
         <Backdrop />
+        <HashScroll />
         <div className="relative z-10 flex min-h-screen flex-col">
           <SiteHeader />
           <AnnouncementBanner />
