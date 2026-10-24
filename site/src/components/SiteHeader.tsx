@@ -118,25 +118,6 @@ export default function SiteHeader() {
             </button>
           </div>
         </div>
-        {/* Compact desktop-only anchor row: direct in-page destinations without
-            opening the fullscreen MENU. Second slim line so row 1 (NSDC mark /
-            season marker / session cluster) never shifts. */}
-        <nav aria-label="Quick links" className="hidden border-t border-line lg:block">
-          <div className="flex items-center gap-6 px-12 py-1.5">
-            <Link to="/#about" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
-              About
-            </Link>
-            <Link to="/projects" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
-              Projects
-            </Link>
-            <Link to="/registrations" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
-              Events
-            </Link>
-            <Link to="/#people" className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper">
-              People
-            </Link>
-          </div>
-        </nav>
       </header>
 
       <FullscreenMenu open={menuOpen} onClose={() => setMenuOpen(false)} returnFocusRef={menuButtonRef} />
