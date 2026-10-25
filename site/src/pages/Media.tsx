@@ -106,7 +106,7 @@ function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => 
   );
 }
 
-export default function Media() {
+export default function Media({ archive = false }: { archive?: boolean }) {
   const [albums, setAlbums] = useState<MediaAlbum[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<string>(ALL);
@@ -116,9 +116,10 @@ export default function Media() {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useDocumentMeta({
-    title: 'Media — NSDC',
-    description:
-      'Photos and recordings from NSDC workshops, meetups and hack nights. Browse the gallery by album.',
+    title: archive ? 'Archive — NSDC' : 'Media — NSDC',
+    description: archive
+      ? 'The NSDC photo archive — every event, kept on the record and browsable by album.'
+      : 'Photos and recordings from NSDC workshops, meetups and hack nights. Browse the gallery by album.',
   });
 
   // Tab wraps inside the lightbox (shared hook); Escape/Arrows stay below.
@@ -225,9 +226,13 @@ export default function Media() {
 
   return (
     <div className="shell py-12 md:py-16">
-      <h1 className="font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">Media</h1>
+      <h1 className="font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">
+        {archive ? 'Archive' : 'Media'}
+      </h1>
       <p className="mt-3 text-sm text-paper/80">
-        Photos and recordings from our workshops, meetups and hack nights.
+        {archive
+          ? 'Every frame kept on the record — browse the archive by album and event.'
+          : 'Photos and recordings from our workshops, meetups and hack nights.'}
       </p>
 
       {error && (

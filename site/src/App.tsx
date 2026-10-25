@@ -52,6 +52,7 @@ export default function App() {
               <Route path="/registrations" element={<Registrations />} />
               <Route path="/registrations/:id" element={<EventDetail />} />
               <Route path="/media" element={<Media />} />
+              <Route path="/archive" element={<Media archive />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/recruit" element={<Recruit />} />

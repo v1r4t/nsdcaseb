@@ -31,6 +31,43 @@ export interface MediaListResponse {
   albums: MediaAlbum[];
 }
 
+/** One slide in the landing Archive carousel. */
+export interface ArchiveSlide {
+  url: string;
+  title: string;
+  caption: string;
+  albumId: string;
+  albumTitle: string;
+  eventId: string | null;
+}
+
+/**
+ * Flatten albums into carousel slides, keeping at most `perAlbum` images per
+ * event/album (owner's current archive policy: six photos per event). Videos
+ * and empty URLs are skipped; album order is preserved.
+ */
+export function archiveSlides(albums: MediaAlbum[], perAlbum = 6): ArchiveSlide[] {
+  const slides: ArchiveSlide[] = [];
+  for (const album of albums) {
+    let taken = 0;
+    for (const item of album.items ?? []) {
+      if (taken >= perAlbum) break;
+      if (item.type !== 'image') continue;
+      if (typeof item.url !== 'string' || item.url.length === 0) continue;
+      slides.push({
+        url: item.url,
+        title: item.title || album.title,
+        caption: item.caption,
+        albumId: album.id,
+        albumTitle: album.title,
+        eventId: album.event_id,
+      });
+      taken += 1;
+    }
+  }
+  return slides;
+}
+
 export interface CreatedResponse {
   id: string;
 }

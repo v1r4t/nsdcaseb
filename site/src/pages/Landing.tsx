@@ -7,7 +7,7 @@ import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { listEvents, type EventSummary } from '../lib/events';
 import { loadSiteState } from '../lib/site';
 import { listProjects } from '../lib/projects';
-import { listMedia } from '../lib/media';
+import { archiveSlides, listMedia } from '../lib/media';
 import Reveal from '../components/Reveal';
 import Stat from '../components/Stat';
 import CinematicOrigin from '../components/CinematicOrigin';
@@ -16,7 +16,8 @@ import PeopleList from '../components/PeopleList';
 import NowSection from '../components/NowSection';
 import ProjectStrip from '../components/ProjectStrip';
 import EventRows from '../components/EventRows';
-import ArchiveTeaser, { type ArchivePhoto } from '../components/ArchiveTeaser';
+import ArchiveTeaser from '../components/ArchiveTeaser';
+import type { ArchiveSlide } from '../lib/media';
 import Testimonials from '../components/Testimonials';
 import PosterBand, { PosterLines } from '../components/PosterBand';
 import CornerMarks from '../components/CornerMarks';
@@ -72,7 +73,7 @@ export default function Landing() {
   // null = in flight or failed; sections degrade to honest empty states.
   const [events, setEvents] = useState<EventSummary[] | null>(null);
   const [projectCount, setProjectCount] = useState<number | null>(null);
-  const [photos, setPhotos] = useState<ArchivePhoto[]>([]);
+  const [photos, setPhotos] = useState<ArchiveSlide[]>([]);
   // null = unknown (in flight or failed); mirrors NowSection's recruitment fetch.
   const [recruitmentOpen, setRecruitmentOpen] = useState<boolean | null>(null);
 
@@ -127,23 +128,12 @@ export default function Landing() {
     };
   }, []);
 
-  // First 3 images across albums for the archive teaser. Best-effort.
+  // Up to six archive photos per event for the carousel. Best-effort.
   useEffect(() => {
     let active = true;
     listMedia()
       .then(({ albums }) => {
-        if (!active) return;
-        const found: ArchivePhoto[] = [];
-        for (const album of albums) {
-          for (const item of album.items ?? []) {
-            if (item.type === 'image' && typeof item.url === 'string' && item.url.length > 0) {
-              found.push({ url: item.url, title: item.title ?? '' });
-              if (found.length >= 3) break;
-            }
-          }
-          if (found.length >= 3) break;
-        }
-        setPhotos(found);
+        if (active) setPhotos(archiveSlides(albums, 6));
       })
       .catch(() => {
         if (active) setPhotos([]);
@@ -428,7 +418,7 @@ export default function Landing() {
             From the room.
           </h2>
           <div className="mt-10">
-            <ArchiveTeaser photos={photos} />
+            <ArchiveTeaser slides={photos} />
           </div>
         </div>
       </section>
