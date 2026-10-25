@@ -11,3 +11,10 @@ supabase/.temp/
 
 # Local Worker secrets
 .dev.vars
+
+# Local scratch / session artefacts (never commit)
+cookies.txt
+tmp-*
+# JWT-like filenames (e.g. a pasted service-role key accidentally saved as a file)
+eyJ*
+*.jwt
