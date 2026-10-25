@@ -1,9 +1,27 @@
 # Production cutover — club site
 
-Status: **plan only. Not executed.** Audited 2026-10-25 against the live
-Cloudflare account and staging (`https://preview.nsdcaseb.xyz`). Numbers for the
-"before" state live in `docs/baseline.md`; nothing in this document has been run
-against production.
+Status: **prepared, not flipped.** Audited 2026-10-25 against the live
+Cloudflare account and staging (`https://preview.nsdcaseb.xyz`). Production
+resources were created and the site worker deployed to workers.dev on
+2026-10-25 — see §0.5. Apex/`www` are **still on the teaser**; the domain flip
+has not run. Numbers for the "before" state live in `docs/baseline.md`.
+
+### 0.5 Production resources created 2026-10-25 (pre-flip)
+
+| Resource | Value |
+| --- | --- |
+| Worker | `nsdcaseb-site` (deployed, workers.dev only, `preview_urls: false`) |
+| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0019 applied) |
+| Production RATELIMIT_KV | `bb4737aa246446258181b22f666ff8e3` |
+| NOTIFY_KV | shared teaser namespace `9b54a4a0…` |
+| Secrets | `ADMIN_ENTRY_CODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (generated/set by owner; never recorded here) |
+| Missing secret | **`RESEND_API_KEY`** — production email queues but cannot deliver until set |
+| Content | 4 events, 6 projects, real copy; `[SAMPLE]` album deleted; 0 users |
+| Verified on workers.dev | `/` + `/recruit` 200 with CSP/HSTS; `/nope` + `/admin` 404; sitemap XML; notify 405/400; poster upload + variants 200 |
+
+Remaining before flip: set `RESEND_API_KEY`, bootstrap the first `ob` account
+(register with the admin code, then verify), confirm `recruitment_open`, take a
+D1 export, and obtain the final explicit go for the domain move.
 
 Account facts (read-only, 2026-10-25):
 

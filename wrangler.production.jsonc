@@ -1,0 +1,37 @@
+{
+  "name": "nsdcaseb-site",
+  "compatibility_date": "2026-09-30",
+  "main": "worker/staging.ts",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist-site",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "AUTH_DB",
+      "database_name": "nsdc-auth-prod",
+      "database_id": "1cf53797-43f7-4516-966d-47c09a9d870a",
+      "migrations_dir": "worker/db/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "RATELIMIT_KV",
+      "id": "bb4737aa246446258181b22f666ff8e3"
+    },
+    {
+      "binding": "NOTIFY_KV",
+      "id": "9b54a4a0c174444e8b64cb7a2a590d47"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "vars": {
+    "MAIL_FROM": "NSDC <noreply@mail.nsdcaseb.xyz>"
+  }
+}

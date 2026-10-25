@@ -132,7 +132,14 @@ async function serveAppRoute(request: Request, env: Env, pathname: string): Prom
 
 export default {
   async fetch(request: Request, env: SiteEnv): Promise<Response> {
-    const { pathname } = new URL(request.url);
+    const url = new URL(request.url);
+    const { pathname } = url;
+
+    // One canonical origin: www permanently redirects to the apex. Applies only
+    // to the production hostname; preview/workers.dev are untouched.
+    if (url.hostname === 'www.nsdcaseb.xyz') {
+      return Response.redirect(`https://nsdcaseb.xyz${pathname}${url.search}`, 301);
+    }
 
     if (pathname.startsWith('/api/')) {
       if (pathname === '/api/notify') return handleNotify(request, env);
