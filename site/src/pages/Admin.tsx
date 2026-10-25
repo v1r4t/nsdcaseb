@@ -19,8 +19,8 @@ const TABS = [
   { id: 'recruitment', label: 'Recruitment' },
   { id: 'email', label: 'Email' },
   { id: 'projects', label: 'Projects' },
-  { id: 'content', label: 'Content' },
   { id: 'media', label: 'Media' },
+  { id: 'content', label: 'Content' },
   { id: 'accounts', label: 'Accounts' },
 ] as const;
 
