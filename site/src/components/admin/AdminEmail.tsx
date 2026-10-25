@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  describeEmailTest,
   getAuditLog,
   getOutbox,
   listAdminEvents,
   retryOutbox,
   sendBroadcast,
+  sendTestEmail,
 } from '../../lib/admin';
-import type { AdminEventSummary, AuditEntry, OutboxEntry, OutboxStatus } from '../../lib/admin';
+import type {
+  AdminEventSummary,
+  AuditEntry,
+  EmailTestResult,
+  OutboxEntry,
+  OutboxStatus,
+} from '../../lib/admin';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
@@ -19,6 +27,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
+  const [testResult, setTestResult] = useState<EmailTestResult | null>(null);
 
   const refreshOutbox = useCallback(
     async (status: OutboxStatus): Promise<void> => {
@@ -49,10 +58,22 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
     setBusy(true);
     try {
       const r = await sendBroadcast({ audience: aud, event_id: audEvent || undefined, subject, body });
-      notify(`Queued ${r.queued} email(s). Delivery starts once club email is connected.`);
+      notify(`Queued ${r.queued} email(s). The scheduled sweep delivers them within 15 minutes.`);
       setSubject('');
       setBody('');
       await refreshOutbox(outboxStatus);
+    } catch (err) {
+      notify(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function testDelivery(): Promise<void> {
+    setBusy(true);
+    setTestResult(null);
+    try {
+      setTestResult(await sendTestEmail());
     } catch (err) {
       notify(errText(err));
     } finally {
@@ -73,15 +94,37 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
     }
   }
 
+  const testCopy = testResult ? describeEmailTest(testResult) : null;
+  const testToneClass =
+    testCopy?.tone === 'error'
+      ? 'text-signal'
+      : testCopy?.tone === 'delivered'
+        ? 'text-paper/80'
+        : 'text-muted';
+
   return (
     <section aria-label="Email and audit" className="space-y-8">
-      {/* Delivery seam callout — email queueing works, actual sending does not yet. */}
-      <div className="border border-line p-4" role="note" aria-label="Delivery status">
-        <h2 className="label">Delivery: not configured</h2>
+      {/* One-click delivery probe — proves the Resend key + sender domain. */}
+      <div className="border border-line p-4" role="note" aria-label="Delivery test">
+        <h2 className="label">Delivery test</h2>
         <p className="hint mt-2">
-          Emails queue in the outbox immediately, but nothing is actually sent until club email is
-          connected (mailer seam pending). The outbox below is the source of truth for what would go out.
+          Send one message to your signed-in admin address to prove this worker can deliver through
+          Resend. The result says whether delivery worked, the key is missing, or the provider
+          rejected the sender domain.
         </p>
+        <button
+          type="button"
+          className="btn-primary mt-4"
+          disabled={busy}
+          onClick={() => void testDelivery()}
+        >
+          Send test email
+        </button>
+        {testCopy && (
+          <p role="status" className={`mt-3 text-sm ${testToneClass}`}>
+            {testCopy.text}
+          </p>
+        )}
       </div>
 
       <div>

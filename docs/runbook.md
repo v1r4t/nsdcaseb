@@ -14,9 +14,51 @@ members get 403.
 | Events | Admin → Events | Create / edit events: title, description, schedule, registration window, capacity (blank = unlimited), force-closed flag, poster upload, up to 20 registration questions. "Show archived" reveals soft-archived events; Archive/Unarchive toggles them. Registration Open/Close flips `force_closed`. |
 | Registrations | Admin → Roster | Pick an event → roster table (search by email/name, status filter), "Download CSV (server)" for the full export. |
 | Recruitment | Admin → Recruitment | Review applications (newest first), filter by status, expand "Answers", Select/Reject with a final-decision confirm, Download CSV. |
-| Email | Admin → Email and audit | Broadcast to all or one event (subject + body), outbox queue with pending/sent/failed filter, retry failed, audit-log table. Note: queueing works; actual delivery starts once club email is connected ("Delivery: not configured" banner). |
+| Email | Admin → Email and audit | **Send test email** (one click, proves delivery), broadcast to all or one event (subject + body), outbox queue with pending/sent/failed filter, retry failed, audit-log table. |
 | Content | Admin → Content | Office bearers (name, role, links as `Label https://…` one per line) and Achievements (title, description) — add / edit inline / delete with confirm. |
 | Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification. |
+
+## Email delivery test
+
+Resend is the delivery seam (`worker/mailer.ts`). A successful test is the
+only proof that a worker's key **and** sender domain actually work; queued
+rows in `email_outbox` alone prove nothing.
+
+**From the UI.** Sign in as `ob`, open `Admin → Email and audit`, and click
+**Send test email**. It sends `NSDC email test` synchronously to the
+signed-in admin's own address and reports one of:
+
+| Result | Meaning |
+| --- | --- |
+| `Sent (id …)` | Delivered to Resend. The key is present and `MAIL_FROM` is an accepted sender. Check the inbox (and spam) for the id shown. |
+| `Not configured — set RESEND_API_KEY` | The worker has no `RESEND_API_KEY`. Set the secret on **that** worker (`npx wrangler secret put RESEND_API_KEY -c wrangler.staging.jsonc`), then retry. The outbox keeps waiting meanwhile. |
+| `Provider rejected the message (HTTP 4xx)` | The key reached Resend but the request was refused. Usually the sender domain in `MAIL_FROM` (default `noreply@mail.nsdcaseb.xyz`) is not verified in Resend, or the API key is wrong/revoked. Verify the domain in the Resend dashboard and redeploy. |
+| `Could not reach the email provider` | Network/DNS failure from the worker; retry, then check worker logs. |
+
+**From a shell.** Same contract, `ob` session required:
+
+```bash
+curl -X POST https://<host>/api/admin/email/test \
+  -H 'content-type: application/json' \
+  -b 'nsdc_session=<ob cookie>' \
+  -d '{}'
+# 200 {"ok":true,"delivered":true,"detail":"<resend-id>"}
+# 200 {"ok":true,"delivered":false,"detail":"not-configured"}
+# 400 {"error":"invalid_email"}    (only when an explicit `to` is malformed)
+# 401 / 403 without an `ob` session
+```
+
+An optional `{"to":"someone@example.com"}` overrides the recipient; leave it
+out to use the signed-in admin. Every attempt is written to
+`admin_audit_log` as `email_test` with the recipient, boolean, and provider
+detail. The endpoint intentionally returns 200 for a failed send so the UI
+can explain it; it never echoes the key.
+
+**Outbox path.** The test bypasses `email_outbox` on purpose: it isolates the
+provider from queueing. Broadcasts still enqueue, and the scheduled sweep
+(`processOutbox`, every 15 minutes) marks rows `sent` only when the same
+Resend call reports delivered; unconfigured workers increment `attempts` and
+leave rows `pending` until the 5th attempt flips them to `failed`.
 
 ## Event posters and image variants
 

@@ -9,13 +9,25 @@
 // (Event create/close already live in events.ts — deliberately left
 // unaudited here; see Phase 5 report.)
 
-import { getSessionUser, json, requireMinRole, createEmailToken, normalizeRole, type Env, type User } from './auth-helpers';
+import {
+  EMAIL_RE,
+  MAX_EMAIL_LENGTH,
+  getSessionUser,
+  json,
+  requireMinRole,
+  createEmailToken,
+  normalizeRole,
+  type Env,
+  type User,
+} from './auth-helpers';
 import { enqueueEmail } from './email';
+import { sendEmail } from './mailer';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
 
-async function parseJson(
+async function parseJsonObject(
   request: Request,
+  allowEmpty: boolean,
 ): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; response: Response }> {
   let buffer: ArrayBuffer;
   try {
@@ -26,9 +38,15 @@ async function parseJson(
   if (buffer.byteLength > MAX_ADMIN_BODY_BYTES) {
     return { ok: false, response: json({ error: 'payload_too_large' }, 413) };
   }
+  const text = new TextDecoder().decode(buffer).trim();
+  if (text === '') {
+    return allowEmpty
+      ? { ok: true, value: {} }
+      : { ok: false, response: json({ error: 'invalid_json' }, 400) };
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(new TextDecoder().decode(buffer));
+    parsed = JSON.parse(text);
   } catch {
     return { ok: false, response: json({ error: 'invalid_json' }, 400) };
   }
@@ -36,6 +54,22 @@ async function parseJson(
     return { ok: false, response: json({ error: 'invalid_json' }, 400) };
   }
   return { ok: true, value: parsed as Record<string, unknown> };
+}
+
+async function parseJson(
+  request: Request,
+): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; response: Response }> {
+  return parseJsonObject(request, false);
+}
+
+/**
+ * Like `parseJson`, but an absent/empty body means `{}`. Used by the email
+ * test endpoint, where the only field (`to`) is optional.
+ */
+async function parseOptionalJson(
+  request: Request,
+): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; response: Response }> {
+  return parseJsonObject(request, true);
 }
 
 async function audit(env: Env, admin: User, action: string, detail: string): Promise<void> {
@@ -190,6 +224,42 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     ).bind(entryId).run();
     await audit(env, user, 'outbox_retry', JSON.stringify({ id: entryId, from: entry.status }));
     return json({ ok: true });
+  }
+
+  // POST /api/admin/email/test — send one synchronous message through the
+  // Resend seam so an admin can prove the key + sender domain in one click.
+  // Deliberately returns 200 with `{ ok, delivered, detail }` even when the
+  // worker is not configured or the provider rejects the message: the UI needs
+  // that explanation. Only malformed requests get a 4xx.
+  if (path === '/api/admin/email/test') {
+    if (method !== 'POST') return methodNotAllowed('POST');
+    const body = await parseOptionalJson(request);
+    if (!body.ok) return body.response;
+    const requested = body.value.to;
+    let to = user.email;
+    if (requested !== undefined) {
+      if (typeof requested !== 'string') return json({ error: 'invalid_email' }, 400);
+      to = requested.trim();
+    }
+    if (to.length > MAX_EMAIL_LENGTH || !EMAIL_RE.test(to)) {
+      return json({ error: 'invalid_email' }, 400);
+    }
+    const result = await sendEmail(env, {
+      to,
+      subject: 'NSDC email test',
+      text:
+        'This is a test email from the NSDC admin console.\n\n' +
+        'If you received it, Resend delivery is configured and the sender ' +
+        'domain is accepted.\n\n' +
+        `Requested by ${user.email} at ${new Date().toISOString()}.`,
+    });
+    await audit(
+      env,
+      user,
+      'email_test',
+      JSON.stringify({ to, delivered: result.delivered, detail: result.detail }),
+    );
+    return json({ ok: true, delivered: result.delivered, detail: result.detail });
   }
 
   // POST /api/admin/broadcast

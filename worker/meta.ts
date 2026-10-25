@@ -32,6 +32,17 @@ export const DEFAULT_SITE_NAME = 'NSDC — National Student Data Corps';
 export const DEFAULT_DESCRIPTION =
   'NSDC — National Student Data Corps. A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru. We bring students together to learn, build, experiment and compete across data, AI and emerging technology.';
 
+/** Shell assets that must resolve against the request origin. */
+const DEFAULT_OG_IMAGE_PATH = '/og-default.png';
+const DEFAULT_LOGO_PATH = '/nsdc_logo.png';
+
+const ORGANIZATION_DESCRIPTION =
+  'A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru.';
+const ORGANIZATION_SAME_AS = [
+  'https://www.instagram.com/nsdc_avvb/',
+  'https://www.linkedin.com/company/nsdc-avv-b',
+];
+
 export function normalizePath(pathname: string): string {
   if (pathname.length > 1 && pathname.endsWith('/')) return pathname.slice(0, -1);
   return pathname;
@@ -189,12 +200,116 @@ export function injectEventMeta(shell: Response, input: InjectInput): Response {
         el.remove();
       },
     })
+    // The shell's Organization block is not an og/twitter tag, so localize it
+    // here too; otherwise event pages keep the baked-in staging origin.
+    .on('script[type="application/ld+json"]', {
+      element(el) {
+        el.setInnerContent(organizationJsonLd(`${origin}/`, origin), { html: true });
+      },
+    })
     .on('head', {
       element(el) {
         el.append(tags + jsonLd, { html: true });
       },
     });
   return rewriter.transform(shell);
+}
+
+// ---------------------------------------------------------------------------
+// Default (non-event) metadata
+// ---------------------------------------------------------------------------
+
+/** Organization JSON-LD for the SPA shell, derived from the request origin. */
+function organizationJsonLd(url: string, origin: string): string {
+  return JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'National Student Data Corps',
+    alternateName: 'NSDC',
+    url,
+    logo: `${origin}${DEFAULT_LOGO_PATH}`,
+    description: ORGANIZATION_DESCRIPTION,
+    sameAs: ORGANIZATION_SAME_AS,
+  }).replace(/</g, '\\u003c');
+}
+
+/**
+ * Absolute URL on the request origin. Keeps the path/search of the incoming
+ * value (so the shell's `og-default.png` survives) and rewrites any baked-in
+ * host such as the staging preview domain.
+ */
+function localAssetUrl(value: string | null, origin: string, fallbackPath: string): string {
+  if (!value) return `${origin}${fallbackPath}`;
+  try {
+    const url = new URL(value, `${origin}/`);
+    return `${origin}${url.pathname}${url.search}`;
+  } catch {
+    return `${origin}${fallbackPath}`;
+  }
+}
+
+export interface DefaultMetaInput {
+  origin: string;
+  /** Request pathname, already normalized by the caller if desired. */
+  pathname: string;
+}
+
+/**
+ * Origin-aware defaults for the SPA shell: canonical, og:url, og:image,
+ * twitter:image and the Organization JSON-LD all follow the request origin
+ * and path. This is what keeps non-event routes from canonicalising to the
+ * staging homepage after a production cutover. Event routes use
+ * `injectEventMeta` instead, so the two never both append tags.
+ */
+export function injectDefaultMeta(shell: Response, input: DefaultMetaInput): Response {
+  const { origin, pathname } = input;
+  // `/` stays `/`; other trailing slashes are dropped to match the sitemap.
+  const canonical = `${origin}${normalizePath(pathname)}`;
+  const jsonLd = organizationJsonLd(canonical, origin);
+
+  const headers = new Headers(shell.headers);
+  // The body is rewritten: stale validators/lengths would be wrong.
+  headers.delete('etag');
+  headers.delete('content-length');
+
+  const rewriter = new HTMLRewriter()
+    .on('link[rel="canonical"]', {
+      element(el) {
+        el.setAttribute('href', canonical);
+      },
+    })
+    .on('meta[property="og:url"]', {
+      element(el) {
+        el.setAttribute('content', canonical);
+      },
+    })
+    .on('meta[property="og:image"]', {
+      element(el) {
+        el.setAttribute(
+          'content',
+          localAssetUrl(el.getAttribute('content'), origin, DEFAULT_OG_IMAGE_PATH),
+        );
+      },
+    })
+    .on('meta[name="twitter:image"]', {
+      element(el) {
+        el.setAttribute(
+          'content',
+          localAssetUrl(el.getAttribute('content'), origin, DEFAULT_OG_IMAGE_PATH),
+        );
+      },
+    })
+    // The shell carries exactly one JSON-LD block (Organization). It is
+    // rebuilt from constants so its url/logo follow the request origin.
+    .on('script[type="application/ld+json"]', {
+      element(el) {
+        el.setInnerContent(jsonLd, { html: true });
+      },
+    });
+
+  return rewriter.transform(
+    new Response(shell.body, { status: shell.status, statusText: shell.statusText, headers }),
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,10 @@
     {
       "binding": "RATELIMIT_KV",
       "id": "5535eca24d924115ad24c5b3d22af89f"
+    },
+    {
+      "binding": "NOTIFY_KV",
+      "id": "9b54a4a0c174444e8b64cb7a2a590d47"
     }
   ],
   "triggers": {

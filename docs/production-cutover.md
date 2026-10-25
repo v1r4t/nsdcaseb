@@ -13,12 +13,19 @@ from `worker/index.ts` via `wrangler.jsonc` (static `dist/` + `POST
 Cutover means: give the full-site worker its own production bindings, its own
 D1, and the apex/`www` custom domains.
 
+> **Resolved 2026-10-25 (pre-cutover):** both first-pass blockers are fixed in
+> code — origin-aware HTML metadata (`worker/meta.ts` + `worker/staging.ts`,
+> with production fallbacks in `site/index.html`) and `POST /api/notify` on the
+> site worker (`worker/notify.ts`, `NOTIFY_KV` bound in
+> `wrangler.staging.jsonc`). Details in §1 items 0 and 8.
+
 ---
 
 ## 0. What is different between the two configs (the real work)
 
-`wrangler.jsonc` (production teaser) has only `NOTIFY_KV` + `ASSETS`.
-`wrangler.staging.jsonc` (site) needs all of:
+`wrangler.jsonc` (production teaser) has `NOTIFY_KV` + `ASSETS`.
+`wrangler.staging.jsonc` (site) needs all of (launch-list `NOTIFY_KV` is now
+bound there too, sharing the teaser's namespace):
 
 | Binding / setting | Teaser (`wrangler.jsonc`) | Site (needs on production) |
 | --- | --- | --- |
@@ -27,6 +34,7 @@ D1, and the apex/`www` custom domains.
 | `run_worker_first` | `["/api/*"]` | `["/*"]` (SPA 404s + meta injection) |
 | `d1_databases` `AUTH_DB` | — | production D1 + `worker/db/migrations` |
 | `kv_namespaces` `RATELIMIT_KV` | — | production KV namespace |
+| `kv_namespaces` `NOTIFY_KV` | id `9b54a4a0…` (`sub:<email>`) | same namespace id |
 | `triggers.crons` | — | `*/15 * * * *` (email outbox) |
 | `vars.MAIL_FROM` | — | `NSDC <noreply@mail.nsdcaseb.xyz>` |
 
@@ -55,19 +63,18 @@ rollback.
 
 Order matters; all steps are additive and safe to rehearse on staging first.
 
-0. **Blocker — origin strings in the HTML shell.** `site/index.html` hardcodes
-   `https://preview.nsdcaseb.xyz/` in `<link rel="canonical">`, `og:url`,
-   `og:image`, `twitter:image` and the Organization JSON-LD (`url`, `logo`).
-   Served as-is on the apex, every non-home page canonicalises to the staging
-   homepage (this is the whole Lighthouse SEO 0.92 gap in
-   `docs/baseline.md`) and every share card points at preview. Fix before
-   cutover, either:
-   - build-time origin (e.g. a `VITE_SITE_ORIGIN` consumed by
-     `site/index.html`/`main.tsx`), or
-   - per-request rewrite in `worker/staging.ts` `serveAppRoute`, mirroring how
-     `worker/meta.ts` already rewrites canonical/OG for `/registrations/:id`.
-   Keep `worker/meta.ts`'s per-event injection working — it derives the origin
-   from the request already.
+0. **Resolved 2026-10-25 — origin strings in the HTML shell.**
+   `site/index.html` no longer hardcodes `https://preview.nsdcaseb.xyz/`; its
+   static fallback values point at the production apex. `worker/meta.ts`
+   (`injectDefaultMeta`) rewrites `<link rel="canonical">`, `og:url`,
+   `og:image`, `twitter:image` and the Organization JSON-LD (`url`, `logo`) to
+   `new URL(request.url).origin` + the current path for GET HTML navigation
+   responses; `worker/staging.ts` applies it in `serveAppRoute` and the HTML
+   404 fallback. `injectEventMeta` still owns `/registrations/:id` and now also
+   localizes the shell's Organization block, so event pages keep exactly one
+   canonical and still derive the origin from the request. Verified locally:
+   `/` and `/registrations` canonical/`og:url` follow `http://127.0.0.1:<port>`,
+   `/registrations/<id>` has one canonical and zero `preview.` strings.
 1. **Green gates on the exact commit to ship**
    - `npm ci`
    - `npx tsc -b` and `npm run typecheck:site`
@@ -110,11 +117,16 @@ Order matters; all steps are additive and safe to rehearse on staging first.
    the outbox drains (`handleScheduled`).
 7. **Rate-limit safety** — confirm `E2E_DISABLE_RATE_LIMIT` is **absent** from
    production vars. It exists only for local/CI.
-8. **Decide `/api/notify`** — the teaser exposes `POST /api/notify` writing
-   `NOTIFY_KV`; the site worker returns `404 not_found` for it (verified on
-   staging). If the launch-list endpoint must survive the flip, either keep a
-   redirect/subdomain for it or add the handler before cutover. Existing
-   `NOTIFY_KV` data is untouched either way (keys `sub:<email>`).
+8. **Resolved 2026-10-25 — `/api/notify`.** The handler now lives in
+   `worker/notify.ts` and both workers mount it before their auth router, so
+   the site worker serves the teaser's exact contract: same
+   length/JSON/email validation, honeypot, `sub:<email>` KV key, dedupe
+   (`{ok:true,already:true}`), and JSON envelopes. `wrangler.staging.jsonc`
+   binds `NOTIFY_KV` to the teaser's namespace (`9b54a4a0…`), so existing
+   launch-list keys carry over untouched. Other `/api/*` paths on the site
+   worker still return `{"error":"not_found"}` with 404. Local check: valid →
+   200 `{ok:true}`, repeat → `{ok:true,already:true}`, honeypot → 200, bad
+   email → 400, GET → 405.
 9. **Enable D1 backups / note the restore path** (`wrangler d1 export`) before
    any production write.
 
@@ -168,6 +180,10 @@ Run from a clean browser profile; use a real inbox you can read.
 - [ ] `curl -s https://nsdcaseb.xyz/registrations | grep canonical` → must be
       `https://nsdcaseb.xyz/registrations`, **not** `preview.nsdcaseb.xyz`
       (and `og:url` likewise). Same for `/recruit`, `/projects`, `/media`.
+- [ ] `POST https://nsdcaseb.xyz/api/notify` with a fresh address → `{ok:true}`
+      (plus `{ok:true,already:true}` on repeat); `GET` → `405`; honeypot
+      `company` filled → `200`; `{"email":"nope"}` → `400`. (This writes a real
+      `sub:` key — use an address you intend to keep.)
 
 **Auth**
 - [ ] Register a college address (`@bl.students.amrita.edu`): `POST
@@ -242,7 +258,8 @@ npm run build && npx wrangler deploy   # wrangler.jsonc, worker/index.ts
 ```
 
 Post-rollback: re-check `/`, `/registrations`, `/recruit` for 200/404 as
-expected, and confirm `/api/notify` behaves as before (it is teaser-only).
+expected, and confirm `/api/notify` behaves as before (both workers serve it
+from the same `NOTIFY_KV` namespace).
 
 ---
 

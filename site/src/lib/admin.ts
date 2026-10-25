@@ -133,6 +133,70 @@ export function getAuditLog(): Promise<{ entries: AuditEntry[] }> {
   return request<{ entries: AuditEntry[] }>('/api/admin/audit-log');
 }
 
+export interface EmailTestResult {
+  ok: true;
+  delivered: boolean;
+  /**
+   * Provider detail: the Resend message id on success, or one of
+   * `sent`, `not-configured`, `resend:<status>`, `send-failed`.
+   */
+  detail: string;
+}
+
+export type EmailTestTone = 'delivered' | 'not-configured' | 'error';
+
+export interface EmailTestCopy {
+  tone: EmailTestTone;
+  text: string;
+}
+
+/**
+ * Send one message to the signed-in admin (or an explicit `to`). The worker
+ * answers 200 even when delivery is impossible, so the result is always
+ * renderable; only invalid input / auth failures throw ApiError.
+ */
+export function sendTestEmail(to?: string): Promise<EmailTestResult> {
+  return request<EmailTestResult>('/api/admin/email/test', 'POST', to ? { to } : {});
+}
+
+/** Pure mapping from the worker envelope to the copy shown in the Email tab. */
+export function describeEmailTest(result: EmailTestResult): EmailTestCopy {
+  if (result.delivered) {
+    return {
+      tone: 'delivered',
+      text:
+        result.detail && result.detail !== 'sent'
+          ? `Sent (id ${result.detail}). Check the inbox.`
+          : 'Sent. Check the inbox.',
+    };
+  }
+  if (result.detail === 'not-configured') {
+    return {
+      tone: 'not-configured',
+      text: 'Not configured — set RESEND_API_KEY on the worker.',
+    };
+  }
+  const provider = /^resend:(\d{3})$/.exec(result.detail);
+  if (provider) {
+    return {
+      tone: 'error',
+      text:
+        `Provider rejected the message (HTTP ${provider[1]}). ` +
+        'Usually the sender domain or MAIL_FROM is not verified in Resend.',
+    };
+  }
+  if (result.detail === 'send-failed') {
+    return {
+      tone: 'error',
+      text: 'Could not reach the email provider. Try again and check the worker logs.',
+    };
+  }
+  return {
+    tone: 'error',
+    text: `Not delivered (${result.detail || 'unknown error'}).`,
+  };
+}
+
 /** Requeue a failed (or stuck) outbox entry: resets status + attempts. */
 export function retryOutbox(id: string): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/admin/outbox/${encodeURIComponent(id)}/retry`, 'POST', {});
