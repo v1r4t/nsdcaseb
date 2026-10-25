@@ -129,13 +129,16 @@
   }
 }
 
-/* Marquee: one continuous strip, duplicated track for a seamless loop. */
+/* Marquee: one continuous strip, duplicated for a seamless loop.
+   PosterBand renders MARQUEE_COPIES (6) identical copies; one cycle shifts
+   exactly one copy width (100% / 6). Keep the two in sync. */
 @keyframes nsdc-marquee {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    /* 100% / 6 copies */
+    transform: translateX(-16.6666667%);
   }
 }
 

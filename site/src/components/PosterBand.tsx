@@ -22,6 +22,16 @@ const MARQUEE_ITEMS = [
   '26—27',
 ];
 
+/**
+ * Copies of the strip inside the marquee track. The animation slides exactly
+ * ONE copy width per cycle (see `nsdc-marquee`), so at least two copies must
+ * remain visible at the widest supported viewport or the loop shows a gap
+ * before it restarts. One copy measures ~1111px; six leaves ~5.5k of tail,
+ * covering 4K/5K displays. If the copy content grows/shrinks significantly,
+ * re-check this number (and keep it in sync with the CSS keyframe).
+ */
+const MARQUEE_COPIES = 6;
+
 interface PosterBandProps {
   /** Optional photograph. Absent → pure typographic band. */
   imageUrl?: string;
@@ -55,8 +65,8 @@ export default function PosterBand({ imageUrl, imageAlt, children }: PosterBandP
             stops entirely under prefers-reduced-motion. */}
         <div className="marquee rule overflow-hidden py-4">
           <div className="marquee-track flex w-max items-center">
-            {[0, 1].map((copy) => (
-              <div key={copy} className="flex items-center" aria-hidden={copy === 1}>
+            {Array.from({ length: MARQUEE_COPIES }, (_, copy) => (
+              <div key={copy} className="flex items-center" aria-hidden={copy > 0}>
                 {MARQUEE_ITEMS.map((item) => (
                   <span
                     key={`${copy}-${item}`}
