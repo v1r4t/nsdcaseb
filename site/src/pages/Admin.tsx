@@ -9,6 +9,7 @@ const AdminRecruitment = lazy(() => import('../components/admin/AdminRecruitment
 const AdminEmail = lazy(() => import('../components/admin/AdminEmail'));
 const AdminContent = lazy(() => import('../components/admin/AdminContent'));
 const AdminProjects = lazy(() => import('../components/admin/AdminProjects'));
+const AdminMedia = lazy(() => import('../components/admin/AdminMedia'));
 const AdminAccounts = lazy(() => import('../components/admin/AdminAccounts'));
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'email', label: 'Email' },
   { id: 'projects', label: 'Projects' },
   { id: 'content', label: 'Content' },
+  { id: 'media', label: 'Media' },
   { id: 'accounts', label: 'Accounts' },
 ] as const;
 
@@ -98,6 +100,7 @@ export default function Admin() {
             {tab === 'email' && <AdminEmail busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'projects' && <AdminProjects busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'content' && <AdminContent busy={busy} setBusy={setBusy} notify={setNotice} />}
+            {tab === 'media' && <AdminMedia busy={busy} setBusy={setBusy} notify={setNotice} />}
             {tab === 'accounts' && <AdminAccounts busy={busy} setBusy={setBusy} notify={setNotice} />}
           </Suspense>
         </div>

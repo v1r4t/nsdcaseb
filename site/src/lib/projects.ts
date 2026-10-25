@@ -141,3 +141,64 @@ export function updateProject(id: string, patch: ProjectPatch): Promise<{ ok: tr
 export function deleteProject(id: string): Promise<{ deleted: true }> {
   return request<{ deleted: true }>(`/api/projects/${encodeURIComponent(id)}`, 'DELETE');
 }
+
+// --------------------------------------------------------------- testimonials
+
+/** Public row shape; GET only returns active rows, ordered by sort_order. */
+export interface Testimonial {
+  id: string;
+  quote: string;
+  name: string;
+  role: string;
+  sort_order: number;
+}
+
+export interface TestimonialListResponse {
+  testimonials: Testimonial[];
+}
+
+export interface TestimonialCreateInput {
+  /** Required; trimmed by the worker. */
+  quote: string;
+  /** Required; trimmed by the worker. */
+  name: string;
+  /** Optional; must be a string (null is rejected as invalid_role). */
+  role?: string;
+}
+
+export interface TestimonialPatch {
+  /** Must be non-empty when present. */
+  quote?: string;
+  /** Must be non-empty when present. */
+  name?: string;
+  /** May be empty. */
+  role?: string;
+  /** Must be an integer. */
+  sort_order?: number;
+  active?: boolean;
+}
+
+/** Public: active testimonials ordered by sort_order. */
+export function listTestimonials(): Promise<TestimonialListResponse> {
+  return request<TestimonialListResponse>('/api/testimonials');
+}
+
+/**
+ * Admin: create a testimonial. Mirrors the worker POST shape.
+ * NOTE: the worker ignores `sort_order` on POST (the INSERT does not list
+ * it) — callers that need a non-zero sort_order must follow up with
+ * updateTestimonial(id, { sort_order }), exactly like createProject.
+ */
+export function createTestimonial(input: TestimonialCreateInput): Promise<{ id: string }> {
+  return request<{ id: string }>('/api/testimonials', 'POST', input);
+}
+
+/** Admin: partial testimonial update, including `sort_order` and `active`. */
+export function updateTestimonial(id: string, patch: TestimonialPatch): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/api/testimonials/${encodeURIComponent(id)}`, 'PATCH', patch);
+}
+
+/** Admin: delete a testimonial. */
+export function deleteTestimonial(id: string): Promise<{ deleted: true }> {
+  return request<{ deleted: true }>(`/api/testimonials/${encodeURIComponent(id)}`, 'DELETE');
+}
