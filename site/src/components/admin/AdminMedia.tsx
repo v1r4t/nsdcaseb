@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   createAlbum,
-  createItem,
+  createItemPhoto,
   deleteAlbum,
   deleteItem,
   listMedia,
   updateAlbum,
   updateItem,
+  updateItemPhoto,
 } from '../../lib/media';
-import type { MediaAlbum, MediaItem, MediaType } from '../../lib/media';
+import type { MediaAlbum, MediaItem } from '../../lib/media';
+import { GalleryPhotoError, prepareGalleryPhoto } from '../../lib/image-variants';
+import type { GalleryPhotoUpload } from '../../lib/image-variants';
 import { errText } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
@@ -22,8 +25,11 @@ const MAX_URL = 2048;
 const MAX_ID_REF = 64;
 const MAX_SORT = 1_000_000;
 
-// Same allow-list as worker/media.ts; videos render in an iframe publicly.
-const VIDEO_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'youtu.be', 'youtube-nocookie.com']);
+/** Human-readable size for the selected/compressed photo notices. */
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 interface AlbumFormState {
   title: string;
@@ -43,8 +49,6 @@ const EMPTY_ALBUM_FORM: AlbumFormState = {
 
 interface ItemFormState {
   album_id: string;
-  type: MediaType;
-  url: string;
   title: string;
   caption: string;
   sort_order: string;
@@ -53,8 +57,6 @@ interface ItemFormState {
 function emptyItemForm(albumId: string): ItemFormState {
   return {
     album_id: albumId,
-    type: 'image',
-    url: '',
     title: '',
     caption: '',
     sort_order: '',
@@ -69,10 +71,9 @@ interface AlbumPayload {
   sort_order: number | undefined;
 }
 
-interface ItemPayload {
+/** Item metadata shared by JSON patches and multipart photo uploads. */
+interface ItemFields {
   album_id: string;
-  type: MediaType;
-  url: string;
   title: string;
   caption: string;
   sort_order: number | undefined;
@@ -88,24 +89,6 @@ function parseSortOrder(raw: string): { ok: true; value: number | undefined } | 
     return { ok: false, error: 'Sort order must be between -1,000,000 and 1,000,000.' };
   }
   return { ok: true, value };
-}
-
-/** https only; videos are additionally restricted to the YouTube hosts. */
-function validateUrl(raw: string, type: MediaType): { ok: true; value: string } | { ok: false; error: string } {
-  const trimmed = raw.trim();
-  if (trimmed === '') return { ok: false, error: 'URL is required.' };
-  if (trimmed.length > MAX_URL) return { ok: false, error: `URL must be ${MAX_URL} characters or fewer.` };
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return { ok: false, error: 'URL must be an absolute https URL.' };
-  }
-  if (parsed.protocol !== 'https:') return { ok: false, error: 'URL must be an absolute https URL.' };
-  if (type === 'video' && !VIDEO_HOSTS.has(parsed.hostname.toLowerCase())) {
-    return { ok: false, error: 'Video URLs must be on youtube.com, youtu.be or youtube-nocookie.com.' };
-  }
-  return { ok: true, value: trimmed };
 }
 
 /** Albums store a cover URL; blank clears it. Same https rule the UI promises. */
@@ -141,6 +124,10 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
   const [albumForm, setAlbumForm] = useState<AlbumFormState>(EMPTY_ALBUM_FORM);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemForm, setItemForm] = useState<ItemFormState>(() => emptyItemForm(''));
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null);
+  // Bumping this remounts the file input so a finished upload starts blank.
+  const [photoInputNonce, setPhotoInputNonce] = useState(0);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -162,6 +149,12 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
   }, []);
 
   const currentAlbum = albums === null ? null : albums.find((a) => a.id === albumId) ?? albums[0] ?? null;
+  // Legacy video rows still render in the list but the form only edits their
+  // metadata — videos can no longer be created or have their URL changed.
+  const editingItem = editingItemId && albums
+    ? albums.flatMap((a) => a.items).find((item) => item.id === editingItemId) ?? null
+    : null;
+  const isLegacyVideo = editingItem?.type === 'video';
 
   // Keep the picker pointed at a real album after a delete or the first create.
   useEffect(() => {
@@ -218,18 +211,23 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
   function resetItemForm(forAlbum = currentAlbum?.id ?? ''): void {
     setEditingItemId(null);
     setItemForm(emptyItemForm(forAlbum));
+    setPhoto(null);
+    setPhotoNotice(null);
+    setPhotoInputNonce((n) => n + 1);
   }
 
   function startItemEdit(item: MediaItem): void {
+    const owner = albums?.find((album) => album.items.some((it) => it.id === item.id));
     setEditingItemId(item.id);
     setItemForm({
-      album_id: currentAlbum?.id ?? '',
-      type: item.type,
-      url: item.url,
+      album_id: owner?.id ?? currentAlbum?.id ?? '',
       title: item.title,
       caption: item.caption,
       sort_order: String(item.sort_order),
     });
+    setPhoto(null);
+    setPhotoNotice(null);
+    setPhotoInputNonce((n) => n + 1);
     setError('');
   }
 
@@ -303,15 +301,10 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
     }, `Deleted album “${album.title}”.`);
   }
 
-  function buildItemPayload(): ItemPayload | null {
+  function buildItemFields(): ItemFields | null {
     const albumForItem = itemForm.album_id || currentAlbum?.id || '';
-    if (!albums?.some((a) => a.id === albumForItem)) {
+    if (!albumForItem || !albums?.some((a) => a.id === albumForItem)) {
       setError('Choose an album for this item.');
-      return null;
-    }
-    const url = validateUrl(itemForm.url, itemForm.type);
-    if (!url.ok) {
-      setError(url.error);
       return null;
     }
     if (itemForm.title.length > MAX_TITLE) {
@@ -329,8 +322,6 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
     }
     return {
       album_id: albumForItem,
-      type: itemForm.type,
-      url: url.value,
       title: itemForm.title,
       caption: itemForm.caption,
       sort_order: sort.value,
@@ -339,15 +330,81 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
 
   async function submitItem(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
-    const payload = buildItemPayload();
-    if (!payload) return;
-    if (editingItemId) {
-      // album_id is part of the patch, so changing it moves the item.
-      const saved = await run(() => updateItem(editingItemId, payload), 'Saved item.');
-      if (saved) resetItemForm(payload.album_id);
-    } else {
-      const created = await run(() => createItem(payload), `Added ${payload.type} item.`);
-      if (created) resetItemForm(payload.album_id);
+    if (busy) return;
+    const fields = buildItemFields();
+    if (!fields) return;
+
+    // Legacy videos: metadata only. No type/url in the patch, so the row stays
+    // a video and its URL cannot be edited through this form.
+    if (isLegacyVideo) {
+      if (!editingItemId) {
+        setError('Videos can no longer be added. Choose a photo instead.');
+        return;
+      }
+      const saved = await run(() => updateItem(editingItemId, fields), 'Saved item.');
+      if (saved) resetItemForm(fields.album_id);
+      return;
+    }
+
+    const source = photo;
+    if (!editingItemId && !source) {
+      setError('Choose a photo to upload.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    let prepared: GalleryPhotoUpload | null = null;
+    if (source) {
+      setPhotoNotice('Preparing photo…');
+      try {
+        prepared = await prepareGalleryPhoto(source, setPhotoNotice);
+        const summary = prepared.compressed
+          ? `Compressed to ${formatBytes(prepared.photo.size)} (from ${formatBytes(source.size)})`
+          : `Photo ready (${formatBytes(source.size)})`;
+        setPhotoNotice(
+          prepared.variantError
+            ? `${summary} · uploading the original only — ${prepared.variantError}`
+            : `${summary} · 640w and 1600w WebP variants generated.`,
+        );
+      } catch (err) {
+        setPhotoNotice(null);
+        setError(
+          err instanceof GalleryPhotoError
+            ? err.message
+            : 'Could not prepare that photo. Try a different image.',
+        );
+        setBusy(false);
+        return;
+      }
+    }
+
+    try {
+      if (editingItemId) {
+        // No new file: metadata-only JSON patch keeps the existing photo.
+        if (prepared) {
+          await updateItemPhoto(editingItemId, fields, {
+            photo: prepared.photo,
+            thumb: prepared.thumb,
+            full: prepared.full,
+          });
+        } else {
+          await updateItem(editingItemId, fields);
+        }
+      } else if (prepared) {
+        await createItemPhoto(fields, {
+          photo: prepared.photo,
+          thumb: prepared.thumb,
+          full: prepared.full,
+        });
+      }
+      await refresh();
+      notify(editingItemId ? 'Saved item.' : 'Added photo.');
+      resetItemForm(fields.album_id);
+    } catch (err) {
+      setError(errText(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -364,8 +421,9 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
       <div>
         <h2 className="label">Gallery</h2>
         <p className="mt-2 text-sm text-muted">
-          Albums and gallery items for the public gallery. Everything is URL-based — paste an
-          https link; there is no upload flow here.
+          Albums and gallery items for the public gallery. Album covers stay URL-based; gallery
+          photos are uploaded from this browser as WebP variants, with sources over 10 MB
+          compressed automatically before upload.
         </p>
         {error && (
           <p role="alert" aria-live="assertive" className="error-text mt-3">
@@ -576,54 +634,69 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                 <div className="mt-6 border-t border-line pt-5">
                   <h3 className="label">{editingItemId ? 'Edit item' : 'Add item'}</h3>
                   <form className="mt-4 space-y-3" onSubmit={submitItem}>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <label className="space-y-1">
-                        <span className="label">Album</span>
-                        <select
-                          aria-label="Item album"
-                          value={itemForm.album_id || currentAlbum?.id || ''}
-                          onChange={(e) => setItemForm({ ...itemForm, album_id: e.target.value })}
-                          className="field"
-                        >
-                          {albums.map((album) => (
-                            <option key={album.id} value={album.id}>
-                              {album.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="space-y-1">
-                        <span className="label">Type</span>
-                        <select
-                          aria-label="Item type"
-                          value={itemForm.type}
-                          onChange={(e) => setItemForm({ ...itemForm, type: e.target.value as MediaType })}
-                          className="field"
-                        >
-                          <option value="image">image</option>
-                          <option value="video">video</option>
-                        </select>
-                      </label>
-                    </div>
+                    <label className="block max-w-sm space-y-1">
+                      <span className="label">Album</span>
+                      <select
+                        aria-label="Item album"
+                        value={itemForm.album_id || currentAlbum?.id || ''}
+                        onChange={(e) => setItemForm({ ...itemForm, album_id: e.target.value })}
+                        className="field"
+                        required
+                      >
+                        {albums.map((album) => (
+                          <option key={album.id} value={album.id}>
+                            {album.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <p className="hint">
                       Changing the album and saving moves this item (PATCH album_id).
                     </p>
-                    <div>
-                      <input
-                        aria-label="Item URL"
-                        value={itemForm.url}
-                        onChange={(e) => setItemForm({ ...itemForm, url: e.target.value })}
-                        placeholder={itemForm.type === 'video' ? 'https://www.youtube.com/watch?v=…' : 'https://… image URL'}
-                        inputMode="url"
-                        className="field"
-                        required
-                      />
-                      <p className="hint mt-1">
-                        {itemForm.type === 'video'
-                          ? 'https and a YouTube host: youtube.com, youtu.be or youtube-nocookie.com.'
-                          : 'Any absolute https image URL.'}
-                      </p>
-                    </div>
+                    {isLegacyVideo ? (
+                      <div>
+                        <p className="hint">
+                          Legacy video item — only its album, title, caption and sort order can be
+                          edited. Videos can no longer be added or re-pointed.
+                        </p>
+                        {editingItem && (
+                          <p className="mt-1 truncate font-mono text-[11px] text-muted" title={editingItem.url}>
+                            {editingItem.url}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          aria-label={editingItemId ? 'Replacement photo' : 'Photo'}
+                          key={`${editingItemId ?? 'new'}-${photoInputNonce}`}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            setPhoto(e.target.files?.[0] ?? null);
+                            setPhotoNotice(null);
+                            setError('');
+                          }}
+                          className="field"
+                          required={!editingItemId}
+                        />
+                        <p className="hint mt-1">
+                          {editingItemId
+                            ? 'Leave empty to keep the current photo.'
+                            : 'One photo at a time. Photos over 10 MB are compressed in your browser.'}
+                        </p>
+                        {photo && (
+                          <p className="mt-1 font-mono text-[11px] text-muted">
+                            {photo.name} · {formatBytes(photo.size)}
+                          </p>
+                        )}
+                        {photoNotice && (
+                          <p role="status" aria-live="polite" className="hint mt-1">
+                            {photoNotice}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <input
                       aria-label="Item title"
                       value={itemForm.title}

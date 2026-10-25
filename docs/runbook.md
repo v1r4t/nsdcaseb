@@ -14,6 +14,7 @@ members get 403.
 | Events | Admin → Events | Create / edit events: title, description, schedule, registration window, capacity (blank = unlimited), force-closed flag, poster upload, up to 20 registration questions. "Show archived" reveals soft-archived events; Archive/Unarchive toggles them. Registration Open/Close flips `force_closed`. |
 | Registrations | Admin → Roster | Pick an event → roster table (search by email/name, status filter), "Download CSV (server)" for the full export. |
 | Recruitment | Admin → Recruitment | Review applications (newest first), filter by status, expand "Answers", Select/Reject with a final-decision confirm, Download CSV. |
+| Gallery | Admin → Gallery | Create albums, then add event photos with a file picker: photos only, one at a time. The browser compresses the image and prepares WebP variants before upload. |
 | Email | Admin → Email and audit | **Send test email** (one click, proves delivery), broadcast to all or one event (subject + body), outbox queue with pending/sent/failed filter, retry failed, audit-log table. |
 | Content | Admin → Content | Office bearers (name, role, links as `Label https://…` one per line) and Achievements (title, description) — add / edit inline / delete with confirm. |
 | Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification. |
@@ -100,6 +101,79 @@ poster's public URL, then uploads the two variants. It needs the Supabase
 service-role key because Storage writes are not public. Without that key, run
 `--dry-run` only. Re-running is safe: keys are deterministic and uploads upsert.
 
+## Gallery photos (Admin → Gallery)
+
+The public archive carousel reads its slides from the media gallery. Add photos
+from the admin console; the old "paste an image URL" flow is gone for new
+items.
+
+1. Sign in as `ob` and unlock `/admin` (AdminDoor). Open **Admin → Gallery**.
+2. **Create album** first (title required; description, event id, cover and
+   sort order are optional). Use the **Album** picker to choose where the photo
+   goes.
+3. In **Add item**, choose a photo with the **file picker**. Fill in an optional
+   title, caption and sort order, then **Add item**. Repeat for each photo —
+   the picker is intentionally single-select, so uploads happen one at a time.
+
+**What happens to the file.** The browser inspects the photo and encodes two
+WebP variants before sending the request. Photos up to **10 MB** upload with
+their original bytes; larger photos are re-encoded in the browser (WebP,
+stepping width and quality down) until they fit under the cap.
+
+| Multipart field | Object | Purpose |
+| --- | --- | --- |
+| `photo` | original, or compressed WebP when over 10 MB | Fallback/full-size source; still required. |
+| `photo_thumb` | 640w WebP | Small card/carousel image. |
+| `photo_full` | capped 1600w WebP | Larger preview. |
+
+`photo_thumb` and `photo_full` are optional so a browser that cannot encode
+WebP can still upload the original. The response is
+`{ id, url, variants }`; the public `GET /api/media` feed then lists the item
+under its album, with the same URL the browser displays.
+
+**Limits and errors.** Photos only — there is no video option in this form,
+and the picker accepts one file at a time. The uploaded source must stay at or
+under **10 MB**; the browser compression above exists to meet that cap, and a
+photo that is still too large after every compression step is rejected before
+upload. The API answers:
+
+| Status | Body | Meaning |
+| --- | --- | --- |
+| `201` | `{ id, url, variants }` | Stored and listed. |
+| `413` | `{ "error": "photo_too_large" }` | Source is over the 10 MB cap (e.g. a script upload; the UI compresses first). |
+| `400` | `{ "error": "invalid_file_type" }` | Not an image (the worker checks the uploaded file's MIME type; the picker offers images only). |
+| `503` | `{ "error": "storage_not_configured" }` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` missing on that worker. Local dev and CI without club storage hit this; nothing is written. |
+
+Uploads go to the same Supabase Storage bucket as event posters. If storage is
+not configured locally, the UI reports the 503 instead of silently dropping the
+photo; configure the two values in `.dev.vars` (local) or as worker secrets
+(staging) to exercise the real upload path.
+
+**Scripted upload.** With an `ob` session cookie:
+
+```bash
+curl -X POST https://<host>/api/media/items \
+  -H 'Cookie: nsdc_session=<ob cookie>' \
+  -F album_id=<album id> \
+  -F type=image \
+  -F title='Workshop photo' \
+  -F caption='Optional caption' \
+  -F photo=@photo.jpg
+# 201 {"id":"…","url":"https://<project>.supabase.co/storage/v1/object/public/…","variants":{…}}
+# 503 {"error":"storage_not_configured"} when storage is not configured
+```
+
+**Cleaning up test uploads.** `e2e/media-upload.spec.ts` creates a
+`[E2E] Gallery …` album, uploads a 1×1 PNG, asserts it in `GET /api/media`,
+then deletes the item and album **rows**. Its throwaway `ob` account is removed
+from local D1 in a `finally` block. The current delete endpoints do not remove
+Storage objects, so a successful upload leaves a tiny
+`gallery/<item id>/photo.webp` (plus any variants) in the bucket; delete that
+prefix when you need a spotless bucket. If a run is interrupted, open
+**Admin → Gallery** and delete the leftover `[E2E] …` album (its rows go with
+it), then remove the matching `gallery/<item id>/` prefix. Never run this spec
+against production: it creates and deletes real admin data.
+
 ## Things with no admin UI (API-only, `ob` session required)
 
 Sign in via the site first, then call from that browser session, or reuse the
@@ -121,10 +195,12 @@ session cookie with curl. Mutations are audit-logged.
 - **Announcement + recruitment**: `PUT /api/site` with any of
   `announcement_active`, `announcement_text` (≤160 chars), `announcement_href`
   (same-origin path only), `recruitment_open` (booleans).
-- **Media gallery**: `POST /api/media/albums|/items`, `PATCH` / `DELETE`
-  `/api/media/albums/:id`, `/api/media/items/:id`. Images need https URLs;
-  videos must be YouTube links. No admin UI — this is the one area where an
-  admin tab is still missing.
+- **Media gallery**: album CRUD is still available at
+  `POST /api/media/albums`, `PATCH` / `DELETE /api/media/albums/:id`, and items
+  at `/api/media/items/:id`. **Admin → Gallery** is the normal path for photos;
+  use the API directly only for bulk/automation. New photos are multipart
+  uploads (`album_id`, `type=image`, `photo`, optional `photo_thumb` /
+  `photo_full`) — see the Gallery photos section above.
 
 ## Recruitment applications
 

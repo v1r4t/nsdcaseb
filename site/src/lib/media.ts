@@ -104,6 +104,36 @@ export interface ItemInput {
   sort_order?: number;
 }
 
+/** URL pair returned after a gallery photo upload. */
+export interface GalleryPhotoVariants {
+  thumb: string;
+  full: string;
+}
+
+/** Response of the multipart item create/update endpoints. */
+export interface ItemPhotoResponse {
+  id: string;
+  url: string;
+  variants: GalleryPhotoVariants | null;
+}
+
+/** Metadata fields carried alongside a gallery photo. `type` is always image. */
+export interface ItemPhotoInput {
+  album_id: string;
+  title?: string;
+  caption?: string;
+  sort_order?: number;
+}
+
+/** Browser-generated photo bytes for the multipart item endpoints. */
+export interface ItemPhotoFiles {
+  photo: Blob;
+  /** Optional pair; send both or neither. */
+  thumb?: Blob | null;
+  full?: Blob | null;
+}
+
+
 /** Partial item patch, including a move to another album. */
 export interface ItemPatch {
   album_id?: string;
@@ -175,6 +205,58 @@ async function request<T>(path: string, method: Method = 'GET', body?: unknown):
   return payload as T;
 }
 
+/**
+ * Multipart uploads carry a photo up to 10 MB plus variants, so the JSON
+ * request timeout is too aggressive. Everything else (credentials, error
+ * envelope) matches `request`.
+ */
+const UPLOAD_TIMEOUT_MS = 60_000;
+
+async function uploadRequest<T>(path: string, method: 'POST' | 'PATCH', form: FormData): Promise<T> {
+  let response: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'include',
+      body: form,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
+  }
+  const raw = await response.text().catch(() => '');
+  let payload: unknown = null;
+  try {
+    payload = raw.length > 0 ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) throw new ApiError(response.status, errorCode(payload, response.status));
+  return payload as T;
+}
+
+function appendItemFields(form: FormData, input: ItemPhotoInput): void {
+  form.append('album_id', input.album_id);
+  form.append('type', 'image');
+  form.append('title', input.title ?? '');
+  form.append('caption', input.caption ?? '');
+  // Blank/undefined means the server default on create and unchanged on patch.
+  if (input.sort_order !== undefined) form.append('sort_order', String(input.sort_order));
+}
+
+function appendItemPhoto(form: FormData, files: ItemPhotoFiles): void {
+  const name = files.photo instanceof File && files.photo.name ? files.photo.name : 'photo';
+  form.append('photo', files.photo, name);
+  if (files.thumb && files.full) {
+    form.append('photo_thumb', files.thumb, 'photo-thumb.webp');
+    form.append('photo_full', files.full, 'photo-full.webp');
+  }
+}
+
 // Reads ----------------------------------------------------------------------
 
 /** Public: albums ordered by sort_order, each with its items ordered too. */
@@ -204,6 +286,33 @@ export function createItem(input: ItemInput): Promise<CreatedResponse> {
 
 export function updateItem(id: string, patch: ItemPatch): Promise<OkResponse> {
   return request<OkResponse>(`/api/media/items/${encodeURIComponent(id)}`, 'PATCH', patch);
+}
+
+/**
+ * Create an image item with a multipart body: metadata fields, the `photo`
+ * original, and the optional `photo_thumb` / `photo_full` WebP pair.
+ */
+export function createItemPhoto(input: ItemPhotoInput, files: ItemPhotoFiles): Promise<ItemPhotoResponse> {
+  const form = new FormData();
+  appendItemFields(form, input);
+  appendItemPhoto(form, files);
+  return uploadRequest<ItemPhotoResponse>('/api/media/items', 'POST', form);
+}
+
+/**
+ * Replace an image item's photo (and optionally move/edit its metadata).
+ * Omitting `files` is not supported here — use `updateItem` for metadata-only
+ * patches so the existing URL is preserved.
+ */
+export function updateItemPhoto(
+  id: string,
+  input: ItemPhotoInput,
+  files: ItemPhotoFiles,
+): Promise<ItemPhotoResponse> {
+  const form = new FormData();
+  appendItemFields(form, input);
+  appendItemPhoto(form, files);
+  return uploadRequest<ItemPhotoResponse>(`/api/media/items/${encodeURIComponent(id)}`, 'PATCH', form);
 }
 
 export function deleteItem(id: string): Promise<DeletedResponse> {

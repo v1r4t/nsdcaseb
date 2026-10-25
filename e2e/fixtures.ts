@@ -266,6 +266,85 @@ export async function registerObViaApi(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Media gallery helpers
+// ---------------------------------------------------------------------------
+
+export interface TestAlbum {
+  id: string;
+  title: string;
+}
+
+/** Create a gallery album through the real API (an `ob` session is required). */
+export async function createTestAlbum(
+  request: APIRequestContext,
+  title: string,
+): Promise<TestAlbum> {
+  const res = await request.post('/api/media/albums', { data: { title } });
+  if (!res.ok()) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`createTestAlbum failed for ${title}: ${res.status()} ${text}`);
+  }
+  const body = await readJson<{ id: string }>(res);
+  if (!body.id) throw new Error(`createTestAlbum returned no id for ${title}`);
+  return { id: body.id, title };
+}
+
+/** Delete an album and its items; 404 is treated as already gone. */
+export async function deleteTestAlbum(
+  request: APIRequestContext,
+  id: string,
+): Promise<void> {
+  const res = await request.delete(`/api/media/albums/${encodeURIComponent(id)}`);
+  if (!res.ok() && res.status() !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`deleteTestAlbum failed for ${id}: ${res.status()} ${text}`);
+  }
+}
+
+/**
+ * A real 1x1 transparent PNG, so the multipart request mirrors what the admin
+ * UI sends and stays valid if the worker tightens image validation later.
+ */
+export function galleryTestPng(): Buffer {
+  return Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=',
+    'base64',
+  );
+}
+
+export interface GalleryPhotoInput {
+  albumId: string;
+  title?: string;
+  caption?: string;
+  fileName?: string;
+  bytes?: Buffer;
+}
+
+/**
+ * POST a photo to the multipart media endpoint exactly as the admin UI does
+ * (album_id + type=image + `photo`). Returns the raw response so callers can
+ * branch on the 503 `storage_not_configured` local/CI path.
+ */
+export function uploadGalleryPhoto(
+  request: APIRequestContext,
+  input: GalleryPhotoInput,
+): Promise<APIResponse> {
+  return request.post('/api/media/items', {
+    multipart: {
+      album_id: input.albumId,
+      type: 'image',
+      ...(input.title === undefined ? {} : { title: input.title }),
+      ...(input.caption === undefined ? {} : { caption: input.caption }),
+      photo: {
+        name: input.fileName ?? 'e2e-gallery.png',
+        mimeType: 'image/png',
+        buffer: input.bytes ?? galleryTestPng(),
+      },
+    },
+  });
+}
+
 /** Remove every registration for an event (local D1 only) so capacity specs
  * start from a clean seat count across browser projects. */
 export async function clearEventRegistrations(eventId: string): Promise<void> {

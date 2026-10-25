@@ -137,7 +137,7 @@ function canvasContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   return ctx;
 }
 
-function encodeWebp(canvas: HTMLCanvasElement): Promise<Blob> {
+function encodeWebp(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -154,14 +154,15 @@ function encodeWebp(canvas: HTMLCanvasElement): Promise<Blob> {
         resolve(blob);
       },
       'image/webp',
-      POSTER_VARIANT_QUALITY,
+      quality,
     );
   });
 }
 
-async function renderVariant(
+async function renderAt(
   image: DecodedImage,
   targetWidth: number,
+  quality: number,
 ): Promise<{ blob: Blob; width: number }> {
   const size = scaledSize(image.width, image.height, targetWidth);
   const canvas = document.createElement('canvas');
@@ -171,7 +172,14 @@ async function renderVariant(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(image.source, 0, 0, size.width, size.height);
-  return { blob: await encodeWebp(canvas), width: size.width };
+  return { blob: await encodeWebp(canvas, quality), width: size.width };
+}
+
+async function renderVariant(
+  image: DecodedImage,
+  targetWidth: number,
+): Promise<{ blob: Blob; width: number }> {
+  return renderAt(image, targetWidth, POSTER_VARIANT_QUALITY);
 }
 
 /**
@@ -203,6 +211,201 @@ export async function generatePosterVariants(file: Blob): Promise<PosterVariantB
       full: full.blob,
       thumbWidth: thumb.width,
       fullWidth: full.width,
+    };
+  } finally {
+    image.close();
+  }
+}
+
+// Gallery photos -------------------------------------------------------------
+// Same browser-side pipeline as event posters, plus a hard cap on the uploaded
+// original: sources up to 10 MB are uploaded untouched; larger sources are
+// re-encoded as WebP (quality 0.82 → 0.7 → 0.6) and then stepped down in width
+// until they fit. Nothing is uploaded if the floor is still too large.
+
+export const GALLERY_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
+export const GALLERY_THUMB_WIDTH = 640;
+export const GALLERY_FULL_WIDTH = 1600;
+export const GALLERY_VARIANT_QUALITY = 0.82;
+/** Re-encode qualities, in order, at each width step. */
+export const GALLERY_QUALITIES: readonly number[] = [0.82, 0.7, 0.6];
+/** Width attempts after the first quality at the source width, largest first. */
+export const GALLERY_DIMENSION_STEPS: readonly number[] = [1600, 1280, 1024, 800, 640, 480];
+/** Compressed originals never step below this width (smaller sources stay as-is). */
+export const GALLERY_MIN_WIDTH = 480;
+
+/** One candidate encoding for an oversized gallery photo. */
+export interface GalleryCompressionAttempt {
+  width: number;
+  quality: number;
+}
+
+/** True when the source must be re-encoded before upload. */
+export function galleryNeedsCompression(sizeBytes: number): boolean {
+  return sizeBytes > GALLERY_SOURCE_MAX_BYTES;
+}
+
+/**
+ * Ordered compression candidates for an oversized source.
+ *
+ * The source width is capped at 1600 (never upscaled); each width is tried at
+ * quality 0.82, then 0.7, then 0.6 before stepping to the next smaller width.
+ * The last width is `GALLERY_MIN_WIDTH`, or the source width for sources
+ * already smaller than that floor.
+ */
+export function galleryCompressionPlan(sourceWidth: number): GalleryCompressionAttempt[] {
+  const start = Math.min(Math.max(1, Math.floor(sourceWidth)), GALLERY_FULL_WIDTH);
+  const widths: number[] = [start];
+  for (const step of GALLERY_DIMENSION_STEPS) {
+    if (step < start && step !== widths[widths.length - 1]) widths.push(step);
+  }
+  const attempts: GalleryCompressionAttempt[] = [];
+  for (const width of widths) {
+    for (const quality of GALLERY_QUALITIES) attempts.push({ width, quality });
+  }
+  return attempts;
+}
+
+/** `.webp` name used for a re-encoded gallery original. */
+export function galleryPhotoFilename(name: string): string {
+  const base = name.replace(/\.[^./\\]+$/, '').trim();
+  return `${base || 'photo'}.webp`;
+}
+
+/** Blobs ready to append to the item multipart form. */
+export interface GalleryPhotoUpload {
+  /** Original bytes when under the cap, otherwise the compressed WebP. */
+  photo: File;
+  /** 640w WebP variant, or null when this browser could not encode it. */
+  thumb: Blob | null;
+  /** 1600w WebP variant, or null when this browser could not encode it. */
+  full: Blob | null;
+  /** True when the original was re-encoded to fit the cap. */
+  compressed: boolean;
+  /** Why variants are missing; the original is still usable. */
+  variantError: string | null;
+  /** Width of the uploaded original. */
+  width: number;
+  /** Height of the uploaded original. */
+  height: number;
+}
+
+export class GalleryPhotoError extends Error {
+  readonly code: 'not_an_image' | 'decode_failed' | 'canvas_unavailable' | 'encode_failed' | 'too_large';
+
+  constructor(code: GalleryPhotoError['code'], message: string) {
+    super(message);
+    this.name = 'GalleryPhotoError';
+    this.code = code;
+  }
+}
+
+function galleryError(err: unknown, fallback: GalleryPhotoError['code'], message: string): GalleryPhotoError {
+  if (err instanceof GalleryPhotoError) return err;
+  return new GalleryPhotoError(fallback, message);
+}
+
+/**
+ * Decode once, compress the original only when it exceeds the cap, and derive
+ * the 640w / 1600w WebP variants from the same decoded bitmap.
+ *
+ * Oversized images that cannot be brought under the cap throw
+ * `GalleryPhotoError('too_large')` so the caller can stop before uploading.
+ * A variant encoding failure is returned rather than thrown: the original is
+ * still a valid upload and the backend treats the variants as optional.
+ */
+export async function prepareGalleryPhoto(
+  file: File,
+  onProgress?: (message: string) => void,
+): Promise<GalleryPhotoUpload> {
+  const type = (file.type || '').toLowerCase();
+  if (type && !type.startsWith('image/')) {
+    throw new GalleryPhotoError('not_an_image', 'That file is not an image.');
+  }
+  const needsCompression = galleryNeedsCompression(file.size);
+  onProgress?.(needsCompression ? 'Compressing…' : 'Preparing photo…');
+
+  let image: DecodedImage;
+  try {
+    image = await decodeImage(file);
+  } catch (err) {
+    if (needsCompression) {
+      throw galleryError(err, 'decode_failed', 'Could not read that image, so it could not be compressed.');
+    }
+    return {
+      photo: file,
+      thumb: null,
+      full: null,
+      compressed: false,
+      variantError: err instanceof PosterVariantError ? err.message : 'the image could not be decoded',
+      width: 0,
+      height: 0,
+    };
+  }
+
+  try {
+    let photo = file;
+    let compressed = false;
+    let finalWidth = image.width;
+
+    if (needsCompression) {
+      let chosen: { blob: Blob; width: number } | null = null;
+      for (const attempt of galleryCompressionPlan(image.width)) {
+        onProgress?.(`Compressing… (${attempt.width}px, quality ${attempt.quality})`);
+        let encoded: { blob: Blob; width: number };
+        try {
+          encoded = await renderAt(image, attempt.width, attempt.quality);
+        } catch (err) {
+          throw galleryError(err, 'encode_failed', 'This browser could not compress that photo.');
+        }
+        if (encoded.blob.size <= GALLERY_SOURCE_MAX_BYTES) {
+          chosen = encoded;
+          break;
+        }
+      }
+      if (!chosen) {
+        throw new GalleryPhotoError(
+          'too_large',
+          'That photo is still over 10 MB after compression. Try a smaller image.',
+        );
+      }
+      photo = new File([chosen.blob], galleryPhotoFilename(file.name), {
+        type: 'image/webp',
+        lastModified: Date.now(),
+      });
+      finalWidth = chosen.width;
+      compressed = true;
+    }
+
+    onProgress?.('Preparing 640w and 1600w photo variants…');
+    let thumb: Blob | null = null;
+    let full: Blob | null = null;
+    let variantError: string | null = null;
+    try {
+      const thumbWidth = Math.min(GALLERY_THUMB_WIDTH, finalWidth);
+      const fullWidth = Math.min(GALLERY_FULL_WIDTH, finalWidth);
+      const thumbVariant = await renderAt(image, thumbWidth, GALLERY_VARIANT_QUALITY);
+      // A small source lands on the same width for both buckets; reuse it.
+      const fullVariant = thumbWidth === fullWidth
+        ? thumbVariant
+        : await renderAt(image, fullWidth, GALLERY_VARIANT_QUALITY);
+      thumb = thumbVariant.blob;
+      full = fullVariant.blob;
+    } catch (err) {
+      variantError = err instanceof PosterVariantError
+        ? err.message
+        : 'the variants could not be encoded';
+    }
+
+    onProgress?.(variantError ? `Uploading the original only — ${variantError}` : 'Photo ready.');
+    return {
+      photo,
+      thumb,
+      full,
+      compressed,
+      variantError,
+      width: finalWidth,
+      height: scaledSize(image.width, image.height, finalWidth).height,
     };
   } finally {
     image.close();
