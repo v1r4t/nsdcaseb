@@ -16,19 +16,10 @@ import { listProjects } from '../lib/projects';
 import type { Project } from '../lib/projects';
 import { useAuth } from '../lib/auth';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
+import { posterSources } from '../lib/image-variants';
 import SeatMeter from '../components/SeatMeter';
 
 type Step = 1 | 2 | 3;
-
-// TODO(poster-variants): poster_url is a full-size Supabase public object URL
-// with no resized derivatives (see worker/supabase-storage.ts — plain object
-// GET, no transform params). If Supabase Image Transformations get enabled,
-// the convention would be appending `?width=768&quality=75` and listing 480w /
-// 768w / 1200w candidates here. Until then return the original as the only
-// source — never invent variant URLs that would 404.
-function posterSources(url: string): { src: string; srcSet: string | undefined } {
-  return { src: url, srcSet: undefined };
-}
 
 // Poster is capped at max-w-2xl (672px), full-bleed below that.
 const POSTER_SIZES = '(max-width: 672px) 100vw, 672px';
@@ -84,7 +75,14 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmArmed, setConfirmArmed] = useState(false);
+  const [posterVariantFailed, setPosterVariantFailed] = useState(false);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // Older posters have no variant objects: drop srcSet on the error event and
+  // let the original poster_url load instead.
+  useEffect(() => {
+    setPosterVariantFailed(false);
+  }, [event?.id, event?.poster_url, event?.poster_variants?.thumb]);
 
   useDocumentMeta({
     title: event ? `${event.title} — NSDC` : 'Event — NSDC',
@@ -215,7 +213,7 @@ export default function EventDetailPage() {
   const showMeter =
     event.registration_open && event.capacity !== null && event.spots_left !== null;
   const isActive = status === 'registered' || status === 'waitlisted';
-  const poster = event.poster_url ? posterSources(event.poster_url) : null;
+  const poster = posterSources(event.poster_url, event.poster_variants);
 
   return (
     <div className="shell py-12 md:py-16">
@@ -250,12 +248,16 @@ export default function EventDetailPage() {
       </h1>
       {poster && (
         <img
+          key={posterVariantFailed ? 'poster-original' : 'poster-variants'}
           src={poster.src}
-          srcSet={poster.srcSet}
+          srcSet={posterVariantFailed ? undefined : poster.srcSet}
           sizes={POSTER_SIZES}
           alt={`${event.title} poster`}
           loading="lazy"
           decoding="async"
+          onError={() => {
+            if (poster.srcSet) setPosterVariantFailed(true);
+          }}
           className="mt-6 h-auto w-full max-w-2xl border border-line"
         />
       )}

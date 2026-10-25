@@ -288,3 +288,96 @@ variant/COPY_TODO comments (image pipeline is deferred — do not touch),
 - Not covered by e2e: the closed state. `site_settings.recruitment_open` is
   global, so toggling it mid-run would race the admin spec's submit; the
   runbook documents the close/open procedure instead.
+
+## Lighthouse — 2026-10-25 (staging, after archive + recruitment)
+
+Date: 2026-10-25. `lighthouse@13.5.0` against the live staging worker
+`https://preview.nsdcaseb.xyz` (deployed build `index-BNx86Vo-.js` /
+`index-I2W2dCpf.css` — note the served build contains the `/registrations`
+skeleton, i.e. this is *after* the 2026-10-23 fix). Desktop = `--preset=desktop`,
+mobile = default Moto-G emulation, both `--chrome-flags="--headless=new
+--no-sandbox"`, `--only-categories=performance,accessibility,best-practices,seo`.
+One run per row, no throttling changes. Detail route uses real project id
+`proj-jadal`.
+
+| Route | Mode | Perf | A11y | BP | SEO | LCP (ms) | CLS | TBT (ms) | FCP (ms) | Transfer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `/` | desktop | 0.99 | 1.00 | 0.96 | 1.00 | 650 | 0.001 | 0 | 599 | 379 KiB |
+| `/registrations` | desktop | 0.99 | 1.00 | 0.96 | 0.92 | 705 | 0.015 | 0 | 591 | 233 KiB |
+| `/recruit` | desktop | **0.82** | 1.00 | 0.96 | 0.92 | 734 | **0.361** | 0 | 622 | 237 KiB |
+| `/archive` | desktop | 0.99 | 1.00 | 0.96 | 0.92 | 727 | 0.001 | 0 | 605 | 240 KiB |
+| `/projects/proj-jadal` | desktop | 1.00 | 1.00 | 0.96 | 0.92 | 726 | 0.000 | 0 | 617 | 236 KiB |
+| `/` | mobile | 0.96 | 1.00 | 0.96 | 1.00 | 2274 | 0.003 | 108 | 1974 | 379 KiB |
+| `/registrations` | mobile | 0.95 | 1.00 | 0.96 | 0.92 | 2539 | **0.000** | 14 | 2089 | 233 KiB |
+| `/recruit` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2697 | 0.000 | 0 | 2097 | 237 KiB |
+| `/archive` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2543 | 0.087 | 25 | 1943 | 240 KiB |
+| `/projects/proj-jadal` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2603 | 0.065 | 0 | 2003 | 236 KiB |
+
+A11y is 1.00 on every route (was 0.86 on `/` desktop in the 2026-10-23 table).
+BP 0.96 everywhere: sole failing audit is `errors-in-console` — the expected
+`401` from `GET /api/auth/me` for a signed-out visitor. SEO 0.92 on every
+non-home route: the static shell hardcodes
+`<link rel="canonical" href="https://preview.nsdcaseb.xyz/">`, so those pages
+canonicalise to the homepage. Pre-existing shell metadata, not caused by the
+archive/recruitment work — but see the cutover note below.
+
+### CLS verdict
+
+- **`/registrations` mobile: 0.000 (baseline 0.310) — fixed.** The deployed
+  CSS contains the reserved-space skeleton rule (`min-height:480px`), the
+  `layout-shifts` audit returns no items, and the footer no longer moves.
+  Desktop `/registrations` is 0.015 (footer still shifts a little while the
+  list replaces the skeleton, below the 0.1 "good" threshold). Verdict: the
+  2026-10-23 skeleton fix is confirmed on staging; no further change needed.
+- **`/recruit` desktop: 0.361 — new, reproducible regression (found this run).**
+  `layout-shifts` attributes 0.3606 to `footer.border-t`. Root cause is not the
+  recru form itself: the route is lazy, and `App.tsx`'s Suspense fallback is a
+  single `Loading…` line, so the document is exactly viewport-height and the
+  footer sits at y=706 in a 940px viewport. `Recruit` then mounts (header
+  first, then the form once `/api/site` resolves) and the footer jumps to
+  y=1886. Mobile shows 0 only because the fallback already overflows the
+  viewport there, so the footer is never visible.
+- **Fix applied (reserved space only; not deployed — staging still serves the
+  build measured above):**
+  - `site/src/App.tsx`: the Suspense fallback now reserves a viewport
+    (`shell min-h-[100svh] py-12`) instead of a one-line paragraph.
+  - `site/src/pages/Recruit.tsx`: the page root also reserves
+    `min-h-[100svh]` for the window between mount and `/api/site`.
+  - Typecheck clean (`tsc -p site`), unit tests 72/72, axe 5/5 locally.
+- **Post-fix numbers (local `wrangler dev -c wrangler.staging.jsonc` on the
+  fixed build, same Lighthouse flags):** `/recruit` desktop perf **1.00**,
+  CLS **0.0006**, LCP 567 ms, footer starts at y=1005 (below the 940px fold);
+  `/recruit` mobile perf 0.95, CLS 0.0032, LCP 2690 ms. Collateral (same
+  fallback fix): `/archive` mobile CLS 0.087 -> 0.0032, `/projects/proj-jadal`
+  mobile 0.065 -> 0.0136. `/registrations` unchanged at 0.000.
+  Expect these numbers on staging after the next `deploy:staging`.
+
+### axe — 2026-10-25 (read-only against staging)
+
+`BASE_URL=https://preview.nsdcaseb.xyz npx playwright test -c
+e2e/playwright.config.ts axe --project=chromium` → **5/5 passed** (`/`,
+`/registrations`, `/media`, `/admin` locked 404, first `/projects/:id`), zero
+critical/serious. No `disableRules` exemptions are in the spec today, so this
+is a strict scan (the five exclusions mentioned in the Phase 5B/5C note above
+are no longer configured). Same 5 tests pass against the locally fixed build.
+
+### Secrets — 2026-10-25 (names only)
+
+`npx wrangler secret list -c wrangler.staging.jsonc` (read-only):
+`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`. No `SUPABASE_URL` /
+`SUPABASE_SERVICE_ROLE_KEY`, so staging poster/media upload is storage-disabled;
+provision the pair before cutover if uploads must work in production.
+
+### Cutover follow-ups surfaced by this run
+
+- `site/index.html` hardcodes `https://preview.nsdcaseb.xyz/` in `canonical`,
+  `og:url`, `og:image`, `twitter:image` and the Organization JSON-LD. On the
+  apex every non-home page would canonicalise and share as the staging origin.
+  Must be made origin-relative/configurable before the flip
+  (`docs/production-cutover.md` pre-flight step 0). This is also the whole
+  SEO 0.92 gap.
+- `/api/notify` (teaser launch list) does not exist on the site worker
+  (verified `404 not_found` on staging). Decide whether to keep it.
+- Mobile `/archive` (0.087) and `/projects/:id` (0.065) remain below 0.1 but
+  are the same footer-shift pattern; the fallback fix should bring them to
+  ~0.00 after deploy.

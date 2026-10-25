@@ -7,6 +7,7 @@ import type { PanelProps } from './AdminOverview';
 
 interface ProjectFormState {
   title: string;
+  author: string;
   summary: string;
   description: string;
   stackText: string;
@@ -20,6 +21,7 @@ interface ProjectFormState {
 
 const EMPTY_FORM: ProjectFormState = {
   title: '',
+  author: '',
   summary: '',
   description: '',
   stackText: '',
@@ -36,6 +38,7 @@ const STATUSES: ProjectStatus[] = ['active', 'shipped', 'archived'];
 function toForm(p: Project): ProjectFormState {
   return {
     title: p.title,
+    author: p.author,
     summary: p.summary,
     description: p.description,
     stackText: p.stack.join(', '),
@@ -119,14 +122,16 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
     [projects],
   );
 
-  async function run(fn: () => Promise<unknown>, msg: string): Promise<void> {
+  async function run(fn: () => Promise<unknown>, msg: string): Promise<boolean> {
     setBusy(true);
     try {
       await fn();
       await refresh();
       notify(msg);
+      return true;
     } catch (err) {
       notify(errText(err));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -161,6 +166,7 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
   /** Shared validation for create + edit; returns the API-ready fields or null. */
   function buildPayload(): {
     title: string;
+    author: string | null;
     summary: string;
     description: string;
     stack: string[];
@@ -173,6 +179,11 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
   } | null {
     if (!form.title.trim()) {
       notify('Title is required.');
+      return null;
+    }
+    const author = form.author.trim();
+    if (author.length > 120) {
+      notify('Author must be 120 characters or fewer.');
       return null;
     }
     const stack = parseStackText(form.stackText);
@@ -195,6 +206,7 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
     }
     return {
       title: form.title.trim(),
+      author: author === '' ? null : author,
       summary: form.summary,
       description: form.description,
       stack: stack.value,
@@ -235,14 +247,14 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
     const payload = buildPayload();
     if (!payload) return;
     const { sort_order, ...rest } = payload;
-    await run(
+    const saved = await run(
       () => updateProject(editingId, sort_order === undefined ? rest : { ...rest, sort_order }),
       'Saved project.',
     );
-    resetForm();
+    // Keep the form (and the user's edits) when the update failed; `run`
+    // already surfaced the error.
+    if (saved) resetForm();
   }
-
-  const editing = editingId ? projects.find((p) => p.id === editingId) ?? null : null;
 
   return (
     <section aria-label="Projects" className="space-y-8">
@@ -309,6 +321,17 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
             className="field"
             required
           />
+          <div>
+            <input
+              aria-label="Author"
+              value={form.author}
+              onChange={(e) => setForm({ ...form, author: e.target.value })}
+              placeholder="Author (credit line, blank = none)"
+              maxLength={120}
+              className="field"
+            />
+            <p className="hint mt-1">Shown under the project on the public site. Max 120 characters.</p>
+          </div>
           <textarea
             aria-label="Summary"
             value={form.summary}
@@ -396,9 +419,6 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
             className="field"
           />
           <p className="hint">Whole number. Featured projects list first regardless of sort order.</p>
-          {editing && editing.author !== '' && (
-            <p className="hint">Author: {editing.author} (set by seed data — the API returns it read-only).</p>
-          )}
           <label className="flex items-center gap-2 text-sm text-paper/80">
             <input
               type="checkbox"

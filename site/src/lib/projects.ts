@@ -102,6 +102,8 @@ export interface ProjectCreateInput {
   cover_url?: string | null;
   status?: ProjectStatus;
   event_id?: string | null;
+  /** Credit line; omit/null/'' means no author. Trimmed, max 120 chars. */
+  author?: string | null;
   featured?: boolean;
 }
 
@@ -114,15 +116,17 @@ export interface ProjectPatch {
   cover_url?: string | null;
   status?: ProjectStatus;
   event_id?: string | null;
+  /** Credit line; null/'' clears it. Trimmed, max 120 chars. */
+  author?: string | null;
   featured?: boolean;
   sort_order?: number;
 }
 
 /**
  * Admin: create a project. Mirrors the worker POST shape.
- * NOTE: the worker ignores `sort_order` and `author` on POST (INSERT lists
- * neither) — callers that need a non-zero sort_order must follow up with
- * updateProject(id, { sort_order }). `author` is API read-only (seeded).
+ * NOTE: the worker ignores `sort_order` on POST (the INSERT does not list
+ * it) — callers that need a non-zero sort_order must follow up with
+ * updateProject(id, { sort_order }).
  */
 export function createProject(input: ProjectCreateInput): Promise<{ id: string }> {
   return request<{ id: string }>('/api/projects', 'POST', input);

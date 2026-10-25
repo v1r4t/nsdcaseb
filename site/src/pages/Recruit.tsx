@@ -227,7 +227,13 @@ export default function Recruit() {
         : 'Checking recruitment status…';
 
   return (
-    <div className="shell py-12 md:py-16">
+    // Reserve a full viewport of page height so the footer starts below the
+    // fold while `loadSiteState()` is in flight. Without it the footer sits at
+    // the viewport bottom on the short "Checking recruitment status…" state
+    // and is pushed down when the form mounts (mobile /recruit CLS 0, desktop
+    // 0.36 — the footer shift). No visible content is added; the space is
+    // simply the page's minimum height.
+    <div className="shell min-h-[100svh] py-12 md:py-16">
       <div className="max-w-xl">
         <header className="rule pt-8">
           <p className="label">Recruitment</p>

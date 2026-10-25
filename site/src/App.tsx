@@ -41,7 +41,11 @@ export default function App() {
           <AnnouncementBanner />
           <main id="main" tabIndex={-1} className="flex-1">
             <ErrorBoundary>
-            <Suspense fallback={<p className="shell py-12 font-mono text-xs uppercase tracking-wide text-muted">Loading…</p>}>
+            {/* Reserve a viewport of height while a lazy route loads. A
+                one-line fallback puts the footer at the viewport bottom, and
+                the route then pushes it down — measured as CLS 0.36 on
+                desktop /recruit. Same box as the page shells (py-12). */}
+            <Suspense fallback={<div className="shell min-h-[100svh] py-12 font-mono text-xs uppercase tracking-wide text-muted">Loading…</div>}>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />

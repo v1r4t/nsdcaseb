@@ -8,6 +8,8 @@ import {
 import type { AdminEventSummary } from '../../lib/admin';
 import { getEvent } from '../../lib/events';
 import type { EventQuestion } from '../../lib/events';
+import { generatePosterVariants, PosterVariantError } from '../../lib/image-variants';
+import type { PosterVariantBlobs } from '../../lib/image-variants';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
@@ -74,6 +76,20 @@ function registeredCount(e: AdminEventSummary): string {
   return String(e.capacity - e.spots_left);
 }
 
+/**
+ * Blank = unlimited (`null`). The worker accepts any integer >= 0, so reject
+ * junk here — `Number('abc')` is NaN and JSON-serialises to `null`, which
+ * would silently turn a typo into an unlimited-capacity event.
+ */
+function parseCapacity(raw: string): { ok: true; value: number | null } | { ok: false; error: string } {
+  const trimmed = raw.trim();
+  if (trimmed === '') return { ok: true, value: null };
+  if (!/^\d+$/.test(trimmed)) {
+    return { ok: false, error: 'Capacity must be a whole number (blank = unlimited).' };
+  }
+  return { ok: true, value: Number(trimmed) };
+}
+
 export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
   const [events, setEvents] = useState<AdminEventSummary[]>([]);
   const [showArchived, setShowArchived] = useState(false);
@@ -81,6 +97,12 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
   const [form, setForm] = useState<EventFormState>(EMPTY_FORM);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [poster, setPoster] = useState<File | null>(null);
+  const [posterNotice, setPosterNotice] = useState<string | null>(null);
+  // The single-event GET omits `force_closed`, so the edit form can only
+  // infer it. Only PATCH it when the admin actually flips the checkbox —
+  // otherwise saving an unrelated edit would persist a wrong guess and pin
+  // the event closed (e.g. a future event whose window has not opened yet).
+  const [forceClosedTouched, setForceClosedTouched] = useState(false);
 
   const refresh = useCallback(
     async (includeArchived: boolean): Promise<void> => {
@@ -103,6 +125,25 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
     setForm(EMPTY_FORM);
     setQuestions([]);
     setPoster(null);
+    setPosterNotice(null);
+    setForceClosedTouched(false);
+  }
+
+  /**
+   * Resize in the browser before upload. A failed generation is not fatal:
+   * the original still uploads and the public pages fall back to it.
+   */
+  async function preparePosterVariants(file: File): Promise<PosterVariantBlobs | null> {
+    setPosterNotice('Preparing 640w and 1600w poster variants…');
+    try {
+      const variants = await generatePosterVariants(file);
+      setPosterNotice('Poster variants ready (640w / 1600w WebP).');
+      return variants;
+    } catch (err) {
+      const reason = err instanceof PosterVariantError ? err.message : 'the image could not be resized';
+      setPosterNotice(`Uploading the original only — ${reason}`);
+      return null;
+    }
   }
 
   async function startEdit(e: AdminEventSummary): Promise<void> {
@@ -110,6 +151,13 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
     try {
       // Full detail carries description + questions, which the list omits.
       const { event } = await getEvent(e.id);
+      // registration_open is false for force-closed AND archived events AND
+      // events outside their registration window. Only infer force_closed
+      // inside the window, where "closed" can only mean force_closed.
+      const opens = Date.parse(event.reg_opens_at);
+      const closes = Date.parse(event.reg_closes_at);
+      const now = Date.now();
+      const inWindow = !e.archived && Number.isFinite(opens) && Number.isFinite(closes) && now >= opens && now <= closes;
       setEditingId(e.id);
       setForm({
         title: event.title,
@@ -119,10 +167,9 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
         reg_opens_at: toLocalInput(event.reg_opens_at),
         reg_closes_at: toLocalInput(event.reg_closes_at),
         capacity: event.capacity === null ? '' : String(event.capacity),
-        // registration_open is false for force-closed AND archived events;
-        // the row's own flag disambiguates.
-        force_closed: !event.registration_open && !e.archived,
+        force_closed: inWindow && !event.registration_open,
       });
+      setForceClosedTouched(false);
       setQuestions(
         event.questions.map((q) => ({ id: q.id, label: q.label, required: q.required, maxLength: String(q.maxLength) })),
       );
@@ -170,8 +217,14 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       notify(q.error);
       return;
     }
+    const capacity = parseCapacity(form.capacity);
+    if (!capacity.ok) {
+      notify(capacity.error);
+      return;
+    }
     setBusy(true);
     try {
+      const posterVariants = poster ? await preparePosterVariants(poster) : null;
       const r = await adminCreateEvent({
         title: form.title,
         description: form.description,
@@ -179,14 +232,19 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
         ends_at: new Date(form.ends_at).toISOString(),
         reg_opens_at: new Date(form.reg_opens_at).toISOString(),
         reg_closes_at: new Date(form.reg_closes_at).toISOString(),
-        capacity: form.capacity ? Number(form.capacity) : null,
+        capacity: capacity.value,
         force_closed: form.force_closed,
         questions: q.value,
         // Poster is required once club storage is connected; in local dev
         // without storage the worker accepts a poster-less create.
         ...(poster ? { poster } : {}),
+        ...(posterVariants ? { posterVariants } : {}),
       });
-      notify(`Created event ${r.id}.`);
+      notify(
+        poster && !posterVariants
+          ? `Created event ${r.id}. Poster uploaded without resized variants.`
+          : `Created event ${r.id}.`,
+      );
       resetForm();
       await refresh(showArchived);
     } catch (err) {
@@ -204,6 +262,11 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       notify(q.error);
       return;
     }
+    const capacity = parseCapacity(form.capacity);
+    if (!capacity.ok) {
+      notify(capacity.error);
+      return;
+    }
     setBusy(true);
     try {
       await adminUpdateEvent(editingId, {
@@ -213,20 +276,29 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
         ends_at: new Date(form.ends_at).toISOString(),
         reg_opens_at: new Date(form.reg_opens_at).toISOString(),
         reg_closes_at: new Date(form.reg_closes_at).toISOString(),
-        capacity: form.capacity ? Number(form.capacity) : null,
-        force_closed: form.force_closed,
+        capacity: capacity.value,
+        // Only send force_closed when the admin touched the checkbox; see
+        // the forceClosedTouched comment above.
+        ...(forceClosedTouched ? { force_closed: form.force_closed } : {}),
         questions: q.value,
       });
+      let posterVariantsMissing = false;
       if (poster) {
         try {
-          await adminUploadPoster(editingId, poster);
+          const posterVariants = await preparePosterVariants(poster);
+          posterVariantsMissing = !posterVariants;
+          await adminUploadPoster(editingId, poster, posterVariants ?? undefined);
         } catch (uploadErr) {
           notify(`Saved event, but the poster upload failed: ${errText(uploadErr)}`);
           await refresh(showArchived);
           return;
         }
       }
-      notify('Saved event.');
+      notify(
+        posterVariantsMissing
+          ? 'Saved event. Poster uploaded without resized variants.'
+          : 'Saved event.',
+      );
       resetForm();
       await refresh(showArchived);
     } catch (err) {
@@ -351,7 +423,10 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             <input
               type="checkbox"
               checked={form.force_closed}
-              onChange={(e) => setForm({ ...form, force_closed: e.target.checked })}
+              onChange={(e) => {
+                setForceClosedTouched(true);
+                setForm({ ...form, force_closed: e.target.checked });
+              }}
               className="h-4 w-4 shrink-0 accent-signal"
             />
             Force closed now
@@ -359,6 +434,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
           <div>
             <input
               aria-label="Poster"
+              key={editingId ?? 'new'}
               type="file"
               accept="image/*"
               onChange={(e) => setPoster(e.target.files?.[0] ?? null)}
@@ -370,6 +446,11 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                 ? 'Leave empty to keep the current poster.'
                 : 'Poster image. In local dev without club storage configured, creation works without one.'}
             </p>
+            {posterNotice && (
+              <p role="status" aria-live="polite" className="hint mt-1">
+                {posterNotice}
+              </p>
+            )}
           </div>
 
           <div className="border-t border-line pt-4">

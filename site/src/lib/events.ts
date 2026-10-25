@@ -14,6 +14,12 @@ export interface EventQuestion {
   maxLength: number;
 }
 
+/** Upload-time WebP derivatives served next to the original poster. */
+export interface EventPosterVariants {
+  thumb: string;
+  full: string;
+}
+
 export interface EventSummary {
   id: string;
   title: string;
@@ -26,6 +32,12 @@ export interface EventSummary {
   spots_left: number | null;
   registration_open: boolean;
   poster_url: string | null;
+  /**
+   * Present for posters uploaded after the variant pipeline shipped. Older
+   * posters have no variant objects, so the URL pair 404s; renderers keep the
+   * original `poster_url` as the fallback (see lib/image-variants.ts).
+   */
+  poster_variants?: EventPosterVariants | null;
   mine: { status: RegistrationStatus } | null;
 }
 

@@ -15,6 +15,7 @@ import { getSessionUser, json, readJsonBody, requireMinRole, type Env, type User
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const STATUSES = ['active', 'shipped', 'archived'] as const;
+const MAX_AUTHOR = 120;
 
 interface ProjectRow {
   id: string;
@@ -83,6 +84,21 @@ function validateStack(value: unknown): string[] | null {
 function asText(value: unknown): string | null {
   if (value === undefined || value === null) return null;
   return typeof value === 'string' ? value : null;
+}
+
+/**
+ * Credit line under a project. Optional everywhere: `null`, `''`, and
+ * whitespace-only all mean "no author". `projects.author` is
+ * `TEXT NOT NULL DEFAULT ''` (migration 0010), so the empty state is stored
+ * as `''` — the same sentinel GET already exposes. Rejects non-strings and
+ * anything over MAX_AUTHOR after trimming.
+ */
+function parseAuthor(value: unknown): { ok: true; value: string } | { ok: false } {
+  if (value === undefined || value === null) return { ok: true, value: '' };
+  if (typeof value !== 'string') return { ok: false };
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_AUTHOR) return { ok: false };
+  return { ok: true, value: trimmed };
 }
 
 /**
@@ -172,10 +188,12 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
         if (!event) return json({ error: 'unknown_event' }, 400);
         eventId = v.event_id;
       }
+      const author = parseAuthor(v.author);
+      if (!author.ok) return json({ error: 'invalid_author' }, 400);
       const id = crypto.randomUUID();
       await env.AUTH_DB.prepare(
-        `INSERT INTO projects (id, title, summary, description, stack, url, cover_url, status, event_id, featured)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO projects (id, title, summary, description, stack, url, cover_url, status, event_id, author, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
         .bind(
           id,
@@ -187,6 +205,7 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
           coverUrl,
           status,
           eventId,
+          author.value,
           v.featured === true ? 1 : 0,
         )
         .run();
@@ -228,6 +247,12 @@ export async function handleProjectsApi(request: Request, env: Env): Promise<Res
         patch.push(`${field} = ?`);
         args.push(v[field]);
       }
+    }
+    if (v.author !== undefined) {
+      const author = parseAuthor(v.author);
+      if (!author.ok) return json({ error: 'invalid_author' }, 400);
+      patch.push('author = ?');
+      args.push(author.value);
     }
     if (v.stack !== undefined) {
       const stack = validateStack(v.stack);

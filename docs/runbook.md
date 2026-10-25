@@ -18,6 +18,46 @@ members get 403.
 | Content | Admin → Content | Office bearers (name, role, links as `Label https://…` one per line) and Achievements (title, description) — add / edit inline / delete with confirm. |
 | Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification. |
 
+## Event posters and image variants
+
+Posters are resized **once in the admin's browser**, before upload: no
+Supabase Image Transformations and no Cloudflare Images. Creating or replacing
+a poster sends three files in the same multipart request.
+
+| Object | Key | What it is |
+| --- | --- | --- |
+| Original | `events/{id}/poster.webp` | The admin's file, uploaded unchanged. |
+| Thumb | `events/{id}/poster-thumb.webp` | WebP, 640w, quality 0.82, never upscaled. |
+| Full | `events/{id}/poster-full.webp` | WebP, capped at 1600w, quality 0.82, never upscaled. |
+
+If the browser cannot encode WebP, the admin console still uploads the
+original and says so; the site then serves the original alone.
+
+**No schema change.** `GET /api/events` and `GET /api/events/:id` expose
+`poster_variants: { thumb, full } | null`, derived from `poster_key` having a
+value. There is no "has variants" column. Posters uploaded before this pipeline
+have no variant objects, so those URLs 404; the public pages keep the original
+as `src` and drop `srcSet` on the image's error event, so old events degrade to
+the full-size poster with no broken images.
+
+**Backfill existing posters.** Dev-only, one-off, sequential:
+
+```bash
+# sharp is intentionally not a package.json dependency.
+npm install --no-save sharp
+
+SUPABASE_URL="https://<project>.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="<service-role-key>" \
+node scripts/backfill-image-variants.mjs --site https://preview.nsdcaseb.xyz
+```
+
+Useful flags: `--event <id>` for one event, `--dry-run` to resize and report
+sizes without uploading, `--force` to overwrite variants that already exist.
+The script reads the public event list (including archived events) and each
+poster's public URL, then uploads the two variants. It needs the Supabase
+service-role key because Storage writes are not public. Without that key, run
+`--dry-run` only. Re-running is safe: keys are deterministic and uploads upsert.
+
 ## Things with no admin UI (API-only, `ob` session required)
 
 Sign in via the site first, then call from that browser session, or reuse the

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { ApiError, eventDateParts, formatEventDate, formatEventTimeRange, listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 import { useAuth } from '../lib/auth';
+import { posterSources } from '../lib/image-variants';
 import StatusDot from '../components/StatusDot';
 import Reveal from '../components/Reveal';
 
@@ -58,7 +59,13 @@ function Row({ event }: { event: EventSummary }) {
 }
 
 function FeaturedNext({ event }: { event: EventSummary }) {
+  const [variantFailed, setVariantFailed] = useState(false);
+  const poster = posterSources(event.poster_url, event.poster_variants);
   const range = timeRange(event.starts_at, event.ends_at);
+
+  useEffect(() => {
+    setVariantFailed(false);
+  }, [event.id, event.poster_url, event.poster_variants?.thumb]);
   const cta = event.mine?.status === 'registered' || event.mine?.status === 'waitlisted'
     ? 'View registration →'
     : event.registration_open
@@ -73,13 +80,19 @@ function FeaturedNext({ event }: { event: EventSummary }) {
         <StatusDot event={event} />
       </div>
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-        {event.poster_url && (
+        {poster && (
           <img
-            src={event.poster_url}
+            key={variantFailed ? 'poster-original' : 'poster-variants'}
+            src={poster.src}
+            srcSet={variantFailed ? undefined : poster.srcSet}
+            sizes="(max-width: 640px) 100vw, 176px"
             alt=""
             aria-hidden="true"
             loading="lazy"
             decoding="async"
+            onError={() => {
+              if (poster.srcSet) setVariantFailed(true);
+            }}
             className="h-32 w-full border border-line object-cover sm:h-28 sm:w-44 sm:shrink-0"
           />
         )}

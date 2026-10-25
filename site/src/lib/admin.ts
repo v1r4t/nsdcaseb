@@ -5,6 +5,8 @@
  * ApiError pattern from ./api and ./events.
  */
 
+import type { PosterVariantBlobs } from './image-variants';
+
 export class ApiError extends Error {
   readonly status: number;
   /** Machine code from the `{ error }` envelope, or a client-side fallback. */
@@ -151,6 +153,7 @@ export interface AdminEventSummary {
   archived: boolean;
   archived_at: string | null;
   poster_url: string | null;
+  poster_variants?: { thumb: string; full: string } | null;
 }
 
 /** Admin event list. Pass true to include soft-archived events. */
@@ -262,6 +265,13 @@ export function sendAdminVerification(ids?: string[]): Promise<{ queued: number 
 // Event create/edit helpers (poster via multipart)
 // ---------------------------------------------------------------------------
 
+/** Append the client-generated poster derivatives when they exist. */
+function appendPosterVariants(form: FormData, variants?: PosterVariantBlobs): void {
+  if (!variants) return;
+  form.append('poster_thumb', variants.thumb, 'poster-thumb.webp');
+  form.append('poster_full', variants.full, 'poster-full.webp');
+}
+
 export async function adminCreateEvent(input: {
   id?: string;
   title: string;
@@ -276,6 +286,8 @@ export async function adminCreateEvent(input: {
   // Optional in local dev without club storage (the worker accepts a
   // poster-less create there); required once storage is connected.
   poster?: File;
+  /** 640w / 1600w WebP variants generated in the browser before upload. */
+  posterVariants?: PosterVariantBlobs;
 }): Promise<{ id: string; poster_url: string | null }> {
   const data = {
     id: input.id,
@@ -292,6 +304,7 @@ export async function adminCreateEvent(input: {
   const form = new FormData();
   form.append('data', JSON.stringify(data));
   if (input.poster) form.append('poster', input.poster);
+  appendPosterVariants(form, input.posterVariants);
   const res = await fetch('/api/events', {
     method: 'POST',
     credentials: 'include',
@@ -353,10 +366,15 @@ export function decideRecruitmentApplication(
   );
 }
 
-export function adminUploadPoster(eventId: string, file: File): Promise<{ poster_url: string | null } | { ok: true; poster_url?: string | null }> {
+export function adminUploadPoster(
+  eventId: string,
+  file: File,
+  variants?: PosterVariantBlobs,
+): Promise<{ poster_url: string | null } | { ok: true; poster_url?: string | null }> {
   const form = new FormData();
   form.append('data', JSON.stringify({}));
   form.append('poster', file);
+  appendPosterVariants(form, variants);
   return (async () => {
     const res = await fetch(`/api/events/${encodeURIComponent(eventId)}`, {
       method: 'PATCH',

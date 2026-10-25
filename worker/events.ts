@@ -4,7 +4,13 @@
 // the orchestrator; this module owns every path under /api/events.
 
 import { getSessionUser, json, requireMinRole, rateLimit, clientIp } from './auth-helpers';
-import { uploadPoster, posterUrl, storageConfigured } from './supabase-storage';
+import {
+  uploadPoster,
+  posterUrl,
+  posterKeys,
+  posterVariantUrls,
+  storageConfigured,
+} from './supabase-storage';
 import type { Env } from './auth-helpers';
 import { enqueueEmail, registrationConfirmation } from './email';
 
@@ -127,6 +133,47 @@ function validCapacity(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === 'number' && Number.isInteger(value) && value >= 0);
 }
 
+interface PosterFile {
+  data: ArrayBuffer;
+  type: string;
+}
+
+async function readPosterFile(form: FormData, field: string): Promise<PosterFile | null> {
+  const file = form.get(field);
+  if (!(file instanceof File)) return null;
+  return { data: await file.arrayBuffer(), type: (file.type || 'image/webp').toLowerCase() };
+}
+
+/** Variants travel as a pair; one without the other is a client bug. */
+function validPosterVariants(thumb: PosterFile | null, full: PosterFile | null): boolean {
+  if (!!thumb !== !!full) return false;
+  for (const file of [thumb, full]) {
+    if (file && file.type !== 'image/webp') return false;
+  }
+  return true;
+}
+
+/**
+ * Write the original plus whichever variants were supplied. All keys are
+ * deterministic, so a retry simply upserts the same objects.
+ */
+async function storePosterSet(
+  env: Env,
+  eventId: string,
+  poster: PosterFile,
+  thumb: PosterFile | null,
+  full: PosterFile | null,
+): Promise<boolean> {
+  const keys = posterKeys(eventId);
+  const files: Array<[string, PosterFile]> = [[keys.original, poster]];
+  if (thumb) files.push([keys.thumb, thumb]);
+  if (full) files.push([keys.full, full]);
+  const results = await Promise.all(
+    files.map(([key, file]) => uploadPoster(env, key, file.data, file.type)),
+  );
+  return results.every(Boolean);
+}
+
 async function registeredCounts(env: Env): Promise<Map<string, number>> {
   const rows = await env.AUTH_DB
     .prepare(`SELECT event_id, COUNT(*) AS n FROM registrations WHERE status = 'registered' GROUP BY event_id`)
@@ -174,6 +221,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
             archived: !!e.archived_at,
             archived_at: e.archived_at ?? null,
             poster_url: posterUrl(env, e.poster_key),
+            poster_variants: posterVariantUrls(env, e.id, e.poster_key),
             mine: status ? { status } : null,
           };
         }),
@@ -187,17 +235,19 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
 
       const contentType = request.headers.get('content-type') ?? '';
       let v: Record<string, unknown>;
-      let posterBuffer: ArrayBuffer | null = null;
-      let posterType = 'image/webp';
+      let posterFile: PosterFile | null = null;
+      let posterThumb: PosterFile | null = null;
+      let posterFull: PosterFile | null = null;
       if (contentType.includes('multipart/form-data')) {
         const form = await request.formData();
         const raw = form.get('data');
         if (typeof raw !== 'string') return json({ error: 'invalid_json' }, 400);
         try { v = JSON.parse(raw); } catch { return json({ error: 'invalid_json' }, 400); }
-        const file = form.get('poster');
-        if (file instanceof File) {
-          posterBuffer = await file.arrayBuffer();
-          posterType = file.type || 'image/webp';
+        posterFile = await readPosterFile(form, 'poster');
+        posterThumb = await readPosterFile(form, 'poster_thumb');
+        posterFull = await readPosterFile(form, 'poster_full');
+        if (!validPosterVariants(posterThumb, posterFull)) {
+          return json({ error: 'invalid_poster_variants' }, 400);
         }
       } else {
         const parsed = await parseJson(request);
@@ -215,14 +265,14 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
 
       const id = typeof v.id === 'string' && ID_RE.test(v.id) ? v.id : crypto.randomUUID();
       let posterKey: string | null = null;
-      if (posterBuffer) {
+      if (posterFile) {
         if (!storageConfigured(env)) {
           // Local dev fallback: no Supabase storage configured, so the event
           // is created without a stored poster rather than failing the request.
           posterKey = null;
         } else {
-          posterKey = `events/${id}/poster.webp`;
-          const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+          posterKey = posterKeys(id).original;
+          const ok = await storePosterSet(env, id, posterFile, posterThumb, posterFull);
           if (!ok) return json({ error: 'poster_upload_failed' }, 502);
         }
       } else if (storageConfigured(env)) {
@@ -235,7 +285,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       ).bind(id, v.title.trim(), typeof v.description === 'string' ? v.description : '',
         v.starts_at, v.ends_at, v.reg_opens_at, v.reg_closes_at,
         v.capacity ?? null, v.force_closed ? 1 : 0, JSON.stringify(questions), posterKey).run();
-      return json({ id, poster_url: posterUrl(env, posterKey) }, 201);
+      return json({
+        id,
+        poster_url: posterUrl(env, posterKey),
+        poster_variants: posterVariantUrls(env, id, posterKey),
+      }, 201);
     }
     return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, POST' });
   }
@@ -265,20 +319,28 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       const user = await getSessionUser(env, request);
       if (!requireMinRole(user, 'ob')) return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
       const contentType = request.headers.get('content-type') ?? '';
-      let buffer: ArrayBuffer | null = null;
-      let mime = 'image/webp';
+      let posterFile: PosterFile | null = null;
+      let posterThumb: PosterFile | null = null;
+      let posterFull: PosterFile | null = null;
       if (contentType.includes('multipart/form-data')) {
         const form = await request.formData();
-        const file = form.get('poster');
-        if (file instanceof File) { buffer = await file.arrayBuffer(); mime = file.type || mime; }
+        posterFile = await readPosterFile(form, 'poster');
+        posterThumb = await readPosterFile(form, 'poster_thumb');
+        posterFull = await readPosterFile(form, 'poster_full');
       }
-      if (!buffer) return json({ error: 'poster_required' }, 400);
+      if (!posterFile) return json({ error: 'poster_required' }, 400);
+      if (!validPosterVariants(posterThumb, posterFull)) {
+        return json({ error: 'invalid_poster_variants' }, 400);
+      }
       if (!storageConfigured(env)) return json({ error: 'storage_not_configured' }, 503);
-      const key = `events/${id}/poster.webp`;
-      const ok = await uploadPoster(env, key, buffer, mime);
+      const key = posterKeys(id).original;
+      const ok = await storePosterSet(env, id, posterFile, posterThumb, posterFull);
       if (!ok) return json({ error: 'poster_upload_failed' }, 502);
       await env.AUTH_DB.prepare(`UPDATE events SET poster_key = ? WHERE id = ?`).bind(key, id).run();
-      return json({ poster_url: posterUrl(env, key) }, 201);
+      return json({
+        poster_url: posterUrl(env, key),
+        poster_variants: posterVariantUrls(env, id, key),
+      }, 201);
     }
     return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, POST' });
   }
@@ -311,6 +373,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
           archived: !!event.archived_at,
           archived_at: event.archived_at ?? null,
           poster_url: posterUrl(env, event.poster_key),
+          poster_variants: posterVariantUrls(env, event.id, event.poster_key),
           mine, questions,
         },
       });
@@ -322,8 +385,9 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       }
       const contentType = request.headers.get('content-type') ?? '';
       let v: Record<string, unknown>;
-      let posterBuffer: ArrayBuffer | null = null;
-      let posterType = 'image/webp';
+      let posterFile: PosterFile | null = null;
+      let posterThumb: PosterFile | null = null;
+      let posterFull: PosterFile | null = null;
       if (contentType.includes('multipart/form-data')) {
         const form = await request.formData();
         const raw = form.get('data');
@@ -332,10 +396,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         } else {
           v = {};
         }
-        const file = form.get('poster');
-        if (file instanceof File) {
-          posterBuffer = await file.arrayBuffer();
-          posterType = file.type || 'image/webp';
+        posterFile = await readPosterFile(form, 'poster');
+        posterThumb = await readPosterFile(form, 'poster_thumb');
+        posterFull = await readPosterFile(form, 'poster_full');
+        if (!validPosterVariants(posterThumb, posterFull)) {
+          return json({ error: 'invalid_poster_variants' }, 400);
         }
       } else {
         const parsed = await parseJson(request);
@@ -378,12 +443,13 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         if (q === null) return json({ error: 'invalid_questions' }, 400);
         patch.push('questions = ?'); args.push(JSON.stringify(q));
       }
-      if (posterBuffer) {
+      let posterKey = event.poster_key;
+      if (posterFile) {
         if (!storageConfigured(env)) {
           // Storage is not configured; ignore upload in local dev.
         } else {
-          const posterKey = `events/${id}/poster.webp`;
-          const ok = await uploadPoster(env, posterKey, posterBuffer, posterType);
+          posterKey = posterKeys(id).original;
+          const ok = await storePosterSet(env, id, posterFile, posterThumb, posterFull);
           if (!ok) return json({ error: 'poster_upload_failed' }, 502);
           patch.push('poster_key = ?'); args.push(posterKey);
         }
@@ -391,7 +457,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       if (patch.length === 0) return json({ error: 'nothing_to_update' }, 400);
       args.push(id);
       await env.AUTH_DB.prepare(`UPDATE events SET ${patch.join(', ')} WHERE id = ?`).bind(...args).run();
-      return json({ ok: true, poster_url: posterUrl(env, posterBuffer ? `events/${id}/poster.webp` : event.poster_key) });
+      return json({
+        ok: true,
+        poster_url: posterUrl(env, posterKey),
+        poster_variants: posterVariantUrls(env, id, posterKey),
+      });
     }
     return json({ error: 'method_not_allowed' }, 405, { Allow: 'GET, PATCH' });
   }
