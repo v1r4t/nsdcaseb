@@ -57,8 +57,11 @@ jobs:
       - name: Seed local D1 with e2e events
         run: npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc
       - name: Start staging worker on :8787
+        # E2E_DISABLE_RATE_LIMIT is test-only: three browser projects share the
+        # runner's IP, so the product's real 5/hr register cap would 429 later
+        # projects. Never set this var on staging or production.
         run: |
-          (npx wrangler dev -c wrangler.staging.jsonc --port 8787 > /tmp/wrangler-dev.log 2>&1 &)
+          (npx wrangler dev -c wrangler.staging.jsonc --port 8787 --var E2E_DISABLE_RATE_LIMIT:1 > /tmp/wrangler-dev.log 2>&1 &)
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8787/ > /dev/null; then
               echo "worker is up"; break

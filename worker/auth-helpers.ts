@@ -21,6 +21,12 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY?: string;
   RESEND_API_KEY?: string;
   MAIL_FROM?: string;
+  /**
+   * Test-only switch. Set to "1" ONLY on a local/CI dev server; it makes
+   * `rateLimit()` a no-op so multi-browser e2e runs do not exhaust the real
+   * per-IP budgets. Never set this in staging or production.
+   */
+  E2E_DISABLE_RATE_LIMIT?: string;
 }
 
 export type Role = 'member' | 'executive' | 'ob';
@@ -215,6 +221,10 @@ export async function rateLimit(
   limit: number,
   windowSeconds: number,
 ): Promise<boolean> {
+  // Guarded test-only bypass (see Env.E2E_DISABLE_RATE_LIMIT). Local wrangler
+  // dev pins CF-Connecting-IP, so per-test synthetic headers cannot isolate
+  // buckets; CI runs three browser projects against one IP.
+  if (env.E2E_DISABLE_RATE_LIMIT === '1') return true;
   try {
     const bucket = `rl:${key}:${Math.floor(Date.now() / 1000 / windowSeconds)}`;
     const current = Number((await env.RATELIMIT_KV.get(bucket)) ?? '0');

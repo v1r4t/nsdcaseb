@@ -158,7 +158,7 @@ variant/COPY_TODO comments (image pipeline is deferred — do not touch),
   npm run build:site
   npx wrangler d1 migrations apply nsdc-auth --local -c wrangler.staging.jsonc
   npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc
-  npx wrangler dev -c wrangler.staging.jsonc --port 8787
+  npx wrangler dev -c wrangler.staging.jsonc --port 8787 --var E2E_DISABLE_RATE_LIMIT:1
   # in another shell:
   npm run test:e2e            # or: BASE_URL=http://127.0.0.1:8787 npm run test:e2e
   npx playwright test -c e2e/playwright.config.ts --list   # enumerate only

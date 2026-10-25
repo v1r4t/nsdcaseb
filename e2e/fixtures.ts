@@ -36,6 +36,20 @@ async function readJson<T>(res: APIResponse): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * Every test gets its own synthetic client IP so the product's per-IP rate
+ * limits (register 5/hr, recruit 10/15min, …) stay meaningful during a run
+ * instead of making the 2nd/3rd browser project fail with 429. CI and local
+ * both hit the worker from 127.0.0.1, which would otherwise share one bucket.
+ */
+let ipCounter = 0;
+function randomIp(): string {
+  // Distinct per worker process (pid) and per call. Shape is TEST-NET-3.
+  const workerOctet = (process.pid % 200) + 20;
+  ipCounter = (ipCounter % 240) + 1;
+  return `198.51.${workerOctet}.${ipCounter}`;
+}
+
 /** Full event detail (the list endpoint omits `questions`). */
 export async function getEventDetail(
   request: APIRequestContext,
@@ -75,7 +89,10 @@ export async function registerViaApi(
   request: APIRequestContext,
   input: { name: string; email: string; mobile: string; password: string },
 ): Promise<void> {
-  const res = await request.post('/api/auth/register', { data: input });
+  const res = await request.post('/api/auth/register', {
+    data: input,
+    headers: { 'x-forwarded-for': randomIp() },
+  });
   if (!res.ok()) {
     const text = await res.text().catch(() => '');
     throw new Error(`registerViaApi failed for ${input.email}: ${res.status()} ${text}`);
@@ -83,6 +100,7 @@ export async function registerViaApi(
   await verifyUserEmail(input.email);
   const login = await request.post('/api/auth/login', {
     data: { email: input.email, password: input.password },
+    headers: { 'x-forwarded-for': randomIp() },
   });
   if (!login.ok()) {
     const text = await login.text().catch(() => '');
@@ -116,7 +134,13 @@ export async function verifyUserEmail(email: string): Promise<void> {
       try {
         await execFileAsync(
           'npx',
-          ['wrangler', 'd1', 'execute', 'nsdc-auth', '--local', '--file', `"${sqlFile}"`, '-c', 'wrangler.staging.jsonc'],
+          [
+            'wrangler', 'd1', 'execute', 'nsdc-auth', '--local',
+            // Windows cmd needs the path quoted; POSIX must receive it bare or
+            // the quotes become part of the filename.
+            ...['--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile],
+            '-c', 'wrangler.staging.jsonc',
+          ],
           { cwd: repoRoot, timeout: 90_000, shell: process.platform === 'win32' },
         );
         lastErr = null;
@@ -165,7 +189,13 @@ async function executeLocalD1(sql: string, label: string): Promise<void> {
       try {
         await execFileAsync(
           'npx',
-          ['wrangler', 'd1', 'execute', 'nsdc-auth', '--local', '--file', `"${sqlFile}"`, '-c', 'wrangler.staging.jsonc'],
+          [
+            'wrangler', 'd1', 'execute', 'nsdc-auth', '--local',
+            // Windows cmd needs the path quoted; POSIX must receive it bare or
+            // the quotes become part of the filename.
+            ...['--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile],
+            '-c', 'wrangler.staging.jsonc',
+          ],
           { cwd: repoRoot, timeout: 90_000, shell: process.platform === 'win32' },
         );
         lastErr = null;
@@ -212,7 +242,9 @@ export async function registerObViaApi(
       email: input.email,
       mobile: input.mobile,
       password: input.password,
+      ...(input.adminCode ? { admin_code: input.adminCode } : {}),
     },
+    headers: { 'x-forwarded-for': randomIp() },
   });
   if (!res.ok()) {
     const text = await res.text().catch(() => '');
@@ -226,6 +258,7 @@ export async function registerObViaApi(
       password: input.password,
       ...(input.adminCode ? { admin_code: input.adminCode } : {}),
     },
+    headers: { 'x-forwarded-for': randomIp() },
   });
   if (!login.ok()) {
     const text = await login.text().catch(() => '');
@@ -277,7 +310,16 @@ interface SeedFixtures {
   tinyEvent: SeedEvent;
 }
 
-export const test = base.extend<SeedFixtures>({
+export const test = base.extend<SeedFixtures & { testIp: string }>({
+  // Auto-applied to every test: browser-originated requests (UI forms) use a
+  // per-test synthetic IP, matching the API helpers above.
+  testIp: [
+    async ({ context }, use) => {
+      await context.setExtraHTTPHeaders({ 'x-forwarded-for': randomIp() });
+      await use('isolated');
+    },
+    { auto: true },
+  ],
   plainOpenEvent: async ({ request }, use) => {
     const found = await pickEvent(
       request,
