@@ -33,9 +33,13 @@ export default defineConfig({
   // Local D1 is one SQLite file shared with the dev server AND with sibling
   // verifyUserEmail wrangler invocations: keep local parallelism low so
   // concurrent writers don't hit SQLITE_BUSY (verifyUserEmail also retries).
-  workers: process.env.CI ? 2 : 2,
+  // With all three browser projects, serialize them: they share one D1, and
+  // the capacity test mutates a single-seat event.
+  workers: browsers === 'all' ? 1 : 2,
   reporter: 'list',
-  timeout: 30_000,
+  // 60s: WebKit's full registration/waitlist/cancel flow is ~2x Chromium and
+  // was tripping the old 30s budget mid-assertion.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: process.env.BASE_URL ?? 'http://127.0.0.1:8787',

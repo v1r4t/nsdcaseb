@@ -266,6 +266,18 @@ export async function registerObViaApi(
   }
 }
 
+/** Remove every registration for an event (local D1 only) so capacity specs
+ * start from a clean seat count across browser projects. */
+export async function clearEventRegistrations(eventId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(eventId)) {
+    throw new Error(`clearEventRegistrations refused suspicious id: ${eventId}`);
+  }
+  await executeLocalD1(
+    `DELETE FROM registrations WHERE event_id = '${eventId}';`,
+    `clearEventRegistrations(${eventId})`,
+  );
+}
+
 /** Remove an e2e recruitment application and its decision email. */
 export async function deleteRecruitmentApplication(email: string): Promise<void> {
   const address = safeEmail(email, 'deleteRecruitmentApplication');

@@ -196,11 +196,12 @@ async function handleLogin({ request, env }: RouteContext): Promise<Response> {
   }
 
   const remember = body.value.remember === true;
+  const secure = new URL(request.url).protocol === 'https:';
   const { token, expiresAt } = await createSession(env, row.id, request, remember);
   return json(
     { user: mapUser(row), expires_at: expiresAt },
     200,
-    { 'set-cookie': sessionCookie(token, remember) },
+    { 'set-cookie': sessionCookie(token, remember, secure) },
   );
 }
 
@@ -251,7 +252,10 @@ async function handleLogout({ request, env }: RouteContext): Promise<Response> {
   }
   return new Response(null, {
     status: 204,
-    headers: { 'set-cookie': clearSessionCookie(), 'cache-control': 'no-store' },
+    headers: {
+      'set-cookie': clearSessionCookie(new URL(request.url).protocol === 'https:'),
+      'cache-control': 'no-store',
+    },
   });
 }
 

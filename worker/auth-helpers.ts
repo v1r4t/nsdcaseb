@@ -242,14 +242,15 @@ export async function rateLimit(
 // Cookies and sessions
 // ---------------------------------------------------------------------------
 
-export function sessionCookie(token: string, remember: boolean): string {
-  const parts = [`${SESSION_COOKIE}=${token}`, 'HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/'];
+export function sessionCookie(token: string, remember: boolean, secure = true): string {
+  const parts = [`${SESSION_COOKIE}=${token}`, 'HttpOnly', 'SameSite=Lax', 'Path=/'];
+  if (secure) parts.push('Secure');
   if (remember) parts.push(`Max-Age=${SESSION_TTL_REMEMBER_SECONDS}`);
   return parts.join('; ');
 }
 
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearSessionCookie(secure = true): string {
+  return `${SESSION_COOKIE}=; HttpOnly;${secure ? ' Secure;' : ''} SameSite=Lax; Path=/; Max-Age=0`;
 }
 
 export function readCookie(request: Request, name: string): string | null {

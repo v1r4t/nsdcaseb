@@ -1,4 +1,4 @@
-import { test, expect, registerViaApi, uniqueEmail } from './fixtures';
+import { test, expect, registerViaApi, uniqueEmail, clearEventRegistrations } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // Capacity lifecycle on a capacity-1 event: first member is confirmed, the
@@ -33,6 +33,9 @@ test('capacity 1: first registers, second waitlists, cancel promotes', async ({
 }) => {
   const baseURL = test.info().project.use.baseURL as string;
   const stamp = Date.now().toString(36);
+
+  // Browser projects share one local D1; start from a clean seat count.
+  await clearEventRegistrations(tinyEvent.id);
 
   const ctxA = await browser.newContext({ baseURL });
   const ctxB = await browser.newContext({ baseURL });
