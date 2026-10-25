@@ -16,13 +16,12 @@ export const KNOWN_STATIC_ROUTES: readonly string[] = [
   '/reset-password',
   '/registrations',
   '/recruit',
-  '/media',
   '/archive',
   '/projects',
 ];
 
 /** Routes listed in /sitemap.xml. Auth pages are excluded deliberately. */
-export const SITEMAP_STATIC_ROUTES: readonly string[] = ['/', '/registrations', '/recruit', '/media', '/archive', '/projects'];
+export const SITEMAP_STATIC_ROUTES: readonly string[] = ['/', '/registrations', '/recruit', '/archive', '/projects'];
 
 const EVENT_ROUTE_RE = /^\/registrations\/([^/]+)\/?$/;
 const EVENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;

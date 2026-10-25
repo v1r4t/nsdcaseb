@@ -90,9 +90,9 @@ export default function NowSection({ events, mediaCount = 0 }: NowSectionProps) 
     if (mediaCount > 0) {
       rows.push({
         key: 'media',
-        body: `${count(mediaCount)} media items archived`,
-        hint: 'Media archive',
-        to: '/media',
+        body: `${count(mediaCount)} frames archived`,
+        hint: 'Photo archive',
+        to: '/archive',
       });
     }
 

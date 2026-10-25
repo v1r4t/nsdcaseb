@@ -360,9 +360,9 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
   }
 
   return (
-    <section aria-label="Media" className="space-y-8">
+    <section aria-label="Gallery" className="space-y-8">
       <div>
-        <h2 className="label">Media</h2>
+        <h2 className="label">Gallery</h2>
         <p className="mt-2 text-sm text-muted">
           Albums and gallery items for the public gallery. Everything is URL-based — paste an
           https link; there is no upload flow here.

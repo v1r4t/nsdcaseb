@@ -31,13 +31,12 @@ function item(overrides: Partial<SearchItem> = {}): SearchItem {
 }
 
 describe('buildStaticIndex', () => {
-  it('returns the six static pages, all in the pages domain', () => {
+  it('returns the five static pages, all in the pages domain', () => {
     const index = buildStaticIndex();
-    expect(index).toHaveLength(6);
+    expect(index).toHaveLength(5);
     expect(index.map((i) => i.id)).toEqual([
       'page-about',
       'page-events',
-      'page-media',
       'page-people',
       'page-archive',
       'page-login',
@@ -158,7 +157,7 @@ describe('searchPalette', () => {
     const groups = searchPalette('  ', staticItems, remote);
     expect(groups.map((g) => g.domain)).toEqual(['pages', 'events']);
     expect(groups[0].heading).toBe('PAGES');
-    expect(groups[0].results).toHaveLength(6);
+    expect(groups[0].results).toHaveLength(5);
     expect(groups[1].heading).toBe('EVENTS');
     expect(groups[1].results.map((r) => r.item.id)).toEqual(['b', 'd', 'c']);
     for (const r of groups[1].results) {

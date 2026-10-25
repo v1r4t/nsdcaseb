@@ -43,21 +43,15 @@ const ITEMS: readonly MenuItem[] = [
   },
   {
     index: '04',
-    title: 'MEDIA',
-    to: '/media',
-    description: 'Photographs and write-ups from previous sessions.',
-  },
-  {
-    index: '05',
     title: 'PEOPLE',
     to: '/#people',
     description: 'The members and executives running NSDC.',
   },
   {
-    index: '06',
+    index: '05',
     title: 'ARCHIVE',
-    to: '/registrations#archive',
-    description: 'Every event we have run, kept on the record.',
+    to: '/archive',
+    description: 'Every frame and event we have run, kept on the record.',
   },
 ];
 

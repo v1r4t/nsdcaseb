@@ -38,7 +38,7 @@ export const DOMAIN_HEADINGS: Record<SearchDomain, string> = {
   pages: 'PAGES',
   events: 'EVENTS',
   people: 'PEOPLE',
-  media: 'MEDIA',
+  media: 'ARCHIVE',
 };
 
 export interface SearchItem {
@@ -85,14 +85,13 @@ export function buildStaticIndex(): SearchItem[] {
       sublabel: 'PAGE · /REGISTRATIONS',
       href: '/registrations',
     },
-    { id: 'page-media', domain: 'pages', label: 'Media', sublabel: 'PAGE · /MEDIA', href: '/media' },
     { id: 'page-people', domain: 'pages', label: 'People', sublabel: 'PAGE · /#PEOPLE', href: '/#people' },
     {
       id: 'page-archive',
       domain: 'pages',
       label: 'Archive',
-      sublabel: 'PAGE · /REGISTRATIONS#ARCHIVE',
-      href: '/registrations#archive',
+      sublabel: 'PAGE · /ARCHIVE',
+      href: '/archive',
     },
     { id: 'page-login', domain: 'pages', label: 'Sign in', sublabel: 'PAGE · /LOGIN', href: '/login' },
   ];
@@ -146,7 +145,7 @@ async function loadMediaItems(): Promise<SearchItem[]> {
     domain: 'media' as const,
     label: album.title,
     sublabel: `${album.items.length} ${album.items.length === 1 ? 'ITEM' : 'ITEMS'}`,
-    href: '/media',
+    href: '/archive',
   }));
 }
 

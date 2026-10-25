@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import SiteHeader from './components/SiteHeader';
 import SiteFooter from './components/SiteFooter';
 import CommandPalette from './components/CommandPalette';
@@ -23,7 +23,7 @@ import Registrations from './pages/Registrations';
 import AnnouncementBanner from './components/AnnouncementBanner';
 const EventDetail = lazy(() => import('./pages/EventDetail'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
-const Media = lazy(() => import('./pages/Media'));
+const Archive = lazy(() => import('./pages/Archive'));
 const Projects = lazy(() => import('./pages/Projects'));
 const Recruit = lazy(() => import('./pages/Recruit'));
 
@@ -55,8 +55,9 @@ export default function App() {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/registrations" element={<Registrations />} />
               <Route path="/registrations/:id" element={<EventDetail />} />
-              <Route path="/media" element={<Media />} />
-              <Route path="/archive" element={<Media archive />} />
+              <Route path="/archive" element={<Archive />} />
+              {/* Media page was merged into the archive. */}
+              <Route path="/media" element={<Navigate to="/archive" replace />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/recruit" element={<Recruit />} />

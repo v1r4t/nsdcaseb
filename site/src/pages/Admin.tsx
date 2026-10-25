@@ -19,7 +19,7 @@ const TABS = [
   { id: 'recruitment', label: 'Recruitment' },
   { id: 'email', label: 'Email' },
   { id: 'projects', label: 'Projects' },
-  { id: 'media', label: 'Media' },
+  { id: 'media', label: 'Gallery' },
   { id: 'content', label: 'Content' },
   { id: 'accounts', label: 'Accounts' },
 ] as const;

@@ -35,8 +35,8 @@ test('axe: /registrations has no critical/serious findings', async ({ page }) =>
   await expectNoBlockers(page, '/registrations');
 });
 
-test('axe: /media has no critical/serious findings', async ({ page }) => {
-  await expectNoBlockers(page, '/media');
+test('axe: /archive has no critical/serious findings', async ({ page }) => {
+  await expectNoBlockers(page, '/archive');
 });
 
 test('axe: /admin locked 404 state has no critical/serious findings', async ({ page }) => {

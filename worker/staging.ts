@@ -141,6 +141,11 @@ export default {
       return Response.redirect(`https://nsdcaseb.xyz${pathname}${url.search}`, 301);
     }
 
+    // Media merged into the archive; keep old links working.
+    if (pathname === '/media' || pathname === '/media/') {
+      return Response.redirect('https://' + url.host + '/archive', 301);
+    }
+
     if (pathname.startsWith('/api/')) {
       if (pathname === '/api/notify') return handleNotify(request, env);
       return (
