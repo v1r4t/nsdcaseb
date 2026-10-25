@@ -85,7 +85,7 @@ export default function ArchiveTeaser({ slides }: { slides: ArchiveSlide[] }) {
             <div className="min-w-0">
               <p className="font-mono text-[11px] uppercase tracking-wide text-paper/70">{current.albumTitle}</p>
               {current.caption ? (
-                <p className="mt-1 max-w-xl truncate text-sm text-paper">{current.caption}</p>
+                <p className="mt-1 line-clamp-2 max-w-xl text-sm text-paper sm:line-clamp-1">{current.caption}</p>
               ) : null}
             </div>
             <p aria-live="polite" className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-paper/70">
@@ -98,7 +98,7 @@ export default function ArchiveTeaser({ slides }: { slides: ArchiveSlide[] }) {
           type="button"
           onClick={() => step(-1)}
           aria-label="Previous photo"
-          className="absolute left-2 top-1/2 -translate-y-1/2 rounded-sm border border-line bg-ink/70 p-3 text-paper/80 backdrop-blur transition-colors duration-200 hover:border-paper/40 hover:text-paper sm:left-4"
+          className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-sm border border-line bg-ink/70 text-paper/80 backdrop-blur transition-colors duration-200 hover:border-paper/40 hover:text-paper sm:left-4"
         >
           ‹
         </button>
@@ -106,25 +106,35 @@ export default function ArchiveTeaser({ slides }: { slides: ArchiveSlide[] }) {
           type="button"
           onClick={() => step(1)}
           aria-label="Next photo"
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-line bg-ink/70 p-3 text-paper/80 backdrop-blur transition-colors duration-200 hover:border-paper/40 hover:text-paper sm:right-4"
+          className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-sm border border-line bg-ink/70 text-paper/80 backdrop-blur transition-colors duration-200 hover:border-paper/40 hover:text-paper sm:right-4"
         >
           ›
         </button>
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-4">
-        <div className="flex gap-1.5" role="group" aria-label="Choose archive photo">
-          {slides.map((slide, i) => (
-            <button
-              key={slide.url}
-              type="button"
-              aria-current={i === index ? 'true' : undefined}
-              aria-label={`Photo ${i + 1}: ${slide.title}`}
-              onClick={() => setIndex(i)}
-              className={`h-1.5 w-6 transition-colors duration-200 ${i === index ? 'bg-signal' : 'bg-line hover:bg-paper/40'}`}
-            />
-          ))}
-        </div>
+        {/* Dots only when they fit one row on the narrowest phone; beyond that
+            the numbered counter remains the position indicator. */}
+        {total <= 8 ? (
+          <div className="flex gap-1" role="group" aria-label="Choose archive photo">
+            {slides.map((slide, i) => (
+              <button
+                key={slide.url}
+                type="button"
+                aria-current={i === index ? 'true' : undefined}
+                aria-label={`Photo ${i + 1}: ${slide.title}`}
+                onClick={() => setIndex(i)}
+                className="flex h-8 w-6 items-center justify-center"
+              >
+                <span
+                  className={`block h-1.5 w-full transition-colors duration-200 ${i === index ? 'bg-signal' : 'bg-line hover:bg-paper/40'}`}
+                />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span aria-hidden="true" />
+        )}
         <Link to="/archive" className="font-mono text-xs uppercase tracking-wide text-muted transition-colors hover:text-signal">
           Open the archive →
         </Link>
