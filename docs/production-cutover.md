@@ -31,11 +31,10 @@ D1, and the apex/`www` custom domains.
 | `vars.MAIL_FROM` | — | `NSDC <noreply@mail.nsdcaseb.xyz>` |
 
 Worker secrets required by the site (`worker/auth-helpers.ts` `Env`):
-`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`. Optional, for poster/media uploads:
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — **not set on staging today**
-(`wrangler secret list -c wrangler.staging.jsonc` returns only
-`ADMIN_ENTRY_CODE` and `RESEND_API_KEY`), so uploads are disabled there.
-Decide whether production goes live without uploads or with the Supabase pair.
+`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`. Poster uploads also need
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — both are set and verified on
+staging (bucket `event-posters`, public, 10 MB limit); set the same pair on
+the production worker. Local dev reads them from `.dev.vars` (gitignored).
 
 Recommended shape (requires a config/code-adjacent change, deliberately not
 done here): add `wrangler.production.jsonc` mirroring the staging file with a

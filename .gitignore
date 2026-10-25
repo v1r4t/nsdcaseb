@@ -8,3 +8,6 @@ vite.config.d.ts
 dist-site/
 supabase/.temp/
 .superpowers/
+
+# Local Worker secrets
+.dev.vars

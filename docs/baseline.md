@@ -364,9 +364,11 @@ are no longer configured). Same 5 tests pass against the locally fixed build.
 ### Secrets — 2026-10-25 (names only)
 
 `npx wrangler secret list -c wrangler.staging.jsonc` (read-only):
-`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`. No `SUPABASE_URL` /
-`SUPABASE_SERVICE_ROLE_KEY`, so staging poster/media upload is storage-disabled;
-provision the pair before cutover if uploads must work in production.
+`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`, `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`. The Supabase pair was added and verified
+end-to-end the same day (bucket `event-posters`, public object upload +
+variant URLs return 200). Locally, `wrangler dev` reads the same pair from
+`.dev.vars` (gitignored).
 
 ### Cutover follow-ups surfaced by this run
 
