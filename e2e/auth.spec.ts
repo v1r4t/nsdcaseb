@@ -45,4 +45,11 @@ test('register -> verify -> login -> logout -> login', async ({ page }) => {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
   await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeVisible();
+
+  // Regression: the session query must return profile fields, not just auth ones.
+  const me = await page.request.get('/api/auth/me');
+  expect(me.status()).toBe(200);
+  const meBody = (await me.json()) as { user: { name: string; email: string } };
+  expect(meBody.user.name).toBe('E2E Member');
+  expect(meBody.user.email).toBe(email);
 });

@@ -288,7 +288,7 @@ export async function getSessionUser(env: Env, request: Request): Promise<User |
   const tokenHash = await sha256Base64Url(token);
   const row = await env.AUTH_DB
     .prepare(
-      `SELECT u.id, u.email, u.role, u.is_executive, u.email_verified, u.created_at, s.expires_at
+      `SELECT u.id, u.email, u.name, u.mobile, u.reg_number, u.role, u.is_executive, u.email_verified, u.created_at, s.expires_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`,
