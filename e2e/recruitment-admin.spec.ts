@@ -129,7 +129,37 @@ test('admin recruitment: pending -> Select -> Selected + CSV', async ({ page }) 
     expect(lines.some((line) => line.includes(input.email) && line.includes(',selected,'))).toBe(
       true,
     );
+
+    // Open/close switch lives in this tab and drives the public flag.
+    // The status check above navigated away, so return through the admin door.
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Open admin console' }).click();
+    await page.getByRole('tab', { name: 'Recruitment' }).click();
+    await expect(panel).toBeVisible();
+
+    let closePrompt = '';
+    page.once('dialog', (dialog) => {
+      closePrompt = dialog.message();
+      void dialog.accept();
+    });
+    await panel.getByRole('button', { name: 'Close recruitment' }).click();
+    expect(closePrompt).toContain('Close recruitment');
+    await expect(panel.getByText('closed', { exact: true })).toBeVisible();
+    const closed = (await (await page.request.get('/api/site')).json()) as {
+      recruitment_open: boolean;
+    };
+    expect(closed.recruitment_open).toBe(false);
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    await panel.getByRole('button', { name: 'Open recruitment' }).click();
+    await expect(panel.getByText('open', { exact: true })).toBeVisible();
+    const reopened = (await (await page.request.get('/api/site')).json()) as {
+      recruitment_open: boolean;
+    };
+    expect(reopened.recruitment_open).toBe(true);
   } finally {
+    // Never leave the shared local flag closed for sibling specs.
+    await page.request.put('/api/site', { data: { recruitment_open: true } }).catch(() => {});
     // Remove the decision + application and the throwaway ob account.
     await deleteRecruitmentApplication(input.email);
     await deleteUserByEmail(adminEmail);

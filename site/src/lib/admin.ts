@@ -430,6 +430,11 @@ export function decideRecruitmentApplication(
   );
 }
 
+/** Flip the public recruitment switch (ob only; audited server-side). */
+export function setRecruitmentOpen(open: boolean): Promise<{ ok: true }> {
+  return request<{ ok: true }>('/api/site', 'PUT', { recruitment_open: open });
+}
+
 export function adminUploadPoster(
   eventId: string,
   file: File,

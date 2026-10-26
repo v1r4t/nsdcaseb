@@ -3,8 +3,10 @@ import {
   ApiError,
   decideRecruitmentApplication,
   listRecruitmentApplications,
+  setRecruitmentOpen,
 } from '../../lib/admin';
 import type { RecruitmentApplication, RecruitmentStatus } from '../../lib/admin';
+import { loadSiteState } from '../../lib/site';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
@@ -118,6 +120,8 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [recruitmentOpen, setRecruitmentOpenState] = useState<boolean | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   const reload = useCallback(async (): Promise<void> => {
     try {
@@ -148,6 +152,20 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
       active = false;
     };
   }, [notify]);
+
+  useEffect(() => {
+    let active = true;
+    loadSiteState()
+      .then((state) => {
+        if (active) setRecruitmentOpenState(state.recruitment_open);
+      })
+      .catch(() => {
+        // Unknown state keeps the toggle disabled rather than guessing.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = { all: 0, pending: 0, selected: 0, rejected: 0 };
@@ -202,6 +220,31 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
     void decide(app, status);
   }
 
+  async function toggleRecruitment(): Promise<void> {
+    if (recruitmentOpen === null) return;
+    const next = !recruitmentOpen;
+    const pendingNote =
+      counts.pending > 0
+        ? ` ${counts.pending} application${counts.pending === 1 ? '' : 's'} still pending.`
+        : '';
+    const question = next
+      ? 'Open recruitment? /recruit will accept new applications.'
+      : `Close recruitment? /recruit will show the closed state.${pendingNote}`;
+    if (!window.confirm(question)) return;
+    setToggling(true);
+    setBusy(true);
+    try {
+      await setRecruitmentOpen(next);
+      setRecruitmentOpenState(next);
+      notify(next ? 'Recruitment opened.' : 'Recruitment closed.');
+    } catch (err) {
+      notify(errText(err));
+    } finally {
+      setToggling(false);
+      setBusy(false);
+    }
+  }
+
   const csvHref =
     filter === 'all'
       ? '/api/admin/recruitment.csv'
@@ -214,6 +257,23 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
         <a className="btn-ghost shrink-0" href={csvHref}>
           Download CSV
         </a>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <p role="status" aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+          Recruitment{' '}
+          <span className={recruitmentOpen ? 'text-signal' : recruitmentOpen === false ? 'text-paper/80' : 'text-muted'}>
+            {recruitmentOpen === null ? 'checking…' : recruitmentOpen ? 'open' : 'closed'}
+          </span>
+        </p>
+        <button
+          type="button"
+          className={recruitmentOpen ? 'btn-ghost shrink-0' : 'btn-primary shrink-0'}
+          disabled={busy || toggling || recruitmentOpen === null}
+          onClick={() => void toggleRecruitment()}
+        >
+          {toggling ? 'Saving…' : recruitmentOpen ? 'Close recruitment' : 'Open recruitment'}
+        </button>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Application status filter">
