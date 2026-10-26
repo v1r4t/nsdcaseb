@@ -192,7 +192,9 @@ export default function Landing() {
               </p>
             ) : user ? (
               <p className="mt-8 flex flex-wrap items-center gap-3">
-                <span className="truncate font-mono text-xs text-muted">{user.email}</span>
+                <span className="truncate font-mono text-xs text-muted">
+                  {user.name?.trim() || user.email}
+                </span>
                 <span className="rounded-sm border border-line px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-signal">
                   {user.role}
                 </span>
