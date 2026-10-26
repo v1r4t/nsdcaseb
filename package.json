@@ -1,7 +1,7 @@
 {
   "name": "nsdcaseb",
   "version": "1.0.0",
-  "description": "National Student Data Corps — Coming Soon",
+  "description": "NSDC — National Student Data Corps club site (Amrita Vishwa Vidyapeetham, Bengaluru)",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,7 +18,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "gsap": "^3.15.0",
     "lucide-react": "^1.49.0",

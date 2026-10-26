@@ -226,6 +226,20 @@ The full pre-flight, domain-flip, verification and rollback sequence is in
 Operational details live in [`docs/runbook.md`](docs/runbook.md). Performance and
 accessibility baselines live in [`docs/baseline.md`](docs/baseline.md).
 
+## Licensing
+
+- **Code**: MIT — see [`LICENSE`](LICENSE).
+- **Content**: site copy, photography, logo, member details and testimonials are
+  © NSDC and excluded from the code licence — see
+  [`CONTENT-LICENSE.md`](CONTENT-LICENSE.md).
+- **Third-party software**: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+  GSAP is under its own standard licence, not MIT.
+- **Fonts**: Space Grotesk and Geist Mono are SIL OFL 1.1; the required notices
+  are in [`public/fonts/OFL.txt`](public/fonts/OFL.txt).
+
+Publishing photos or testimonials requires permission from the people shown or
+quoted; keep an internal record of approvals.
+
 ## Socials
 
 - Instagram: <https://www.instagram.com/nsdc_avvb/>
