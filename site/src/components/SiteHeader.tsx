@@ -61,7 +61,9 @@ export default function SiteHeader() {
               </span>
             ) : user ? (
               <>
-                <span className="hidden max-w-[12rem] truncate text-sm text-muted lg:inline">{user.email}</span>
+                <span className="hidden max-w-[12rem] truncate text-sm text-muted lg:inline" title={user.email}>
+                  {user.name?.trim() || user.email}
+                </span>
                 <span
                   className={`font-mono text-[10px] uppercase tracking-wide ${
                     user.role === 'ob' ? 'text-signal' : 'text-muted'
