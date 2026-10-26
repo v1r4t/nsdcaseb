@@ -18,6 +18,7 @@ import { useAuth } from '../lib/auth';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { posterSources } from '../lib/image-variants';
 import SeatMeter from '../components/SeatMeter';
+import ShareEvent from '../components/ShareEvent';
 
 type Step = 1 | 2 | 3;
 
@@ -347,6 +348,7 @@ export default function EventDetailPage() {
           <p className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted">
             NSDC / {formatDate(event.starts_at)}
           </p>
+          <ShareEvent eventId={event.id} eventTitle={event.title} />
           <Link to="/registrations" className="btn-primary mt-8">
             See you there →
           </Link>
@@ -386,6 +388,7 @@ export default function EventDetailPage() {
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-paper/70">
             This event is full. We&rsquo;ll promote you automatically if a seat opens.
           </p>
+          <ShareEvent eventId={event.id} eventTitle={event.title} />
           <div className="mt-8">
             {!confirmArmed ? (
               <button type="button" onClick={handleCancel} disabled={busy} className="btn-ghost">
