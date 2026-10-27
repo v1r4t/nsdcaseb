@@ -13,10 +13,12 @@ import {
   formatEventDate,
   formatEventDateTime,
   formatEventTimeRange,
+  fromEventLocalInput,
   getEvent,
   listEvents,
   myRegistration,
   registerForEvent,
+  toEventLocalInput,
 } from './events';
 
 function jsonResponse(payload: unknown, ok = true, status = 200): Response {
@@ -123,6 +125,33 @@ describe('event date helpers (Asia/Kolkata)', () => {
   it('splits IST date parts for the list-row calendar block', () => {
     expect(eventDateParts('2025-10-16T20:00:00Z')).toEqual({ day: '17', mon: 'OCT', year: '2025' });
     expect(eventDateParts('not-a-date')).toBeNull();
+  });
+});
+
+describe('admin datetime-local bridge (Asia/Kolkata)', () => {
+  it('renders a UTC instant as an IST datetime-local value', () => {
+    expect(toEventLocalInput('2026-10-29T03:00:00.000Z')).toBe('2026-10-29T08:30');
+  });
+
+  it('reads a datetime-local value as IST, not the browser timezone', () => {
+    expect(fromEventLocalInput('2026-10-29T08:30')).toBe('2026-10-29T03:00:00.000Z');
+  });
+
+  it('handles the IST midnight rollover', () => {
+    expect(toEventLocalInput('2026-10-28T18:45:00Z')).toBe('2026-10-29T00:15');
+    expect(fromEventLocalInput('2026-10-29T00:15')).toBe('2026-10-28T18:45:00.000Z');
+  });
+
+  it('round-trips a value without drift', () => {
+    const iso = '2026-03-26T09:00:00.000Z';
+    expect(fromEventLocalInput(toEventLocalInput(iso))).toBe(iso);
+  });
+
+  it('rejects empty, malformed, and overflowed values', () => {
+    expect(toEventLocalInput('not-a-date')).toBe('');
+    expect(fromEventLocalInput('')).toBeNull();
+    expect(fromEventLocalInput('2026-02-30T10:00')).toBeNull();
+    expect(fromEventLocalInput('2026-10-29T24:00')).toBeNull();
   });
 });
 

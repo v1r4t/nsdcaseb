@@ -6,11 +6,11 @@ import {
   listAdminEvents,
 } from '../../lib/admin';
 import type { AdminEventSummary } from '../../lib/admin';
-import { getEvent } from '../../lib/events';
+import { formatEventDateTime, fromEventLocalInput, getEvent, toEventLocalInput } from '../../lib/events';
 import type { EventQuestion } from '../../lib/events';
 import { generatePosterVariants, PosterVariantError } from '../../lib/image-variants';
 import type { PosterVariantBlobs } from '../../lib/image-variants';
-import { errText, fmtDateTime } from './AdminOverview';
+import { errText } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
 interface QuestionDraft {
@@ -44,14 +44,6 @@ const EMPTY_FORM: EventFormState = {
 
 function newQuestionId(): string {
   return `q-${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
-}
-
-/** datetime-local inputs need `YYYY-MM-DDTHH:mm`; server stores full ISO. */
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** Mirror the worker's validateQuestions so the UI rejects the same input. */
@@ -162,10 +154,10 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       setForm({
         title: event.title,
         description: event.description,
-        starts_at: toLocalInput(event.starts_at),
-        ends_at: toLocalInput(event.ends_at),
-        reg_opens_at: toLocalInput(event.reg_opens_at),
-        reg_closes_at: toLocalInput(event.reg_closes_at),
+        starts_at: toEventLocalInput(event.starts_at),
+        ends_at: toEventLocalInput(event.ends_at),
+        reg_opens_at: toEventLocalInput(event.reg_opens_at),
+        reg_closes_at: toEventLocalInput(event.reg_closes_at),
         capacity: event.capacity === null ? '' : String(event.capacity),
         force_closed: inWindow && !event.registration_open,
       });
@@ -222,16 +214,24 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       notify(capacity.error);
       return;
     }
+    const starts_at = fromEventLocalInput(form.starts_at);
+    const ends_at = fromEventLocalInput(form.ends_at);
+    const reg_opens_at = fromEventLocalInput(form.reg_opens_at);
+    const reg_closes_at = fromEventLocalInput(form.reg_closes_at);
+    if (!starts_at || !ends_at || !reg_opens_at || !reg_closes_at) {
+      notify('Enter valid start, end, and registration dates/times.');
+      return;
+    }
     setBusy(true);
     try {
       const posterVariants = poster ? await preparePosterVariants(poster) : null;
       const r = await adminCreateEvent({
         title: form.title,
         description: form.description,
-        starts_at: new Date(form.starts_at).toISOString(),
-        ends_at: new Date(form.ends_at).toISOString(),
-        reg_opens_at: new Date(form.reg_opens_at).toISOString(),
-        reg_closes_at: new Date(form.reg_closes_at).toISOString(),
+        starts_at,
+        ends_at,
+        reg_opens_at,
+        reg_closes_at,
         capacity: capacity.value,
         force_closed: form.force_closed,
         questions: q.value,
@@ -267,15 +267,23 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       notify(capacity.error);
       return;
     }
+    const starts_at = fromEventLocalInput(form.starts_at);
+    const ends_at = fromEventLocalInput(form.ends_at);
+    const reg_opens_at = fromEventLocalInput(form.reg_opens_at);
+    const reg_closes_at = fromEventLocalInput(form.reg_closes_at);
+    if (!starts_at || !ends_at || !reg_opens_at || !reg_closes_at) {
+      notify('Enter valid start, end, and registration dates/times.');
+      return;
+    }
     setBusy(true);
     try {
       await adminUpdateEvent(editingId, {
         title: form.title,
         description: form.description,
-        starts_at: new Date(form.starts_at).toISOString(),
-        ends_at: new Date(form.ends_at).toISOString(),
-        reg_opens_at: new Date(form.reg_opens_at).toISOString(),
-        reg_closes_at: new Date(form.reg_closes_at).toISOString(),
+        starts_at,
+        ends_at,
+        reg_opens_at,
+        reg_closes_at,
         capacity: capacity.value,
         // Only send force_closed when the admin touched the checkbox; see
         // the forceClosedTouched comment above.
@@ -336,7 +344,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                     <span className="ml-3 font-mono text-[11px] uppercase tracking-wide text-muted">cap {e.capacity ?? '∞'}</span>
                   </p>
                   <p className="mt-1 font-mono text-xs text-muted">
-                    {fmtDateTime(e.starts_at)} · registered {registeredCount(e)}
+                    {formatEventDateTime(e.starts_at)} · registered {registeredCount(e)}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap justify-end gap-2">

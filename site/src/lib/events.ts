@@ -135,6 +135,47 @@ export function eventDateParts(iso: string): { day: string; mon: string; year: s
   }
 }
 
+// Events are Bengaluru-local. India has used a fixed +05:30 offset since 1945,
+// so the admin form can bridge to UTC without a timezone database lookup.
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
+/**
+ * UTC ISO instant -> `YYYY-MM-DDTHH:mm` in Asia/Kolkata for a datetime-local
+ * input. Unlike the native `Date` getters, this does not depend on the admin's
+ * device timezone.
+ */
+export function toEventLocalInput(iso: string): string {
+  const d = toValidDate(iso);
+  if (!d) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: EVENT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/**
+ * `YYYY-MM-DDTHH:mm` read as Asia/Kolkata -> UTC ISO, or null when malformed.
+ * The round-trip check rejects calendar overflow such as 30 February or 24:00.
+ */
+export function fromEventLocalInput(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match;
+  const d = new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) -
+      IST_OFFSET_MS,
+  );
+  if (Number.isNaN(d.getTime()) || toEventLocalInput(d.toISOString()) !== value) return null;
+  return d.toISOString();
+}
+
 /** Every failure surfaces as an ApiError, so callers can branch on `.error`. */
 export class ApiError extends Error {
   readonly status: number;
