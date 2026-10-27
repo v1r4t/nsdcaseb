@@ -205,6 +205,43 @@ export async function promoteNextWaitlisted(
   return next;
 }
 
+/**
+ * Cancel one registration and, when it held a confirmed seat, promote the
+ * oldest waitlisted row for that event in the same batch — so the cancel can
+ * never stick without the promotion it promised. A waitlisted row frees no
+ * seat, so cancelling one promotes nobody. Callers own the notification.
+ */
+export async function cancelRegistrationAndPromote(
+  env: Env,
+  registration: { id: string; event_id: string; status: string },
+): Promise<{ id: string; email: string | null } | null> {
+  const statements = [
+    env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`).bind(
+      registration.id,
+    ),
+  ];
+  let promoted: { id: string; email: string | null } | null = null;
+  if (registration.status === 'registered') {
+    promoted = await env.AUTH_DB.prepare(
+      `SELECT r.id AS id, u.email AS email
+       FROM registrations r LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.event_id = ? AND r.status = 'waitlisted'
+       ORDER BY r.created_at ASC LIMIT 1`,
+    )
+      .bind(registration.event_id)
+      .first<{ id: string; email: string | null }>();
+    if (promoted) {
+      statements.push(
+        env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(
+          promoted.id,
+        ),
+      );
+    }
+  }
+  await env.AUTH_DB.batch(statements);
+  return promoted;
+}
+
 export async function handleEventsApi(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -497,15 +534,15 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
     }
     const rows = (await env.AUTH_DB.prepare(
-      `SELECT r.status, r.answers, r.created_at, u.email
+      `SELECT r.id AS id, r.status, r.answers, r.created_at, u.email
        FROM registrations r JOIN users u ON u.id = r.user_id
        WHERE r.event_id = ? ORDER BY r.created_at DESC`,
-    ).bind(id).all<{ status: string; answers: string; created_at: string; email: string }>()).results ?? [];
+    ).bind(id).all<{ id: string; status: string; answers: string; created_at: string; email: string }>()).results ?? [];
     return json({
       registrations: rows.map((r) => {
         let answers: Record<string, string> = {};
         try { answers = JSON.parse(r.answers); } catch { /* keep {} */ }
-        return { email: r.email, status: r.status, answers, created_at: r.created_at };
+        return { id: r.id, email: r.email, status: r.status, answers, created_at: r.created_at };
       }),
     });
   }
@@ -614,30 +651,12 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
     if (!own) return json({ error: 'not_registered' }, 404);
 
     // Only a confirmed seat frees a seat. Cancelling a waitlisted row must not
-    // pull anyone else forward, or the event would overbook.
-    const statements = [
-      env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`).bind(own.id),
-    ];
-    let promoted: { id: string; email: string | null } | null = null;
-    if (own.status === 'registered') {
-      promoted = await env.AUTH_DB.prepare(
-        `SELECT r.id AS id, u.email AS email
-         FROM registrations r LEFT JOIN users u ON u.id = r.user_id
-         WHERE r.event_id = ? AND r.status = 'waitlisted'
-         ORDER BY r.created_at ASC LIMIT 1`,
-      )
-        .bind(id)
-        .first<{ id: string; email: string | null }>();
-      if (promoted) {
-        statements.push(
-          env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(
-            promoted.id,
-          ),
-        );
-      }
-    }
-    // One batch: the cancel never sticks without the promotion it promised.
-    await env.AUTH_DB.batch(statements);
+    // pull anyone else forward, or the event would overbook (the helper knows).
+    const promoted = await cancelRegistrationAndPromote(env, {
+      id: own.id,
+      event_id: id,
+      status: own.status,
+    });
 
     // The canceller gets no mail; the promoted member does (when we have their
     // address). Delivery hiccups never affect the response.

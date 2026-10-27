@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getEventRoster, listAdminEvents } from '../../lib/admin';
+import { cancelAdminRegistration, getEventRoster, listAdminEvents } from '../../lib/admin';
 import type { AdminEventSummary, RosterEntry } from '../../lib/admin';
 import { getEvent } from '../../lib/events';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
 type StatusFilter = 'all' | 'registered' | 'waitlisted' | 'cancelled';
+
+/** Only live registrations can be cancelled. */
+function isLive(status: string): boolean {
+  return status === 'registered' || status === 'waitlisted';
+}
+
+/** Everything the cancel confirmation needs to name the person. */
+function cancelLabel(r: RosterEntry): string {
+  return r.email || r.student_name || 'this person';
+}
 
 export default function AdminRegistrations({ notify }: PanelProps) {
   const [events, setEvents] = useState<AdminEventSummary[]>([]);
@@ -14,6 +24,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
   const [labels, setLabels] = useState<Map<string, string>>(new Map());
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,6 +56,30 @@ export default function AdminRegistrations({ notify }: PanelProps) {
       setLabels(new Map((detail?.event.questions ?? []).map((q) => [q.id, q.label])));
     } catch (err) {
       notify(errText(err));
+    }
+  }
+
+  async function handleCancel(r: RosterEntry): Promise<void> {
+    if (
+      !window.confirm(
+        `Cancel ${cancelLabel(r)}'s registration for this event? A registered seat will promote the next waitlisted person.`,
+      )
+    ) {
+      return;
+    }
+    setCancellingId(r.id);
+    try {
+      const result = await cancelAdminRegistration(r.id);
+      notify(
+        result.promoted_email
+          ? `Registration cancelled. Promoted ${result.promoted_email}.`
+          : 'Registration cancelled.',
+      );
+      await loadRoster(eventId);
+    } catch (err) {
+      notify(errText(err));
+    } finally {
+      setCancellingId(null);
     }
   }
 
@@ -121,7 +156,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
           {/* Mobile: stacked cards. sm+: scrollable table with a sticky header. */}
           <ul className="mt-5 space-y-3 sm:hidden">
             {visible.map((r) => (
-              <li key={`${r.email}-${r.created_at}`} className="border border-line p-3">
+              <li key={r.id} className="border border-line p-3">
                 <p className="break-all text-sm text-paper/90">{r.email}</p>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">
                   {r.status}
@@ -137,6 +172,16 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                   ))}
                 </dl>
                 <p className="mt-2 font-mono text-xs text-muted">{fmtDateTime(r.created_at)}</p>
+                {isLive(r.status) && (
+                  <button
+                    type="button"
+                    className="btn-ghost mt-3"
+                    onClick={() => void handleCancel(r)}
+                    disabled={cancellingId === r.id}
+                  >
+                    {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -148,12 +193,13 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                   <th scope="col" className="label py-2 pr-6 text-left">Email</th>
                   <th scope="col" className="label py-2 pr-6 text-left">Status</th>
                   <th scope="col" className="label py-2 pr-6 text-left">Answers</th>
-                  <th scope="col" className="label py-2 text-left">Date</th>
+                  <th scope="col" className="label py-2 pr-6 text-left">Date</th>
+                  <th scope="col" className="label py-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {visible.map((r) => (
-                  <tr key={`${r.email}-${r.created_at}`}>
+                  <tr key={r.id}>
                     <td className="py-3 pr-6 break-all">
                       {r.email}
                       {r.student_name || r.reg_number ? (
@@ -170,7 +216,19 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                         </span>
                       ))}
                     </td>
-                    <td className="whitespace-nowrap py-3 font-mono text-xs text-muted">{fmtDateTime(r.created_at)}</td>
+                    <td className="whitespace-nowrap py-3 pr-6 font-mono text-xs text-muted">{fmtDateTime(r.created_at)}</td>
+                    <td className="py-3">
+                      {isLive(r.status) && (
+                        <button
+                          type="button"
+                          className="btn-ghost"
+                          onClick={() => void handleCancel(r)}
+                          disabled={cancellingId === r.id}
+                        >
+                          {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -84,6 +84,7 @@ export interface OutboxEntry {
 }
 
 export interface RosterEntry {
+  id: string;
   email: string;
   status: string;
   user_type?: string | null;
@@ -250,6 +251,20 @@ export function listAdminEvents(includeArchived = false): Promise<{ events: Admi
 export function getEventRoster(eventId: string): Promise<{ registrations: RosterEntry[] }> {
   return request<{ registrations: RosterEntry[] }>(
     `/api/events/${encodeURIComponent(eventId)}/registrations`,
+  );
+}
+
+/**
+ * Cancel someone's registration from the admin console. A confirmed seat
+ * promotes the oldest waitlisted person; their email comes back when known.
+ */
+export function cancelAdminRegistration(
+  id: string,
+): Promise<{ cancelled: true; promoted_email: string | null }> {
+  return request<{ cancelled: true; promoted_email: string | null }>(
+    `/api/admin/registrations/${encodeURIComponent(id)}/cancel`,
+    'POST',
+    {},
   );
 }
 

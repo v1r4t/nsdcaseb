@@ -20,8 +20,9 @@ import {
   type Env,
   type User,
 } from './auth-helpers';
-import { enqueueEmail, isEmailKind, verificationEmail, type EmailKind } from './email';
+import { enqueueEmail, isEmailKind, verificationEmail, waitlistPromotionEmail, type EmailKind } from './email';
 import { sendEmail } from './mailer';
+import { cancelRegistrationAndPromote } from './events';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
 
@@ -578,6 +579,61 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       return json({ error: method === 'POST' ? 'not_found' : 'unknown_achievement' }, 404);
     }
     return methodNotAllowed('POST');
+  }
+
+  // POST /api/admin/registrations/:id/cancel — admin-side cancellation. The
+  // registration stays in the DB as `cancelled` (nothing is deleted); a
+  // confirmed seat promotes the oldest waitlisted row in the same batch.
+  const registrationCancelMatch = /^\/api\/admin\/registrations\/([^/]+)\/cancel$/.exec(path);
+  if (registrationCancelMatch) {
+    if (method !== 'POST') return methodNotAllowed('POST');
+    const registrationId = decodeURIComponent(registrationCancelMatch[1]);
+    const row = await env.AUTH_DB.prepare(
+      `SELECT r.id, r.event_id, r.status, r.user_type, r.student_name, r.reg_number,
+              u.email, e.title AS event_title
+       FROM registrations r
+       LEFT JOIN users u ON u.id = r.user_id
+       JOIN events e ON e.id = r.event_id
+       WHERE r.id = ?`,
+    )
+      .bind(registrationId)
+      .first<{
+        id: string; event_id: string; status: string; user_type: string | null;
+        student_name: string | null; reg_number: string | null; email: string | null;
+        event_title: string;
+      }>();
+    if (!row) return json({ error: 'registration_not_found' }, 404);
+    if (row.status === 'cancelled') return json({ error: 'already_cancelled' }, 409);
+
+    const promoted = await cancelRegistrationAndPromote(env, {
+      id: row.id,
+      event_id: row.event_id,
+      status: row.status,
+    });
+
+    // Delivery hiccups never fail the cancellation the admin already made.
+    if (promoted?.email) {
+      try {
+        const template = waitlistPromotionEmail(row.event_title);
+        await enqueueEmail(env, promoted.email, template.subject, template.text, { kind: 'waitlist' });
+      } catch (err) {
+        console.error('[admin] promotion email enqueue failed', promoted.id, err);
+      }
+    }
+
+    await audit(
+      env,
+      user,
+      'registration_cancel_admin',
+      JSON.stringify({
+        registrationId: row.id,
+        eventId: row.event_id,
+        email: row.email,
+        previousStatus: row.status,
+        promotedEmail: promoted?.email ?? null,
+      }),
+    );
+    return json({ cancelled: true, promoted_email: promoted?.email ?? null });
   }
 
   const rosterCsvMatch = /^\/api\/admin\/events\/([^/]+)\/roster\.csv$/.exec(path);
