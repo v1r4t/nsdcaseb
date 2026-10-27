@@ -12,7 +12,7 @@ import { errText } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
 export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
-  const { user: me } = useAuth();
+  const { user: me, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState('');
   const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
@@ -90,7 +90,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
 
   async function confirmDelete(): Promise<void> {
     const target = pendingDelete;
-    if (!target || confirmEmail.trim() !== target.email) return;
+    if (!target || confirmEmail !== target.email) return;
     setBusy(true);
     setDeleteError(null);
     try {
@@ -107,7 +107,9 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
     }
   }
 
-  const canDelete = (u: AdminUser): boolean => me?.id !== u.id;
+  // Until the session is known we cannot tell which row is ours, so no Delete
+  // action is rendered at all (never a flash of self-delete).
+  const canDelete = (u: AdminUser): boolean => !authLoading && me !== null && me.id !== u.id;
 
   return (
     <section aria-label="Accounts and roles">
@@ -162,7 +164,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
               type="button"
               onClick={() => void confirmDelete()}
               className="btn-ghost"
-              disabled={busy || confirmEmail.trim() !== pendingDelete.email}
+              disabled={busy || confirmEmail !== pendingDelete.email}
             >
               Delete account
             </button>

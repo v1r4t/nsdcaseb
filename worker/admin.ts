@@ -363,8 +363,10 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
   }
 
   // DELETE /api/admin/users/:id — remove an account and everything tied to
-  // it, freeing every confirmed seat it held. Waitlisted people promoted for
-  // those seats are notified after the batch commits. Events are never
+  // it, freeing every confirmed seat it held. The guarded account delete and
+  // the cleanup run in one batch: every dependent statement is gated on the
+  // account actually being gone, so a refused guard leaves the database
+  // untouched and a failure rolls the whole batch back. Events are never
   // deleted, and sent mail is kept as history.
   const userDeleteMatch = /^\/api\/admin\/users\/([^/]+)$/.exec(path);
   if (userDeleteMatch && method === 'DELETE') {
@@ -384,12 +386,14 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         .bind(target.id)
         .first<{ n: number }>())?.n ?? 0;
 
-    // One seat is freed per event where the account held a confirmed spot.
+    // One seat is freed per event that has not ended yet and where the account
+    // held a confirmed spot. Past events are never promoted into.
     const heldEvents = (
       await env.AUTH_DB.prepare(
         `SELECT DISTINCT e.id AS id, e.title AS title, e.starts_at AS starts_at
          FROM registrations r JOIN events e ON e.id = r.event_id
          WHERE r.user_id = ? AND r.status = 'registered'
+           AND datetime(e.ends_at) > datetime('now')
          ORDER BY e.starts_at ASC`,
       )
         .bind(target.id)
@@ -409,22 +413,55 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       if (next) promotions.push({ eventId: event.id, eventTitle: event.title, id: next.id, email: next.email });
     }
 
-    const statements = [
-      env.AUTH_DB.prepare(`DELETE FROM email_outbox WHERE to_email = ? AND status = 'pending'`).bind(target.email),
-      env.AUTH_DB.prepare(`DELETE FROM recruitment_applications WHERE email = ?`).bind(target.email),
-      env.AUTH_DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(target.id),
-      env.AUTH_DB.prepare(`DELETE FROM email_tokens WHERE user_id = ?`).bind(target.id),
-      env.AUTH_DB.prepare(`DELETE FROM registrations WHERE user_id = ?`).bind(target.id),
-      env.AUTH_DB.prepare(`DELETE FROM admin_audit_log WHERE admin_user_id = ?`).bind(target.id),
-      ...promotions.map((p) =>
-        env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(p.id),
-      ),
-      env.AUTH_DB.prepare(`DELETE FROM users WHERE id = ?`).bind(target.id),
+    // The OB count is evaluated inside the delete statement, so a concurrent
+    // demotion can never leave the club with zero office bearers. All later
+    // statements only apply when this delete removed the row (`NOT EXISTS`
+    // is true after a successful delete, false when the guard refused).
+    const accountGone = `NOT EXISTS (SELECT 1 FROM users WHERE id = ?)`;
+    const guardedDelete = env.AUTH_DB.prepare(
+      `DELETE FROM users
+       WHERE id = ?
+         AND (role NOT IN ('ob','admin')
+              OR (SELECT COUNT(*) FROM users WHERE role IN ('ob','admin')) > 1)`,
+    ).bind(target.id);
+    const cleanup = [
+      env.AUTH_DB.prepare(
+        `DELETE FROM email_outbox WHERE to_email = ? AND status = 'pending' AND ${accountGone}`,
+      ).bind(target.email, target.id),
+      env.AUTH_DB.prepare(`DELETE FROM recruitment_applications WHERE email = ? AND ${accountGone}`)
+        .bind(target.email, target.id),
+      env.AUTH_DB.prepare(`DELETE FROM sessions WHERE user_id = ? AND ${accountGone}`).bind(target.id, target.id),
+      env.AUTH_DB.prepare(`DELETE FROM email_tokens WHERE user_id = ? AND ${accountGone}`).bind(target.id, target.id),
+      env.AUTH_DB.prepare(`DELETE FROM registrations WHERE user_id = ? AND ${accountGone}`).bind(target.id, target.id),
+      env.AUTH_DB.prepare(`DELETE FROM admin_audit_log WHERE admin_user_id = ? AND ${accountGone}`)
+        .bind(target.id, target.id),
     ];
-    await env.AUTH_DB.batch(statements);
+    const promotionUpdates = promotions.map((p) =>
+      env.AUTH_DB.prepare(
+        `UPDATE registrations SET status = 'registered'
+         WHERE id = ? AND status = 'waitlisted' AND ${accountGone}`,
+      ).bind(p.id, target.id),
+    );
+    const results = await env.AUTH_DB.batch([guardedDelete, ...cleanup, ...promotionUpdates]);
+
+    if (((results[0]?.meta?.changes) ?? 0) === 0) {
+      // Re-check to distinguish "someone else already removed it" from
+      // "the atomic guard refused because it is the last OB".
+      const stillThere = await env.AUTH_DB.prepare(`SELECT id FROM users WHERE id = ?`)
+        .bind(target.id)
+        .first<{ id: string }>();
+      return stillThere ? json({ error: 'last_ob' }, 400) : json({ error: 'user_not_found' }, 404);
+    }
+
+    // A promotion whose row changed underneath us (no longer waitlisted) was
+    // not applied: do not mail that person or claim it in the audit trail.
+    const PROMOTION_OFFSET = 1 + cleanup.length;
+    const promoted = promotions.filter(
+      (_, i) => ((results[PROMOTION_OFFSET + i]?.meta?.changes) ?? 0) > 0,
+    );
 
     // Delivery hiccups never fail the deletion the admin already made.
-    for (const p of promotions) {
+    for (const p of promoted) {
       if (!p.email) continue;
       try {
         const template = waitlistPromotionEmail(p.eventTitle);
@@ -443,13 +480,13 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         email: target.email,
         role: target.role,
         registrations,
-        promotions: promotions.map((p) => ({ eventId: p.eventId, email: p.email })),
+        promotions: promoted.map((p) => ({ eventId: p.eventId, email: p.email })),
       }),
     );
     return json({
       deleted: true,
       registrations,
-      promotions: promotions.map((p) => ({ event_id: p.eventId, email: p.email })),
+      promotions: promoted.map((p) => ({ event_id: p.eventId, email: p.email })),
     });
   }
 
