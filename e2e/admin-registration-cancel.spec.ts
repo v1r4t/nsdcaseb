@@ -129,6 +129,17 @@ test('admin cancel: confirmed row is cancelled and promotes the oldest waiter', 
     await expect(rowA).toBeVisible();
     await expect(rowA.getByText('registered', { exact: true })).toBeVisible();
 
+    // Regression: the server CSV is newline-delimited (header + data rows),
+    // not one line joined with a literal "\n" sequence.
+    const csvRes = await admin.request.get(
+      `/api/admin/events/${encodeURIComponent(tinyEvent.id)}/roster.csv`,
+    );
+    const csvBody = await csvRes.text();
+    expect(csvRes.status(), csvBody).toBe(200);
+    const csvLines = csvBody.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    expect(csvLines.length).toBeGreaterThan(1);
+    expect(csvLines[0]).toContain('email,type,name,reg_number,status');
+
     // Confirmation is a native dialog: capture its copy and accept it.
     let cancelPrompt = '';
     admin.once('dialog', (dialog) => {

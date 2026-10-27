@@ -898,7 +898,7 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         escape(r.created_at),
       ].join(','));
     }
-    return new Response(lines.join('\\n'), {
+    return new Response(lines.join('\n'), {
       status: 200,
       headers: {
         'content-type': 'text/csv; charset=utf-8',
