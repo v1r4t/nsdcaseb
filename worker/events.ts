@@ -534,15 +534,29 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       return user ? json({ error: 'forbidden' }, 403) : json({ error: 'unauthenticated' }, 401);
     }
     const rows = (await env.AUTH_DB.prepare(
-      `SELECT r.id AS id, r.status, r.answers, r.created_at, u.email
+      `SELECT r.id AS id, r.status, r.answers, r.created_at,
+              r.user_type, r.student_name, r.reg_number, u.email
        FROM registrations r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.event_id = ? ORDER BY r.created_at DESC`,
-    ).bind(id).all<{ id: string; status: string; answers: string; created_at: string; email: string | null }>()).results ?? [];
+    ).bind(id).all<{
+      id: string; status: string; answers: string; created_at: string;
+      user_type: string | null; student_name: string | null; reg_number: string | null;
+      email: string | null;
+    }>()).results ?? [];
     return json({
       registrations: rows.map((r) => {
         let answers: Record<string, string> = {};
         try { answers = JSON.parse(r.answers); } catch { /* keep {} */ }
-        return { id: r.id, email: r.email, status: r.status, answers, created_at: r.created_at };
+        return {
+          id: r.id,
+          email: r.email,
+          status: r.status,
+          user_type: r.user_type,
+          student_name: r.student_name,
+          reg_number: r.reg_number,
+          answers,
+          created_at: r.created_at,
+        };
       }),
     });
   }
