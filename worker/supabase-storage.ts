@@ -8,6 +8,12 @@ interface StorageEnv {
 export const STORAGE_BUCKET = 'event-posters';
 
 /**
+ * Broadcast images live in their own public bucket so mail assets never mix
+ * with event posters. Only JPEG and PNG uploads are accepted.
+ */
+export const EMAIL_BUCKET = 'email-assets';
+
+/**
  * Deterministic poster keys. The original keeps the pre-variant path so
  * existing rows and URLs continue to work unchanged; variants live beside it.
  */
@@ -81,6 +87,38 @@ export async function uploadObject(env: StorageEnv, key: string, data: ArrayBuff
 export function uploadPoster(env: StorageEnv, key: string, data: ArrayBuffer, contentType: string): Promise<boolean> {
   return uploadObject(env, key, data, contentType);
 }
+
+/**
+ * Store a broadcast image under `email/{uuid}.jpg|png` and return its public
+ * URL. Returns null when storage is unconfigured or the upload is rejected.
+ */
+export async function uploadEmailImage(
+  env: StorageEnv,
+  data: ArrayBuffer,
+  contentType: 'image/jpeg' | 'image/png',
+): Promise<string | null> {
+  if (!storageConfigured(env)) return null;
+  const extension = contentType === 'image/png' ? 'png' : 'jpg';
+  const key = `email/${crypto.randomUUID()}.${extension}`;
+  const url = `${env.SUPABASE_URL}/storage/v1/object/${EMAIL_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+        'Content-Type': contentType,
+        'x-upsert': 'true',
+      },
+      body: data,
+    });
+    if (!res.ok) return null;
+  } catch {
+    return null;
+  }
+  return `${env.SUPABASE_URL}/storage/v1/object/public/${EMAIL_BUCKET}/${key}`;
+}
+
 
 /** Public URL for any object in the shared bucket (event posters and gallery). */
 export function storageUrl(env: StorageEnv, key: string | null): string | null {

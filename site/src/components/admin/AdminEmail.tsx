@@ -7,6 +7,7 @@ import {
   retryOutbox,
   sendBroadcast,
   sendTestEmail,
+  uploadBroadcastImage,
 } from '../../lib/admin';
 import type {
   AdminEventSummary,
@@ -16,6 +17,8 @@ import type {
   OutboxKind,
   OutboxStatus,
 } from '../../lib/admin';
+import { EmailImageError, compressEmailImage } from '../../lib/email-image';
+import RichTextEditor from './RichTextEditor';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
@@ -57,7 +60,13 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   const [aud, setAud] = useState<'all' | 'event'>('all');
   const [audEvent, setAudEvent] = useState('');
   const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [bodyText, setBodyText] = useState('');
+  const [editorReset, setEditorReset] = useState(0);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [audit, setAudit] = useState<AuditEntry[] | null>(null);
   const [testResult, setTestResult] = useState<EmailTestResult | null>(null);
 
@@ -86,16 +95,53 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
     void refreshOutbox(outboxStatus, outboxKind);
   }, [outboxStatus, outboxKind, refreshOutbox]);
 
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
   async function broadcast(): Promise<void> {
     setBusy(true);
     try {
-      const r = await sendBroadcast({ audience: aud, event_id: audEvent || undefined, subject, body });
+      // The image is optional: compress + upload first, then queue. Any
+      // failure here aborts before a single mail is enqueued.
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        setUploading(true);
+        try {
+          const compressed = await compressEmailImage(imageFile);
+          const uploaded = await uploadBroadcastImage(
+            new File([compressed], 'broadcast.jpg', { type: 'image/jpeg' }),
+          );
+          imageUrl = uploaded.url;
+        } finally {
+          setUploading(false);
+        }
+      }
+      const r = await sendBroadcast({
+        audience: aud,
+        event_id: audEvent || undefined,
+        subject,
+        body_html: bodyHtml,
+        body_text: bodyText,
+        image_url: imageUrl,
+        image_alt: imageUrl ? imageAlt.trim() || null : null,
+      });
       notify(`Queued ${r.queued} email(s). The scheduled sweep delivers them within 15 minutes.`);
       setSubject('');
-      setBody('');
+      setBodyHtml('');
+      setBodyText('');
+      setEditorReset((n) => n + 1);
+      setImageFile(null);
+      setImageAlt('');
       await refreshOutbox(outboxStatus, outboxKind);
     } catch (err) {
-      notify(errText(err));
+      notify(err instanceof EmailImageError ? err.message : errText(err));
     } finally {
       setBusy(false);
     }
@@ -180,10 +226,73 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
               ))}
             </select>
           )}
-          <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="field" />
-          <textarea aria-label="Body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message body" rows={4} className="field resize-y" />
-          <button type="button" className="btn-primary" disabled={busy || !subject.trim() || !body.trim()} onClick={() => void broadcast()}>
-            Queue broadcast
+          <input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="field" maxLength={200} />
+          <RichTextEditor
+            label="Broadcast message body"
+            placeholder="Write the update you want to send…"
+            onChange={(value) => {
+              setBodyHtml(value.html);
+              setBodyText(value.text);
+            }}
+            resetSignal={editorReset}
+            onInvalidLink={notify}
+          />
+
+          <div className="border border-line p-3">
+            <label className="label" htmlFor="broadcast-image">
+              Image (optional)
+            </label>
+            <input
+              id="broadcast-image"
+              key={editorReset}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Broadcast image"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              className="field mt-2 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-signal file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink"
+            />
+            <p className="hint">
+              JPEG, PNG or WebP up to 10 MB. Resized to 1200px wide and re-encoded as JPEG before upload.
+            </p>
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt={imageAlt.trim() || 'Selected broadcast image preview'}
+                className="mt-3 max-h-48 w-auto border border-line"
+              />
+            )}
+            {imageFile && (
+              <div className="mt-3 space-y-2">
+                <input
+                  aria-label="Image description"
+                  value={imageAlt}
+                  maxLength={200}
+                  onChange={(e) => setImageAlt(e.target.value)}
+                  placeholder="Image description (alt text, optional)"
+                  className="field"
+                />
+                <button
+                  type="button"
+                  className="btn-ghost px-3 py-1.5 text-xs"
+                  disabled={busy || uploading}
+                  onClick={() => {
+                    setImageFile(null);
+                    setImageAlt('');
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy || uploading || !subject.trim() || !bodyText.trim()}
+            onClick={() => void broadcast()}
+          >
+            {uploading ? 'Uploading image…' : 'Queue broadcast'}
           </button>
         </div>
       </div>

@@ -21,10 +21,14 @@ import {
   type User,
 } from './auth-helpers';
 import { enqueueEmail, isEmailKind, verificationEmail, waitlistPromotionEmail, type EmailKind } from './email';
+import { broadcastText, htmlToText, isEmailAssetUrl, plainTextToHtml, renderBroadcastHtml, sanitizeBroadcastHtml } from './email-content';
 import { sendEmail } from './mailer';
 import { cancelRegistrationAndPromote } from './events';
+import { storageConfigured, uploadEmailImage } from './supabase-storage';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
+/** Hard cap for a broadcast image, matching the bucket's 10 MB limit loosely. */
+const MAX_EMAIL_IMAGE_BYTES = 8 * 1024 * 1024;
 
 async function parseJsonObject(
   request: Request,
@@ -271,14 +275,86 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     return json({ ok: true, delivered: result.delivered, detail: result.detail });
   }
 
+  // POST /api/admin/email/image — store an optional broadcast image in the
+  // public `email-assets` bucket. Only JPEG/PNG under 8 MB; the returned URL is
+  // the only image host the broadcast endpoint will accept.
+  if (path === '/api/admin/email/image') {
+    if (method !== 'POST') return methodNotAllowed('POST');
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return json({ error: 'invalid_image' }, 400);
+    }
+    const uploaded = form.get('image');
+    if (!(uploaded instanceof File)) return json({ error: 'invalid_image' }, 400);
+    const contentType = (uploaded.type || '').toLowerCase();
+    if (contentType !== 'image/jpeg' && contentType !== 'image/png') {
+      return json({ error: 'invalid_image' }, 400);
+    }
+    if (uploaded.size <= 0 || uploaded.size > MAX_EMAIL_IMAGE_BYTES) {
+      return json({ error: 'invalid_image' }, 400);
+    }
+    if (!storageConfigured(env)) return json({ error: 'storage_not_configured' }, 503);
+
+    const typing = contentType === 'image/png' ? 'image/png' : 'image/jpeg';
+    const data = await uploaded.arrayBuffer();
+    const imageUrl = await uploadEmailImage(env, data, typing);
+    if (!imageUrl) return json({ error: 'storage_upload_failed' }, 502);
+    // Audit the location only; the bytes never enter the log.
+    await audit(env, user, 'email_image_upload', JSON.stringify({ url: imageUrl }));
+    return json({ url: imageUrl }, 201);
+  }
+
   // POST /api/admin/broadcast
   if (path === '/api/admin/broadcast') {
     if (method !== 'POST') return methodNotAllowed('POST');
     const body = await parseJson(request);
     if (!body.ok) return body.response;
-    const { audience, event_id: eventId, subject, body: text } = body.value;
-    if (!nonEmpty(subject) || !nonEmpty(text)) return json({ error: 'subject_body_required' }, 400);
+    const { audience, event_id: eventId, subject } = body.value;
     if (audience !== 'all' && audience !== 'event') return json({ error: 'invalid_audience' }, 400);
+    if (!nonEmpty(subject)) return json({ error: 'subject_body_required' }, 400);
+    const cleanSubject = subject.trim();
+    if (cleanSubject.length > 200) return json({ error: 'invalid_subject' }, 400);
+
+    // Rich body. `body`/`body_text` are the plain-text inputs (the legacy
+    // wire field is `body`); `body_html` is the editor output.
+    const rawHtml = typeof body.value.body_html === 'string' ? body.value.body_html : '';
+    const legacyBody = typeof body.value.body === 'string' ? body.value.body : '';
+    const providedText = typeof body.value.body_text === 'string' ? body.value.body_text : '';
+    const plainText = providedText.trim() ? providedText : legacyBody;
+    if (!rawHtml.trim() && !plainText.trim()) {
+      return json({ error: 'subject_body_required' }, 400);
+    }
+    const bodyHtml = sanitizeBroadcastHtml(rawHtml.trim() ? rawHtml : plainTextToHtml(plainText));
+    if (!htmlToText(bodyHtml)) return json({ error: 'subject_body_required' }, 400);
+    const bodyText = plainText.trim() ? plainText.trim() : htmlToText(bodyHtml);
+
+    // Optional image: only our own public `email-assets` bucket is accepted.
+    let imageUrl: string | null = null;
+    const requestedImage = body.value.image_url;
+    if (requestedImage !== undefined && requestedImage !== null) {
+      if (typeof requestedImage !== 'string') return json({ error: 'invalid_image_url' }, 400);
+      const trimmedImage = requestedImage.trim();
+      if (trimmedImage) {
+        if (!isEmailAssetUrl(trimmedImage, env.SUPABASE_URL ?? '')) {
+          return json({ error: 'invalid_image_url' }, 400);
+        }
+        imageUrl = trimmedImage;
+      }
+    }
+    let imageAlt: string | null = null;
+    const requestedAlt = body.value.image_alt;
+    if (requestedAlt !== undefined && requestedAlt !== null) {
+      if (typeof requestedAlt !== 'string' || requestedAlt.length > 200) {
+        return json({ error: 'invalid_image_alt' }, 400);
+      }
+      imageAlt = requestedAlt.trim() || null;
+    }
+
+    const html = renderBroadcastHtml({ bodyHtml, imageUrl, imageAlt });
+    const text = broadcastText(bodyText, imageUrl, imageAlt);
+
     let recipients: { email: string }[];
     if (audience === 'all') {
       recipients = (await env.AUTH_DB.prepare(`SELECT email FROM users ORDER BY email ASC`).all<{ email: string }>())
@@ -298,15 +374,21 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       ).results ?? [];
     }
     for (const r of recipients) {
-      await enqueueEmail(env, r.email, (subject as string).trim(), (text as string).trim(), {
+      await enqueueEmail(env, r.email, cleanSubject, text, {
         kind: 'broadcast',
+        html,
       });
     }
     await audit(
       env,
       user,
       'broadcast',
-      JSON.stringify({ audience, event_id: audience === 'event' ? eventId : null, queued: recipients.length }),
+      JSON.stringify({
+        audience,
+        event_id: audience === 'event' ? eventId : null,
+        queued: recipients.length,
+        has_image: imageUrl !== null,
+      }),
     );
     return json({ queued: recipients.length }, 201);
   }

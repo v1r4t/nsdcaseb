@@ -148,9 +148,50 @@ export function sendBroadcast(input: {
   audience: 'all' | 'event';
   event_id?: string;
   subject: string;
-  body: string;
+  /** Rich editor output; the worker sanitises it again before sending. */
+  body_html?: string;
+  /** Plain-text mirror. Falls back to `body` on older clients. */
+  body_text?: string;
+  /** Legacy plain-text field; still accepted and converted to paragraphs. */
+  body?: string;
+  image_url?: string | null;
+  image_alt?: string | null;
 }): Promise<{ queued: number }> {
   return request<{ queued: number }>('/api/admin/broadcast', 'POST', input);
+}
+
+/**
+ * Upload the optional broadcast image to the worker, which stores it in the
+ * public `email-assets` bucket and returns the only URL it will accept back.
+ */
+export async function uploadBroadcastImage(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('image', file);
+  let response: Response;
+  const controller = new AbortController();
+  // Image bytes can be several MB; give the upload longer than a JSON call.
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  try {
+    response = await fetch('/api/admin/email/image', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
+  }
+  const raw = await response.text().catch(() => '');
+  let payload: unknown = null;
+  try {
+    payload = raw.length > 0 ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) throw new ApiError(response.status, errorCode(payload, response.status));
+  return payload as { url: string };
 }
 
 export function getAuditLog(): Promise<{ entries: AuditEntry[] }> {

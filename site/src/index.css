@@ -94,6 +94,62 @@
     @apply mt-1.5 font-mono text-xs text-muted;
   }
 
+  /* ---- Rich broadcast editor ------------------------------------------ */
+
+  /* Shared by the TipTap surface and its read-only preview. */
+  .rte-content {
+    @apply w-full rounded-sm border border-line px-3 py-2.5 text-sm leading-relaxed text-paper;
+    min-height: 7rem;
+  }
+
+  .rte-content p {
+    @apply my-2;
+  }
+
+  .rte-content p:first-child {
+    @apply mt-0;
+  }
+
+  .rte-content p:last-child {
+    @apply mb-0;
+  }
+
+  .rte-content h1 {
+    @apply mt-4 mb-2 text-xl font-semibold text-paper;
+  }
+
+  .rte-content h2 {
+    @apply mt-4 mb-2 text-lg font-semibold text-paper;
+  }
+
+  .rte-content h3 {
+    @apply mt-3 mb-2 text-base font-semibold text-paper;
+  }
+
+  .rte-content ul {
+    @apply my-2 list-disc pl-5;
+  }
+
+  .rte-content ol {
+    @apply my-2 list-decimal pl-5;
+  }
+
+  .rte-content li {
+    @apply my-1;
+  }
+
+  .rte-content a {
+    @apply text-signal underline underline-offset-4;
+  }
+
+  .rte-content blockquote {
+    @apply my-3 border-l border-line pl-3 text-muted;
+  }
+
+  .rte-content hr {
+    @apply my-4 border-t border-line;
+  }
+
   .error-text {
     @apply mt-1.5 text-xs text-signal;
   }

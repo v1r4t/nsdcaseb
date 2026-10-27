@@ -20,12 +20,16 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@tiptap/extension-link": "^3.32.0",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "gsap": "^3.15.0",
     "lucide-react": "^1.49.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "xss": "^1.0.17"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
