@@ -74,7 +74,11 @@ export function sanitizeBroadcastHtml(html: string): string {
     css: false,
     onTagAttr(tag, name, value, isWhiteAttr) {
       if (tag === 'a' && name === 'href') {
-        return isSafeLinkHref(value) ? `href="${escapeAttr(value)}"` : '';
+        // Safe URLs fall through to xss's own attribute encoder, which
+        // decodes entities before re-encoding — that keeps the output
+        // idempotent (an `&amp;` in a query string stays `&amp;`). Returning
+        // a manually escaped value here would encode the ampersand twice.
+        return isSafeLinkHref(value) ? undefined : '';
       }
       // Non-allow-listed attributes (style, class, on*) are dropped.
       return isWhiteAttr ? undefined : '';

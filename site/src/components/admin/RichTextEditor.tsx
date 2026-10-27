@@ -195,21 +195,27 @@ export default function RichTextEditor({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Formatting">
-          {tools.map((tool) => (
-            <button
-              key={tool.label}
-              type="button"
-              aria-label={tool.label}
-              aria-pressed={tool.active === undefined ? undefined : tool.active}
-              className={tool.active ? 'btn-primary px-2.5 py-1.5 text-xs' : 'btn-ghost px-2.5 py-1.5 text-xs'}
-              disabled={tool.disabled}
-              onClick={tool.onClick}
-            >
-              {tool.text}
-            </button>
-          ))}
-        </div>
+        {mode === 'write' ? (
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Formatting">
+            {tools.map((tool) => (
+              <button
+                key={tool.label}
+                type="button"
+                aria-label={tool.label}
+                aria-pressed={tool.active === undefined ? undefined : tool.active}
+                className={tool.active ? 'btn-primary px-2.5 py-1.5 text-xs' : 'btn-ghost px-2.5 py-1.5 text-xs'}
+                disabled={tool.disabled}
+                onClick={tool.onClick}
+              >
+                {tool.text}
+              </button>
+            ))}
+          </div>
+        ) : (
+          // Preview is read-only: hiding the toolbar prevents edits landing in
+          // the hidden editor while the admin thinks they are reviewing.
+          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Preview</p>
+        )}
         <div className="flex gap-1" role="group" aria-label="Editor mode">
           <button
             type="button"

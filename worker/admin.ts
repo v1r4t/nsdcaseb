@@ -29,6 +29,8 @@ import { storageConfigured, uploadEmailImage } from './supabase-storage';
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
 /** Hard cap for a broadcast image, matching the bucket's 10 MB limit loosely. */
 const MAX_EMAIL_IMAGE_BYTES = 8 * 1024 * 1024;
+/** Declared-body ceiling before multipart parsing: 8 MB file + envelope slack. */
+const MAX_EMAIL_IMAGE_REQUEST_BYTES = 9 * 1024 * 1024;
 
 async function parseJsonObject(
   request: Request,
@@ -280,6 +282,13 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
   // the only image host the broadcast endpoint will accept.
   if (path === '/api/admin/email/image') {
     if (method !== 'POST') return methodNotAllowed('POST');
+    // Refuse an oversized declared body before buffering the multipart form;
+    // the per-file check below still guards chunked or lying clients.
+    const declaredLength = request.headers.get('content-length');
+    const declaredBytes = declaredLength === null ? Number.NaN : Number(declaredLength);
+    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_EMAIL_IMAGE_REQUEST_BYTES) {
+      return json({ error: 'invalid_image' }, 413);
+    }
     let form: FormData;
     try {
       form = await request.formData();

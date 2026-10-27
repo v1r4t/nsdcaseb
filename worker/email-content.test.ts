@@ -109,6 +109,26 @@ describe('sanitizeBroadcastHtml', () => {
     const out = sanitizeBroadcastHtml('<a href="mailto:club@example.test">Mail us</a>');
     expect(out).toContain('href="mailto:club@example.test"');
   });
+
+  it('keeps ampersands singly encoded and is idempotent', () => {
+    // TipTap emits `&amp;` inside href attribute values.
+    const input = '<p><a href="https://forms.example.com/x?a=1&amp;b=2">form</a></p>';
+    const once = sanitizeBroadcastHtml(input);
+    expect(once).toContain('href="https://forms.example.com/x?a=1&amp;b=2"');
+    expect(once).not.toContain('amp;amp;');
+    expect(sanitizeBroadcastHtml(once)).toBe(once);
+  });
+
+  it('does not double-encode an ampersand through sanitize + render', () => {
+    const input = '<p><a href="https://forms.example.com/x?a=1&amp;b=2">form</a></p>';
+    const html = renderBroadcastHtml({ bodyHtml: input });
+    expect(html).toContain('href="https://forms.example.com/x?a=1&amp;b=2"');
+    expect(html).not.toContain('amp;amp;');
+    // renderBroadcastHtml sanitises again; pre-sanitised input is unchanged.
+    const presanitised = renderBroadcastHtml({ bodyHtml: sanitizeBroadcastHtml(input) });
+    expect(presanitised).toContain('href="https://forms.example.com/x?a=1&amp;b=2"');
+    expect(presanitised).not.toContain('amp;amp;');
+  });
 });
 
 describe('renderBroadcastHtml', () => {

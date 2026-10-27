@@ -191,7 +191,10 @@ export async function uploadBroadcastImage(file: File): Promise<{ url: string }>
     payload = null;
   }
   if (!response.ok) throw new ApiError(response.status, errorCode(payload, response.status));
-  return payload as { url: string };
+  const url = payload && typeof payload === 'object' ? (payload as { url?: unknown }).url : undefined;
+  // Never let a malformed envelope silently queue a text-only broadcast.
+  if (typeof url !== 'string' || url.length === 0) throw new ApiError(0, 'invalid_response');
+  return { url };
 }
 
 export function getAuditLog(): Promise<{ entries: AuditEntry[] }> {
