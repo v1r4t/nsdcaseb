@@ -11,7 +11,7 @@ has not run. Numbers for the "before" state live in `docs/baseline.md`.
 | Resource | Value |
 | --- | --- |
 | Worker | `nsdcaseb-site` (deployed, workers.dev only, `preview_urls: false`) |
-| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0019 applied) |
+| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0020 applied) |
 | Production RATELIMIT_KV | `bb4737aa246446258181b22f666ff8e3` |
 | NOTIFY_KV | shared teaser namespace `9b54a4a0…` |
 | Secrets | `ADMIN_ENTRY_CODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (generated/set by owner; never recorded here) |
@@ -237,7 +237,7 @@ npx wrangler d1 create nsdc-auth-prod
 ```
 
 Paste the returned `database_id` into `wrangler.production.jsonc` (§1.1). Then
-apply **all** migrations `0001`–`0019` in order:
+apply **all** migrations `0001`–`0020` in order:
 
 ```bash
 npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
@@ -245,11 +245,29 @@ npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.
 # expect: "No migrations to apply!" on the second command
 ```
 
+**If production already exists at `0001`–`0019`** (§0.5), apply the newest
+migration to `nsdc-auth-prod` **before** deploying the production site worker:
+
+```bash
+npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
+npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.jsonc
+# expect: 0020_email_kind.sql listed as applied, then "No migrations to apply!"
+```
+
+Order is not optional: `0020_email_kind.sql` adds `email_outbox.kind`, and the
+site worker selects that column on every outbox path. Deploying the worker
+first makes `/api/admin/outbox` and the scheduled sweep fail against the old
+schema. The teaser worker has no `AUTH_DB` binding and is unaffected.
+
 Migration facts (corrected):
 
-- `0017_project_featured.sql`, `0018_bearer_links.sql`,
-  `0019_recruitment.sql` are the three newest; all additive (`ALTER TABLE … ADD
-  COLUMN … DEFAULT` / `CREATE TABLE` + indexes), no backfill or destructive step.
+- `0018_bearer_links.sql`, `0019_recruitment.sql`, and
+  `0020_email_kind.sql` are the three newest. `0020_email_kind.sql` is the
+  newest additive migration: it adds `email_outbox.kind` (default `other`),
+  backfills history by subject, and deletes only **pending**
+  confirmation/reminder rows. The earlier pair are additive too (`ALTER TABLE …
+  ADD COLUMN … DEFAULT` / `CREATE TABLE` + indexes); none has a destructive
+  schema step.
 - `0006_content_demo.sql` seeds **demo** copy; `0009_content_real.sql` replaces
   it. `0010_projects_real.sql` seeds real projects. Do not describe `0006` as
   real content.
@@ -440,8 +458,8 @@ relying on it for restore.
 ### 2.10 Pre-flight blocker checklist
 
 - [ ] `wrangler.production.jsonc` created (§1.1) — **file does not exist**
-- [ ] production D1 `nsdc-auth-prod` created, id pasted, migrations `0001`–`0019`
-      applied, content verified — **no production D1 exists**
+- [ ] production D1 `nsdc-auth-prod` created, id pasted, migrations `0001`–`0020`
+      applied (existing DB: `0020` before the worker deploy), content verified
 - [ ] production `RATELIMIT_KV` created and id pasted — **no production KV exists**
 - [ ] `npx wrangler deploy --dry-run` passes
 - [ ] `nsdcaseb-site` deployed to workers.dev — **worker does not exist**
@@ -701,8 +719,11 @@ npx wrangler d1 execute nsdc-auth-prod --remote -c wrangler.production.jsonc \
 ### 5.1 Fastest: move the domains back to the teaser (<2 min, no deploy)
 
 The teaser worker is left deployed and untouched precisely for this. Nothing in
-D1 needs undoing: `0017`–`0019` are additive and the teaser ignores the site
-schema entirely (it has no `AUTH_DB` binding).
+D1 needs undoing: `0017`–`0020` are additive, and the teaser ignores the site
+schema entirely (it has no `AUTH_DB` binding), including the new
+`email_outbox.kind` column. The site worker is the opposite: it **requires**
+`0020`, so never point it at a database that has not applied the migration —
+apply `0020` first, then deploy the worker.
 
 ```bash
 ACC=71c1c94f025bff6aaacce3cd9ab795b5
@@ -782,8 +803,9 @@ There is **no** `npm run deploy` script (corrected); `wrangler deploy` without
 ### 5.4 Data
 
 - Do not run destructive SQL during an incident.
-- Do not roll back schema: the previous site worker ignores the new
-  columns/tables.
+- Do not roll back schema. `0020` is additive and the teaser ignores
+  `email_outbox.kind`, but the **site worker requires it** — keep the column in
+  place across both domain rollback and site-worker version rollback.
 - If a bad write is suspected, export first and restore into a **new** DB:
 
   ```bash

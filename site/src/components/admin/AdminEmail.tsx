@@ -36,6 +36,17 @@ const KIND_LABELS: Record<OutboxKind, string> = {
 
 const KIND_OPTIONS = Object.keys(KIND_LABELS) as OutboxKind[];
 
+/**
+ * Mirrors the worker's retry policy: retired kinds and non-policy sends can
+ * never be requeued, so the Retry action is not offered for them.
+ */
+const RETRYABLE_KINDS: ReadonlySet<OutboxKind> = new Set([
+  'verification',
+  'waitlist',
+  'broadcast',
+  'recruitment_decision',
+]);
+
 /** Read-only summary of the mail policy surfaced next to the outbox. */
 const SEND_ON = [
   'Verification',
@@ -370,7 +381,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm text-paper/80">{o.preview}</p>
                 </details>
               ) : null}
-              {(o.status === 'failed' || o.status === 'pending') && (
+              {(o.status === 'failed' || o.status === 'pending') && RETRYABLE_KINDS.has(o.kind) && (
                 <button type="button" className="btn-ghost mt-3" disabled={busy} onClick={() => void retry(o.id)}>
                   Retry
                 </button>

@@ -143,7 +143,11 @@ npm run migrate:staging
 npm run deploy:staging
 ```
 
-Production is the separate apex teaser worker and is not part of this flow.
+Production follows the same ordering: apply `0020` to `nsdc-auth-prod`
+(`npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc`)
+**before** deploying the production site worker (`nsdcaseb-site`). The apex
+teaser worker has no `AUTH_DB` binding and ignores the new column, so it is not
+part of this flow. See `docs/production-cutover.md` §2.1.
 
 
 ## Email delivery test
@@ -411,8 +415,13 @@ the public form (the API floor is 10). Public submissions are limited to
 ```bash
 npm run migrate:staging   # apply worker/db/migrations to the staging D1
 npm run deploy:staging    # build dist-site/ + deploy nsdcaseb-staging (preview.nsdcaseb.xyz)
+
+# Production site worker: same order, DB first. 0020 must exist before the
+# worker selects email_outbox.kind.
+npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
+npx wrangler deploy -c wrangler.production.jsonc
 ```
 
 Production apex (`nsdcaseb.xyz`) serves the coming-soon teaser from
-`wrangler.jsonc` (`npm run build && npx wrangler deploy`) and is **not**
-affected by site work. Never point site builds at production.
+`wrangler.jsonc` (`npm run build && npx wrangler deploy`); the teaser has no
+`AUTH_DB` binding and is **not** affected by site migrations or deploys.

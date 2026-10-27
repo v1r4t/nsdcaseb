@@ -17,6 +17,10 @@ import type { APIRequestContext, Browser, BrowserContext } from '@playwright/tes
 // Serialised with the other capacity specs by playwright.config.ts (one local
 // D1 + one single-seat event).
 
+// Two full three-step registrations plus the admin console flow take roughly
+// twice as long under WebKit; the global 60s budget expires mid-assertion.
+test.setTimeout(120_000);
+
 const PASSWORD = 'E2eTest123456';
 
 interface OutboxRow {

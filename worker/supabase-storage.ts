@@ -37,13 +37,25 @@ export function galleryKeys(itemId: string): { original: string; thumb: string; 
   };
 }
 
+/**
+ * Configured Supabase origin with trailing slashes stripped. Without this a
+ * `SUPABASE_URL` ending in `/` builds `//storage/v1/...`, which uploads fine
+ * but produces a public URL the broadcast allowlist rejects.
+ */
+function storageBase(env: StorageEnv): string | null {
+  const raw = env.SUPABASE_URL?.trim();
+  if (!raw) return null;
+  return raw.replace(/\/+$/, '');
+}
+
 export function storageConfigured(env: StorageEnv): boolean {
-  return !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_ROLE_KEY;
+  return storageBase(env) !== null && !!env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
 export async function deleteObject(env: StorageEnv, key: string): Promise<boolean> {
-  if (!storageConfigured(env)) return false;
-  const url = `${env.SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+  const base = storageBase(env);
+  if (!base || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const url = `${base}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
   try {
     const res = await fetch(url, {
       method: 'DELETE',
@@ -68,8 +80,9 @@ export async function deleteGalleryObjects(env: StorageEnv, itemId: string): Pro
 }
 
 export async function uploadObject(env: StorageEnv, key: string, data: ArrayBuffer, contentType: string): Promise<boolean> {
-  if (!storageConfigured(env)) return false;
-  const url = `${env.SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+  const base = storageBase(env);
+  if (!base || !env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const url = `${base}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -97,10 +110,11 @@ export async function uploadEmailImage(
   data: ArrayBuffer,
   contentType: 'image/jpeg' | 'image/png',
 ): Promise<string | null> {
-  if (!storageConfigured(env)) return null;
+  const base = storageBase(env);
+  if (!base || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const extension = contentType === 'image/png' ? 'png' : 'jpg';
   const key = `email/${crypto.randomUUID()}.${extension}`;
-  const url = `${env.SUPABASE_URL}/storage/v1/object/${EMAIL_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+  const url = `${base}/storage/v1/object/${EMAIL_BUCKET}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -116,15 +130,16 @@ export async function uploadEmailImage(
   } catch {
     return null;
   }
-  return `${env.SUPABASE_URL}/storage/v1/object/public/${EMAIL_BUCKET}/${key}`;
+  return `${base}/storage/v1/object/public/${EMAIL_BUCKET}/${key}`;
 }
 
 
 /** Public URL for any object in the shared bucket (event posters and gallery). */
 export function storageUrl(env: StorageEnv, key: string | null): string | null {
   if (!key) return null;
-  if (!env.SUPABASE_URL) return null;
-  return `${env.SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${key}`;
+  const base = storageBase(env);
+  if (!base) return null;
+  return `${base}/storage/v1/object/public/${STORAGE_BUCKET}/${key}`;
 }
 
 /** Alias kept for the events API, whose wire field is `poster_url`. */
@@ -153,7 +168,7 @@ export function posterVariantUrls(
   eventId: string,
   posterKey: string | null,
 ): PosterVariantUrls | null {
-  if (!posterKey || !env.SUPABASE_URL) return null;
+  if (!posterKey || !storageBase(env)) return null;
   const keys = posterKeys(eventId);
   return {
     thumb: posterUrl(env, keys.thumb) as string,
@@ -174,7 +189,8 @@ export function galleryVariantUrls(
   itemId: string,
   url: string | null,
 ): PosterVariantUrls | null {
-  if (!url || !env.SUPABASE_URL) return null;
+  const base = storageBase(env);
+  if (!url || !base) return null;
   const keys = galleryKeys(itemId);
   const expected = storageUrl(env, keys.original);
   if (!expected) return null;
@@ -183,7 +199,7 @@ export function galleryVariantUrls(
   let expectedUrl: URL;
   try {
     actualUrl = new URL(url);
-    configuredUrl = new URL(env.SUPABASE_URL);
+    configuredUrl = new URL(base);
     expectedUrl = new URL(expected);
   } catch {
     return null;

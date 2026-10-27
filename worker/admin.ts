@@ -31,6 +31,17 @@ const MAX_ADMIN_BODY_BYTES = 32 * 1024;
 const MAX_EMAIL_IMAGE_BYTES = 8 * 1024 * 1024;
 /** Declared-body ceiling before multipart parsing: 8 MB file + envelope slack. */
 const MAX_EMAIL_IMAGE_REQUEST_BYTES = 9 * 1024 * 1024;
+/**
+ * Kinds the retry endpoint may requeue. Retired sends (confirmations, event
+ * reminders) and non-policy kinds stay dead: retrying them would deliver mail
+ * the product deliberately stopped sending.
+ */
+const RETRYABLE_EMAIL_KINDS: ReadonlySet<string> = new Set([
+  'verification',
+  'waitlist',
+  'broadcast',
+  'recruitment_decision',
+]);
 
 async function parseJsonObject(
   request: Request,
@@ -232,8 +243,16 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
   if (outboxRetryMatch) {
     if (method !== 'POST') return methodNotAllowed('POST');
     const entryId = decodeURIComponent(outboxRetryMatch[1]);
-    const entry = await env.AUTH_DB.prepare(`SELECT id, status FROM email_outbox WHERE id = ?`).bind(entryId).first<{ id: string; status: string }>();
+    const entry = await env.AUTH_DB.prepare(
+      `SELECT id, kind, status FROM email_outbox WHERE id = ?`,
+    )
+      .bind(entryId)
+      .first<{ id: string; kind: string | null; status: string }>();
     if (!entry) return json({ error: 'outbox_not_found' }, 404);
+    if (entry.status === 'sent') return json({ error: 'already_sent' }, 409);
+    if (!entry.kind || !RETRYABLE_EMAIL_KINDS.has(entry.kind)) {
+      return json({ error: 'email_kind_disabled' }, 409);
+    }
     await env.AUTH_DB.prepare(
       `UPDATE email_outbox SET status = 'pending', attempts = 0, sent_at = NULL WHERE id = ?`,
     ).bind(entryId).run();
@@ -598,14 +617,27 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     }
     const target = await env.AUTH_DB.prepare(`SELECT id, role FROM users WHERE id = ?`).bind(userId).first<{ id: string; role: string }>();
     if (!target) return json({ error: 'user_not_found' }, 404);
-    if ((target.role === 'ob' || target.role === 'admin') && nextRole !== 'ob') {
-      const count = (await env.AUTH_DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role IN ('ob','admin')`).first<{ n: number }>())?.n ?? 0;
-      if (count <= 1) return json({ error: 'last_ob' }, 400);
-    }
-    await env.AUTH_DB
-      .prepare(`UPDATE users SET role = ?, is_executive = ? WHERE id = ?`)
-      .bind(nextRole, nextRole === 'executive' || nextRole === 'ob' ? 1 : 0, userId)
+    // The last-OB guard lives inside the UPDATE so a concurrent demotion or
+    // role change cannot slip between the count and the write and leave the
+    // club with zero office bearers.
+    const update = await env.AUTH_DB
+      .prepare(
+        `UPDATE users SET role = ?, is_executive = ?
+         WHERE id = ?
+           AND (role NOT IN ('ob','admin')
+                OR ? = 'ob'
+                OR (SELECT COUNT(*) FROM users WHERE role IN ('ob','admin')) > 1)`,
+      )
+      .bind(nextRole, nextRole === 'executive' || nextRole === 'ob' ? 1 : 0, userId, nextRole)
       .run();
+    if (((update.meta?.changes) ?? 0) === 0) {
+      // Re-check to distinguish "someone else already removed it" from
+      // "the atomic guard refused because it is the last OB".
+      const stillThere = await env.AUTH_DB.prepare(`SELECT id FROM users WHERE id = ?`)
+        .bind(userId)
+        .first<{ id: string }>();
+      return stillThere ? json({ error: 'last_ob' }, 400) : json({ error: 'user_not_found' }, 404);
+    }
     await audit(env, user, 'role_update', JSON.stringify({ userId, from: target.role, to: nextRole }));
     return json({ ok: true });
   }
@@ -834,19 +866,24 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     if (!row) return json({ error: 'registration_not_found' }, 404);
     if (row.status === 'cancelled') return json({ error: 'already_cancelled' }, 409);
 
-    const promoted = await cancelRegistrationAndPromote(env, {
+    const result = await cancelRegistrationAndPromote(env, {
       id: row.id,
       event_id: row.event_id,
       status: row.status,
     });
+    // The pre-check above cannot close the race with a concurrent self-cancel;
+    // the conditional update can, and reports "nothing changed" here.
+    if (!result.cancelled) return json({ error: 'already_cancelled' }, 409);
 
     // Delivery hiccups never fail the cancellation the admin already made.
-    if (promoted?.email) {
+    if (result.promoted?.email) {
       try {
         const template = waitlistPromotionEmail(row.event_title);
-        await enqueueEmail(env, promoted.email, template.subject, template.text, { kind: 'waitlist' });
+        await enqueueEmail(env, result.promoted.email, template.subject, template.text, {
+          kind: 'waitlist',
+        });
       } catch (err) {
-        console.error('[admin] promotion email enqueue failed', promoted.id, err);
+        console.error('[admin] promotion email enqueue failed', result.promoted.id, err);
       }
     }
 
@@ -859,10 +896,10 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         eventId: row.event_id,
         email: row.email,
         previousStatus: row.status,
-        promotedEmail: promoted?.email ?? null,
+        promotedEmail: result.promoted?.email ?? null,
       }),
     );
-    return json({ cancelled: true, promoted_email: promoted?.email ?? null });
+    return json({ cancelled: true, promoted_email: result.promoted?.email ?? null });
   }
 
   const rosterCsvMatch = /^\/api\/admin\/events\/([^/]+)\/roster\.csv$/.exec(path);

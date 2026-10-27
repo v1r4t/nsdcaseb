@@ -422,6 +422,42 @@ export async function deleteEmailAsset(url: string): Promise<void> {
   if (!res.ok) throw new Error(`deleteEmailAsset failed: HTTP ${res.status}`);
 }
 
+/**
+ * Insert one outbox row directly (local D1 only) for retry-policy coverage.
+ * Returns the row id so the caller can remove it in a `finally` block.
+ */
+export async function seedOutboxRow(input: {
+  to: string;
+  kind: string;
+  status?: 'pending' | 'sent' | 'failed';
+  subject?: string;
+}): Promise<string> {
+  const address = safeEmail(input.to, 'seedOutboxRow');
+  if (!/^[a-z_]{1,32}$/.test(input.kind)) {
+    throw new Error(`seedOutboxRow refused suspicious kind: ${input.kind}`);
+  }
+  const status = input.status ?? 'failed';
+  if (status !== 'pending' && status !== 'sent' && status !== 'failed') {
+    throw new Error(`seedOutboxRow refused suspicious status: ${status}`);
+  }
+  const id = crypto.randomUUID();
+  const subject = (input.subject ?? `E2E seeded ${input.kind}`).replace(/'/g, "''");
+  await executeLocalD1(
+    `INSERT INTO email_outbox (id, to_email, subject, text, status, kind, attempts)
+     VALUES ('${id}', '${address}', '${subject}', 'E2E fixture body', '${status}', '${input.kind}', 5);`,
+    `seedOutboxRow(${address}, ${input.kind})`,
+  );
+  return id;
+}
+
+/** Remove a fixture-seeded outbox row (local D1 only). */
+export async function deleteOutboxRow(id: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+    throw new Error(`deleteOutboxRow refused suspicious id: ${id}`);
+  }
+  await executeLocalD1(`DELETE FROM email_outbox WHERE id = '${id}';`, `deleteOutboxRow(${id})`);
+}
+
 /** Remove every registration for an event (local D1 only) so capacity specs
  * start from a clean seat count across browser projects. */
 export async function clearEventRegistrations(eventId: string): Promise<void> {

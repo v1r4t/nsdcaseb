@@ -1,11 +1,13 @@
 import {
   clearEventRegistrations,
   deleteEmailAsset,
+  deleteOutboxRow,
   deleteUserByEmail,
   expect,
   galleryTestPng,
   registerObViaApi,
   registerViaApi,
+  seedOutboxRow,
   test,
   uniqueEmail,
 } from './fixtures';
@@ -156,6 +158,21 @@ test('admin email: policy panel, silent confirmations, waitlist notice, rich bro
     );
     expect(notice, JSON.stringify(waitlistRows)).toBeTruthy();
     expect(notice?.preview ?? '').toContain('on the waitlist');
+
+    // Retry policy: a failed row for a retired kind cannot be requeued, even
+    // by an OB — otherwise a "delivery nudge" would resurrect mail the
+    // product deliberately stopped sending.
+    const disabledRow = await seedOutboxRow({ to: adminEmail, kind: 'event_reminder' });
+    try {
+      const retryRes = await page.request.post(
+        `/api/admin/outbox/${encodeURIComponent(disabledRow)}/retry`,
+      );
+      const retryText = await retryRes.text();
+      expect(retryRes.status(), retryText).toBe(409);
+      expect((JSON.parse(retryText) as { error: string }).error).toBe('email_kind_disabled');
+    } finally {
+      await deleteOutboxRow(disabledRow).catch(() => {});
+    }
 
     // --- Text broadcast, through the real composer -------------------------
     await panel.getByRole('radio', { name: 'Per-event' }).click();
