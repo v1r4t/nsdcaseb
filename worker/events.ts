@@ -609,15 +609,38 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
   if (method === 'DELETE') {
     if (!user) return json({ error: 'unauthenticated' }, 401);
     const own = await env.AUTH_DB.prepare(
-      `SELECT id FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`,
-    ).bind(id, user.id).first<{ id: string }>();
+      `SELECT id, status FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`,
+    ).bind(id, user.id).first<{ id: string; status: string }>();
     if (!own) return json({ error: 'not_registered' }, 404);
-    await env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`)
-      .bind(own.id)
-      .run();
-    // Free seat goes to the oldest waiter. The canceller gets no mail; the
-    // promoted member does (when we have their address).
-    const promoted = await promoteNextWaitlisted(env, id);
+
+    // Only a confirmed seat frees a seat. Cancelling a waitlisted row must not
+    // pull anyone else forward, or the event would overbook.
+    const statements = [
+      env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`).bind(own.id),
+    ];
+    let promoted: { id: string; email: string | null } | null = null;
+    if (own.status === 'registered') {
+      promoted = await env.AUTH_DB.prepare(
+        `SELECT r.id AS id, u.email AS email
+         FROM registrations r LEFT JOIN users u ON u.id = r.user_id
+         WHERE r.event_id = ? AND r.status = 'waitlisted'
+         ORDER BY r.created_at ASC LIMIT 1`,
+      )
+        .bind(id)
+        .first<{ id: string; email: string | null }>();
+      if (promoted) {
+        statements.push(
+          env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(
+            promoted.id,
+          ),
+        );
+      }
+    }
+    // One batch: the cancel never sticks without the promotion it promised.
+    await env.AUTH_DB.batch(statements);
+
+    // The canceller gets no mail; the promoted member does (when we have their
+    // address). Delivery hiccups never affect the response.
     if (promoted?.email) {
       try {
         const template = waitlistPromotionEmail(event.title);

@@ -213,8 +213,8 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
             </div>
           </div>
           <p className="hint mt-3">
-            Verification, password reset and welcome mail are sent immediately by the auth flow,
-            not queued here. Welcome is disabled.
+            Verification and password reset sent directly by the auth flow go out immediately.
+            Bulk verification sent from this console is queued. Welcome is disabled.
           </p>
         </div>
 
