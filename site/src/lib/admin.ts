@@ -105,6 +105,8 @@ export interface AdminUser {
   is_executive: boolean;
   email_verified: boolean;
   created_at: string;
+  /** How many registration rows (any status) the account owns. */
+  registrations_count: number;
 }
 
 export interface AuditEntry {
@@ -355,6 +357,19 @@ export function updateAdminUserRole(id: string, role: 'member' | 'executive' | '
 
 export function updateAdminUserVerified(id: string, email_verified: boolean): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/admin/users/${encodeURIComponent(id)}/verified`, 'PATCH', { email_verified });
+}
+
+/**
+ * Permanently remove an account. Its registrations and pending mail go with
+ * it; every confirmed seat it held promotes the oldest waitlisted person.
+ */
+export function deleteAdminUser(
+  id: string,
+): Promise<{ deleted: true; registrations: number; promotions: { event_id: string; email: string | null }[] }> {
+  return request<{ deleted: true; registrations: number; promotions: { event_id: string; email: string | null }[] }>(
+    `/api/admin/users/${encodeURIComponent(id)}`,
+    'DELETE',
+  );
 }
 
 export function sendAdminVerification(ids?: string[]): Promise<{ queued: number }> {

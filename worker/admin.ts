@@ -330,18 +330,21 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
   if (path === '/api/admin/users') {
     if (method !== 'GET') return methodNotAllowed('GET');
     const search = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-    const where = search ? 'WHERE lower(email) LIKE ? OR lower(COALESCE(name, \'\')) LIKE ?' : '';
+    const where = search ? 'WHERE lower(u.email) LIKE ? OR lower(COALESCE(u.name, \'\')) LIKE ?' : '';
     const args: unknown[] = search ? [`%${search}%`, `%${search}%`] : [];
     const rows = (
       await env.AUTH_DB
         .prepare(
-          `SELECT id, email, name, mobile, reg_number, role, is_executive, email_verified, created_at
-           FROM users ${where} ORDER BY created_at DESC LIMIT 200`,
+          `SELECT u.id, u.email, u.name, u.mobile, u.reg_number, u.role, u.is_executive,
+                  u.email_verified, u.created_at,
+                  (SELECT COUNT(*) FROM registrations r WHERE r.user_id = u.id) AS registrations_count
+           FROM users u ${where} ORDER BY u.created_at DESC LIMIT 200`,
         )
         .bind(...args)
         .all<{
           id: string; email: string; name: string | null; mobile: string | null; reg_number: string | null;
           role: string; is_executive: number; email_verified: number; created_at: string;
+          registrations_count: number;
         }>()
     ).results ?? [];
     return json({
@@ -354,7 +357,99 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
         is_executive: !!r.is_executive,
         email_verified: !!r.email_verified,
         created_at: r.created_at,
+        registrations_count: r.registrations_count,
       })),
+    });
+  }
+
+  // DELETE /api/admin/users/:id — remove an account and everything tied to
+  // it, freeing every confirmed seat it held. Waitlisted people promoted for
+  // those seats are notified after the batch commits. Events are never
+  // deleted, and sent mail is kept as history.
+  const userDeleteMatch = /^\/api\/admin\/users\/([^/]+)$/.exec(path);
+  if (userDeleteMatch && method === 'DELETE') {
+    const userId = decodeURIComponent(userDeleteMatch[1]);
+    const target = await env.AUTH_DB.prepare(`SELECT id, email, role FROM users WHERE id = ?`)
+      .bind(userId)
+      .first<{ id: string; email: string; role: string }>();
+    if (!target) return json({ error: 'user_not_found' }, 404);
+    if (target.id === user.id) return json({ error: 'cannot_delete_self' }, 400);
+    if (target.role === 'ob' || target.role === 'admin') {
+      const count = (await env.AUTH_DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE role IN ('ob','admin')`).first<{ n: number }>())?.n ?? 0;
+      if (count <= 1) return json({ error: 'last_ob' }, 400);
+    }
+
+    const registrations =
+      (await env.AUTH_DB.prepare(`SELECT COUNT(*) AS n FROM registrations WHERE user_id = ?`)
+        .bind(target.id)
+        .first<{ n: number }>())?.n ?? 0;
+
+    // One seat is freed per event where the account held a confirmed spot.
+    const heldEvents = (
+      await env.AUTH_DB.prepare(
+        `SELECT DISTINCT e.id AS id, e.title AS title, e.starts_at AS starts_at
+         FROM registrations r JOIN events e ON e.id = r.event_id
+         WHERE r.user_id = ? AND r.status = 'registered'
+         ORDER BY e.starts_at ASC`,
+      )
+        .bind(target.id)
+        .all<{ id: string; title: string; starts_at: string }>()
+    ).results ?? [];
+
+    const promotions: { eventId: string; eventTitle: string; id: string; email: string | null }[] = [];
+    for (const event of heldEvents) {
+      const next = await env.AUTH_DB.prepare(
+        `SELECT r.id AS id, u.email AS email
+         FROM registrations r LEFT JOIN users u ON u.id = r.user_id
+         WHERE r.event_id = ? AND r.status = 'waitlisted'
+         ORDER BY r.created_at ASC LIMIT 1`,
+      )
+        .bind(event.id)
+        .first<{ id: string; email: string | null }>();
+      if (next) promotions.push({ eventId: event.id, eventTitle: event.title, id: next.id, email: next.email });
+    }
+
+    const statements = [
+      env.AUTH_DB.prepare(`DELETE FROM email_outbox WHERE to_email = ? AND status = 'pending'`).bind(target.email),
+      env.AUTH_DB.prepare(`DELETE FROM recruitment_applications WHERE email = ?`).bind(target.email),
+      env.AUTH_DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(target.id),
+      env.AUTH_DB.prepare(`DELETE FROM email_tokens WHERE user_id = ?`).bind(target.id),
+      env.AUTH_DB.prepare(`DELETE FROM registrations WHERE user_id = ?`).bind(target.id),
+      env.AUTH_DB.prepare(`DELETE FROM admin_audit_log WHERE admin_user_id = ?`).bind(target.id),
+      ...promotions.map((p) =>
+        env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(p.id),
+      ),
+      env.AUTH_DB.prepare(`DELETE FROM users WHERE id = ?`).bind(target.id),
+    ];
+    await env.AUTH_DB.batch(statements);
+
+    // Delivery hiccups never fail the deletion the admin already made.
+    for (const p of promotions) {
+      if (!p.email) continue;
+      try {
+        const template = waitlistPromotionEmail(p.eventTitle);
+        await enqueueEmail(env, p.email, template.subject, template.text, { kind: 'waitlist' });
+      } catch (err) {
+        console.error('[admin] promotion email enqueue failed', p.id, err);
+      }
+    }
+
+    await audit(
+      env,
+      user,
+      'user_delete',
+      JSON.stringify({
+        userId: target.id,
+        email: target.email,
+        role: target.role,
+        registrations,
+        promotions: promotions.map((p) => ({ eventId: p.eventId, email: p.email })),
+      }),
+    );
+    return json({
+      deleted: true,
+      registrations,
+      promotions: promotions.map((p) => ({ event_id: p.eventId, email: p.email })),
     });
   }
 

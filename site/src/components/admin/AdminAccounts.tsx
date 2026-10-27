@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
 import {
+  deleteAdminUser,
   listAdminUsers,
   sendAdminVerification,
   updateAdminUserRole,
   updateAdminUserVerified,
 } from '../../lib/admin';
 import type { AdminUser } from '../../lib/admin';
+import { useAuth } from '../../lib/auth';
 import { errText } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
 export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
+  const { user: me } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Debounced server-side search (the API matches email + name).
   useEffect(() => {
@@ -70,6 +76,39 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
     }
   }
 
+  function openDelete(u: AdminUser): void {
+    setPendingDelete(u);
+    setConfirmEmail('');
+    setDeleteError(null);
+  }
+
+  function closeDelete(): void {
+    setPendingDelete(null);
+    setConfirmEmail('');
+    setDeleteError(null);
+  }
+
+  async function confirmDelete(): Promise<void> {
+    const target = pendingDelete;
+    if (!target || confirmEmail.trim() !== target.email) return;
+    setBusy(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteAdminUser(target.id);
+      setUsers((prev) => prev.filter((x) => x.id !== target.id));
+      notify(
+        `Deleted ${target.email} (${result.registrations} registrations removed, ${result.promotions.length} promoted).`,
+      );
+      closeDelete();
+    } catch (err) {
+      setDeleteError(errText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const canDelete = (u: AdminUser): boolean => me?.id !== u.id;
+
   return (
     <section aria-label="Accounts and roles">
       <h2 className="label">Accounts and roles</h2>
@@ -85,6 +124,54 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
         placeholder="Search email or name…"
         className="field mt-4 max-w-xs"
       />
+      {pendingDelete && (
+        <div
+          role="alertdialog"
+          aria-label={`Delete account ${pendingDelete.email}`}
+          className="mt-4 space-y-3 border border-line bg-ink/40 p-4"
+        >
+          <p className="text-sm text-paper/90">
+            Delete <span className="break-all font-medium">{pendingDelete.email}</span>?
+          </p>
+          <p className="text-sm text-muted">
+            This permanently removes the account, its registrations and pending mail. Waitlisted people
+            will be promoted.
+          </p>
+          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
+            {pendingDelete.registrations_count} registration(s)
+          </p>
+          <label className="block text-sm text-paper/90">
+            Type the email to confirm
+            <input
+              aria-label="Confirm email"
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              className="field mt-1 max-w-xs"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={busy}
+            />
+          </label>
+          {deleteError && (
+            <p role="alert" className="text-sm text-paper/90">
+              {deleteError}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              className="btn-ghost"
+              disabled={busy || confirmEmail.trim() !== pendingDelete.email}
+            >
+              Delete account
+            </button>
+            <button type="button" onClick={closeDelete} className="btn-ghost" disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {/* Mobile: stacked cards. sm+: scrollable table. */}
       <ul className="mt-5 space-y-3 sm:hidden">
         {users.map((u) => (
@@ -104,6 +191,17 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
               <button type="button" onClick={() => void toggleVerified(u)} disabled={busy} className="btn-ghost shrink-0">
                 {u.email_verified ? 'Verified' : 'Mark verified'}
               </button>
+              {canDelete(u) && (
+                <button
+                  type="button"
+                  onClick={() => openDelete(u)}
+                  disabled={busy}
+                  className="btn-ghost shrink-0"
+                  aria-label={`Delete ${u.email}`}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </li>
         ))}
@@ -115,6 +213,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
               <th className="label py-2 pr-4 text-left">Email</th>
               <th className="label py-2 pr-4 text-left">Role</th>
               <th className="label py-2 pr-4 text-left">Verified</th>
+              <th className="label py-2 pr-4 text-left">Delete</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -137,6 +236,21 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
                   <button type="button" onClick={() => void toggleVerified(u)} disabled={busy} className="btn-ghost">
                     {u.email_verified ? 'Verified' : 'Mark verified'}
                   </button>
+                </td>
+                <td className="py-3 pr-4">
+                  {canDelete(u) ? (
+                    <button
+                      type="button"
+                      onClick={() => openDelete(u)}
+                      disabled={busy}
+                      className="btn-ghost"
+                      aria-label={`Delete ${u.email}`}
+                    >
+                      Delete
+                    </button>
+                  ) : (
+                    <span className="font-mono text-xs text-muted">—</span>
+                  )}
                 </td>
               </tr>
             ))}
