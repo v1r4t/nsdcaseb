@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cancelAdminRegistration, getEventRoster, listAdminEvents } from '../../lib/admin';
 import type { AdminEventSummary, RosterEntry } from '../../lib/admin';
 import { getEvent } from '../../lib/events';
@@ -12,9 +12,11 @@ function isLive(status: string): boolean {
   return status === 'registered' || status === 'waitlisted';
 }
 
-/** Everything the cancel confirmation needs to name the person. */
-function cancelLabel(r: RosterEntry): string {
-  return r.email || r.student_name || 'this person';
+/** Confirmation copy, readable for members and guests alike. */
+function cancelPrompt(r: RosterEntry): string {
+  const who = r.email || r.student_name;
+  const subject = who ? `${who}'s registration` : 'this guest registration';
+  return `Cancel ${subject} for this event? A registered seat will promote the next waitlisted person.`;
 }
 
 export default function AdminRegistrations({ notify }: PanelProps) {
@@ -25,6 +27,8 @@ export default function AdminRegistrations({ notify }: PanelProps) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  /** The event the roster belongs to, readable after an await. */
+  const selectedEventIdRef = useRef('');
 
   useEffect(() => {
     let active = true;
@@ -41,15 +45,8 @@ export default function AdminRegistrations({ notify }: PanelProps) {
     };
   }, [notify]);
 
-  async function loadRoster(id: string): Promise<void> {
-    setEventId(id);
-    setQuery('');
-    setStatus('all');
-    if (!id) {
-      setRoster(null);
-      setLabels(new Map());
-      return;
-    }
+  /** Re-fetch one roster without touching the search box or status filter. */
+  async function refreshRoster(id: string): Promise<void> {
     try {
       const [r, detail] = await Promise.all([getEventRoster(id), getEvent(id).catch(() => null)]);
       setRoster(r.registrations);
@@ -59,14 +56,24 @@ export default function AdminRegistrations({ notify }: PanelProps) {
     }
   }
 
-  async function handleCancel(r: RosterEntry): Promise<void> {
-    if (
-      !window.confirm(
-        `Cancel ${cancelLabel(r)}'s registration for this event? A registered seat will promote the next waitlisted person.`,
-      )
-    ) {
+  async function loadRoster(id: string): Promise<void> {
+    selectedEventIdRef.current = id;
+    setEventId(id);
+    setQuery('');
+    setStatus('all');
+    if (!id) {
+      setRoster(null);
+      setLabels(new Map());
       return;
     }
+    await refreshRoster(id);
+  }
+
+  async function handleCancel(r: RosterEntry): Promise<void> {
+    if (!window.confirm(cancelPrompt(r))) return;
+    // Remember which roster this row came from: a refresh after the await must
+    // never land on a different event.
+    const targetEventId = eventId;
     setCancellingId(r.id);
     try {
       const result = await cancelAdminRegistration(r.id);
@@ -75,7 +82,9 @@ export default function AdminRegistrations({ notify }: PanelProps) {
           ? `Registration cancelled. Promoted ${result.promoted_email}.`
           : 'Registration cancelled.',
       );
-      await loadRoster(eventId);
+      if (targetEventId && selectedEventIdRef.current === targetEventId) {
+        await refreshRoster(targetEventId);
+      }
     } catch (err) {
       notify(errText(err));
     } finally {
@@ -104,7 +113,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
     return (roster ?? []).filter((r) => {
       if (status !== 'all' && r.status !== status) return false;
       if (!q) return true;
-      const hay = [r.email, r.student_name ?? '', r.reg_number ?? ''].join(' ').toLowerCase();
+      const hay = [r.email ?? '', r.student_name ?? '', r.reg_number ?? ''].join(' ').toLowerCase();
       return hay.includes(q);
     });
   }, [roster, query, status]);
@@ -113,7 +122,13 @@ export default function AdminRegistrations({ notify }: PanelProps) {
     <section aria-label="Roster">
       <h2 className="label">Registrations</h2>
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        <select aria-label="Event" value={eventId} onChange={(e) => void loadRoster(e.target.value)} className="field max-w-xs">
+        <select
+          aria-label="Event"
+          value={eventId}
+          onChange={(e) => void loadRoster(e.target.value)}
+          className="field max-w-xs"
+          disabled={cancellingId !== null}
+        >
           <option value="">Select event…</option>
           {events.map((e) => (
             <option key={e.id} value={e.id}>
@@ -157,7 +172,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
           <ul className="mt-5 space-y-3 sm:hidden">
             {visible.map((r) => (
               <li key={r.id} className="border border-line p-3">
-                <p className="break-all text-sm text-paper/90">{r.email}</p>
+                <p className="break-all text-sm text-paper/90">{r.email ?? 'Guest registration'}</p>
                 <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">
                   {r.status}
                   {r.student_name ? ` · ${r.student_name}` : ''}
@@ -177,7 +192,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                     type="button"
                     className="btn-ghost mt-3"
                     onClick={() => void handleCancel(r)}
-                    disabled={cancellingId === r.id}
+                    disabled={cancellingId !== null}
                   >
                     {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
                   </button>
@@ -201,7 +216,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                 {visible.map((r) => (
                   <tr key={r.id}>
                     <td className="py-3 pr-6 break-all">
-                      {r.email}
+                      {r.email ?? 'Guest registration'}
                       {r.student_name || r.reg_number ? (
                         <span className="block font-mono text-xs text-muted">
                           {[r.student_name, r.reg_number].filter(Boolean).join(' · ')}
@@ -223,7 +238,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
                           type="button"
                           className="btn-ghost"
                           onClick={() => void handleCancel(r)}
-                          disabled={cancellingId === r.id}
+                          disabled={cancellingId !== null}
                         >
                           {cancellingId === r.id ? 'Cancelling…' : 'Cancel'}
                         </button>

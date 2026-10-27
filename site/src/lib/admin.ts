@@ -85,7 +85,8 @@ export interface OutboxEntry {
 
 export interface RosterEntry {
   id: string;
-  email: string;
+  /** Null for guest registrations (no account row to join). */
+  email: string | null;
   status: string;
   user_type?: string | null;
   student_name?: string | null;

@@ -535,9 +535,9 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
     }
     const rows = (await env.AUTH_DB.prepare(
       `SELECT r.id AS id, r.status, r.answers, r.created_at, u.email
-       FROM registrations r JOIN users u ON u.id = r.user_id
+       FROM registrations r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.event_id = ? ORDER BY r.created_at DESC`,
-    ).bind(id).all<{ id: string; status: string; answers: string; created_at: string; email: string }>()).results ?? [];
+    ).bind(id).all<{ id: string; status: string; answers: string; created_at: string; email: string | null }>()).results ?? [];
     return json({
       registrations: rows.map((r) => {
         let answers: Record<string, string> = {};
