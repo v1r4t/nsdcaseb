@@ -253,9 +253,18 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     if (!entry.kind || !RETRYABLE_EMAIL_KINDS.has(entry.kind)) {
       return json({ error: 'email_kind_disabled' }, 409);
     }
-    await env.AUTH_DB.prepare(
-      `UPDATE email_outbox SET status = 'pending', attempts = 0, sent_at = NULL WHERE id = ?`,
+    // Conditional write: a sweep may finish the row between the SELECT above
+    // and this UPDATE. Requeuing a row that just sent would deliver it twice.
+    const retry = await env.AUTH_DB.prepare(
+      `UPDATE email_outbox SET status = 'pending', attempts = 0, sent_at = NULL
+       WHERE id = ? AND status IN ('failed', 'pending')`,
     ).bind(entryId).run();
+    if (((retry.meta?.changes) ?? 0) === 0) {
+      const current = await env.AUTH_DB.prepare(`SELECT status FROM email_outbox WHERE id = ?`)
+        .bind(entryId)
+        .first<{ status: string }>();
+      return current ? json({ error: 'already_sent' }, 409) : json({ error: 'outbox_not_found' }, 404);
+    }
     await audit(env, user, 'outbox_retry', JSON.stringify({ id: entryId, from: entry.status }));
     return json({ ok: true });
   }

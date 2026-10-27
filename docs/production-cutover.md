@@ -11,7 +11,7 @@ has not run. Numbers for the "before" state live in `docs/baseline.md`.
 | Resource | Value |
 | --- | --- |
 | Worker | `nsdcaseb-site` (deployed, workers.dev only, `preview_urls: false`) |
-| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0020 applied) |
+| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0019 applied at the 2026-10-25 audit; **0020 still required before the site-worker deploy** — see §2.1) |
 | Production RATELIMIT_KV | `bb4737aa246446258181b22f666ff8e3` |
 | NOTIFY_KV | shared teaser namespace `9b54a4a0…` |
 | Secrets | `ADMIN_ENTRY_CODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (generated/set by owner; never recorded here) |
@@ -19,9 +19,11 @@ has not run. Numbers for the "before" state live in `docs/baseline.md`.
 | Content | 4 events, 6 projects, real copy; `[SAMPLE]` album deleted; 0 users |
 | Verified on workers.dev | `/` + `/recruit` 200 with CSP/HSTS; `/nope` + `/admin` 404; sitemap XML; notify 405/400; poster upload + variants 200 |
 
-Remaining before flip: set `RESEND_API_KEY`, bootstrap the first `ob` account
-(register with the admin code, then verify), confirm `recruitment_open`, take a
-D1 export, and obtain the final explicit go for the domain move.
+Remaining before flip: apply `0020_email_kind.sql` to `nsdc-auth-prod`
+**before** deploying the site worker (§2.1), set `RESEND_API_KEY`, bootstrap the
+first `ob` account (register with the admin code, then verify), confirm
+`recruitment_open`, take a D1 export, and obtain the final explicit go for the
+domain move.
 
 Account facts (read-only, 2026-10-25):
 

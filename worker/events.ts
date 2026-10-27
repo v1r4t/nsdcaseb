@@ -190,47 +190,65 @@ export interface CancelRegistrationResult {
 
 /**
  * Cancel one registration and, when it held a confirmed seat, promote the
- * oldest waitlisted row for that event. Every write is conditional and its
+ * oldest waitlisted row for that event. Both writes travel in one `batch`
+ * (one transaction), so a public registration can never take the freed seat
+ * between the cancel and the promotion, and a crash cannot leave the cancel
+ * committed without the promotion. Every statement is conditional and its
  * `meta.changes` inspected, so concurrent cancels cannot double-promote or
  * mail someone whose row changed underneath us. A waitlisted row frees no
- * seat, so cancelling one promotes nobody; ended events are never promoted
- * into. Callers own the notification.
+ * seat, so cancelling one promotes nobody. Callers own the notification.
  */
 export async function cancelRegistrationAndPromote(
   env: Env,
   registration: { id: string; event_id: string; status: string },
 ): Promise<CancelRegistrationResult> {
-  const cancel = await env.AUTH_DB.prepare(
-    `UPDATE registrations SET status = 'cancelled' WHERE id = ? AND status != 'cancelled'`,
-  )
-    .bind(registration.id)
-    .run();
-  if (((cancel.meta?.changes) ?? 0) === 0) {
-    return { cancelled: false, promoted: null };
-  }
-
-  let promoted: { id: string; email: string | null } | null = null;
+  let waiter: { id: string; email: string | null } | null = null;
   if (registration.status === 'registered') {
-    const next = await env.AUTH_DB.prepare(
+    waiter = await env.AUTH_DB.prepare(
       `SELECT r.id AS id, u.email AS email
-       FROM registrations r
-       JOIN events e ON e.id = r.event_id
-       LEFT JOIN users u ON u.id = r.user_id
+       FROM registrations r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.event_id = ? AND r.status = 'waitlisted'
-         AND datetime(e.ends_at) > datetime('now')
        ORDER BY r.created_at ASC LIMIT 1`,
     )
       .bind(registration.event_id)
       .first<{ id: string; email: string | null }>();
-    if (next) {
-      const promotion = await env.AUTH_DB.prepare(
-        `UPDATE registrations SET status = 'registered' WHERE id = ? AND status = 'waitlisted'`,
-      )
-        .bind(next.id)
-        .run();
-      if (((promotion.meta?.changes) ?? 0) > 0) promoted = next;
-    }
   }
+
+  const statements = [
+    env.AUTH_DB.prepare(
+      `UPDATE registrations SET status = 'cancelled' WHERE id = ? AND status != 'cancelled'`,
+    ).bind(registration.id),
+  ];
+  if (waiter) {
+    statements.push(
+      env.AUTH_DB.prepare(
+        `UPDATE registrations SET status = 'registered'
+         WHERE id = ? AND status = 'waitlisted'
+           -- The batch is one transaction, so changes() still describes the
+           -- cancel above: if another request already cancelled this row,
+           -- do not promote a second waiter off the same seat.
+           AND changes() > 0
+           -- Re-check capacity inside the same transaction. The cancel frees
+           -- one seat, but a concurrent registration (or an overbooked row)
+           -- must not turn this promotion into an oversell. Ended events are
+           -- never promoted into.
+           AND EXISTS (
+             SELECT 1 FROM events e
+             WHERE e.id = ?
+               AND e.capacity IS NOT NULL
+               AND datetime(e.ends_at) > datetime('now')
+               AND (SELECT COUNT(*) FROM registrations
+                    WHERE event_id = e.id AND status = 'registered') < e.capacity
+           )`,
+      ).bind(waiter.id, registration.event_id),
+    );
+  }
+
+  const results = await env.AUTH_DB.batch(statements);
+  if (((results[0]?.meta?.changes) ?? 0) === 0) {
+    return { cancelled: false, promoted: null };
+  }
+  const promoted = waiter && ((results[1]?.meta?.changes) ?? 0) > 0 ? waiter : null;
   return { cancelled: true, promoted };
 }
 

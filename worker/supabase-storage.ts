@@ -39,8 +39,10 @@ export function galleryKeys(itemId: string): { original: string; thumb: string; 
 
 /**
  * Configured Supabase origin with trailing slashes stripped. Without this a
- * `SUPABASE_URL` ending in `/` builds `//storage/v1/...`, which uploads fine
- * but produces a public URL the broadcast allowlist rejects.
+ * `SUPABASE_URL` ending in `/` builds `//storage/v1/...`: the upload still
+ * works, but the doubled path separator produces a public URL whose pathname
+ * no longer matches our own prefix checks (broadcast asset allowlist, gallery
+ * variant derivation).
  */
 function storageBase(env: StorageEnv): string | null {
   const raw = env.SUPABASE_URL?.trim();

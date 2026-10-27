@@ -419,6 +419,7 @@ npm run deploy:staging    # build dist-site/ + deploy nsdcaseb-staging (preview.
 # Production site worker: same order, DB first. 0020 must exist before the
 # worker selects email_outbox.kind.
 npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
+npm run build:site
 npx wrangler deploy -c wrangler.production.jsonc
 ```
 
