@@ -1,5 +1,6 @@
 import {
   clearEventRegistrations,
+  deleteEmailAsset,
   deleteUserByEmail,
   expect,
   galleryTestPng,
@@ -77,6 +78,7 @@ test('admin email: policy panel, silent confirmations, waitlist notice, rich bro
   const emailsToDelete: string[] = [];
   const adminEmail = uniqueEmail('email-ob');
   emailsToDelete.push(adminEmail);
+  let uploadedImageUrl: string | null = null;
 
   await clearEventRegistrations(tinyEvent.id);
 
@@ -135,6 +137,18 @@ test('admin email: policy panel, silent confirmations, waitlist notice, rich bro
       JSON.stringify(confirmations),
     ).toBe(false);
 
+    // Also catch a confirmation that was misclassified under another kind.
+    const pendingRes = await page.request.get('/api/admin/outbox');
+    const pendingText = await pendingRes.text();
+    expect(pendingRes.status(), pendingText).toBe(200);
+    const pendingRows = (JSON.parse(pendingText) as { outbox: OutboxRow[] }).outbox;
+    expect(
+      pendingRows.some(
+        (row) => row.to_email === confirmed.email && row.subject.startsWith('Registered:'),
+      ),
+      JSON.stringify(pendingRows.filter((row) => row.to_email === confirmed.email)),
+    ).toBe(false);
+
     // A waitlisted seat still gets the separate waitlist notice.
     const waitlistRows = await pendingOutbox(page.request, 'waitlist');
     const notice = waitlistRows.find(
@@ -187,6 +201,8 @@ test('admin email: policy panel, silent confirmations, waitlist notice, rich bro
     const upload = await uploadPromise;
 
     if (upload.status() === 201) {
+      const uploaded = (await upload.json()) as { url?: unknown };
+      if (typeof uploaded.url === 'string') uploadedImageUrl = uploaded.url;
       await expect(page.locator('p[role="status"]').first()).toContainText('Queued');
       const withImage = await pendingOutbox(page.request, 'broadcast');
       const imageRow = withImage.find(
@@ -212,6 +228,13 @@ test('admin email: policy panel, silent confirmations, waitlist notice, rich bro
   } finally {
     for (const context of contexts) {
       await context.close().catch(() => {});
+    }
+    if (uploadedImageUrl) {
+      await deleteEmailAsset(uploadedImageUrl).catch((err: unknown) => {
+        // Best-effort: never fail an otherwise green run, but leave a clue.
+        // The helper's messages never include the service-role key.
+        console.warn(`[e2e] broadcast image cleanup failed: ${(err as Error).message}`);
+      });
     }
     for (const email of emailsToDelete) {
       await deleteUserByEmail(email).catch(() => {});

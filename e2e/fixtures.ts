@@ -1,6 +1,6 @@
 import { test as base, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import path from 'node:path';
@@ -343,6 +343,83 @@ export function uploadGalleryPhoto(
       },
     },
   });
+}
+
+/**
+ * Remove a broadcast image the e2e suite uploaded to the shared staging
+ * `email-assets` bucket. There is no product delete endpoint, so cleanup goes
+ * straight to Supabase Storage with the local service-role key.
+ *
+ *  - No `.dev.vars`, or missing `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`:
+ *    return silently (CI and storage-less local runs upload nothing to clean).
+ *  - The URL must be an object in this project's public `email-assets` bucket;
+ *    anything else is refused, so a bug cannot delete an unrelated object.
+ *  - The key is only ever placed in request headers; it is never logged or
+ *    included in errors.
+ */
+export async function deleteEmailAsset(url: string): Promise<void> {
+  const repoRoot = path.resolve(process.cwd());
+  const varsFile = path.join(repoRoot, '.dev.vars');
+  if (!existsSync(varsFile)) return;
+
+  const vars = new Map<string, string>();
+  for (const line of readFileSync(varsFile, 'utf8').split(/\r?\n/)) {
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const name = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (name) vars.set(name, value);
+  }
+
+  const rawBase = vars.get('SUPABASE_URL')?.trim();
+  const key = vars.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+  if (!rawBase || !key) return;
+  const base = rawBase.replace(/\/+$/, '');
+
+  let parsed: URL;
+  let baseUrl: URL;
+  try {
+    parsed = new URL(url);
+    baseUrl = new URL(base);
+  } catch {
+    throw new Error('deleteEmailAsset refused an invalid URL');
+  }
+  const prefix = '/storage/v1/object/public/email-assets/';
+  if (
+    parsed.origin !== baseUrl.origin ||
+    !parsed.pathname.startsWith(prefix) ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error('deleteEmailAsset refused a non-email-assets URL');
+  }
+
+  const objectPath = parsed.pathname.slice(prefix.length);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(objectPath);
+  } catch {
+    throw new Error('deleteEmailAsset refused an undecodable object path');
+  }
+  if (!decoded || decoded.includes('..')) {
+    throw new Error('deleteEmailAsset refused an unsafe object path');
+  }
+
+  const res = await fetch(`${base}/storage/v1/object/email-assets/${objectPath}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      apikey: key,
+    },
+  });
+  if (!res.ok) throw new Error(`deleteEmailAsset failed: HTTP ${res.status}`);
 }
 
 /** Remove every registration for an event (local D1 only) so capacity specs

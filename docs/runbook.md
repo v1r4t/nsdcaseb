@@ -93,7 +93,7 @@ and `GET /api/admin/outbox?kind=…` work on history as well as new mail.
 **Compose.** In **Admin → Email**, choose **All members** or **Per-event**
 (per-event reaches only accounts registered or waitlisted for that event),
 enter a subject (≤ 200 characters), and write the body in the rich editor.
-The toolbar supports bold, italic, headings, bulleted/numbered lists, links
+The editor supports bold, italic, headings, bulleted/numbered lists, links
 (`http://`, `https://`, `mailto:`), block quotes and horizontal rules. The
 worker re-sanitises the HTML against a strict allow-list before queueing it,
 keeps a plain-text mirror, and rejects an empty body or an over-large request
@@ -108,8 +108,12 @@ the broadcast endpoint accepts — it must be the configured `SUPABASE_URL` and
 an `/storage/v1/object/public/email-assets/` object. The plain-text mirror gets
 `[Image: <alt or URL>]` plus the URL for clients that block images. Without
 storage configured the upload answers `503 storage_not_configured` and **no
-mail is queued** (there is no silent text-only fallback). There is no delete
-endpoint for these objects; remove a test upload from the bucket by hand.
+mail is queued** (there is no silent text-only fallback). There is no product
+delete endpoint; `e2e/admin-email.spec.ts` uploads through the real composer and
+then deletes the returned object directly through Supabase Storage in a
+`finally` block whenever `.dev.vars` has the project URL and service-role key,
+so a configured local run leaves no new bucket object behind. Manual cleanup is
+only needed after an interrupted run.
 
 **Delivery.** Queueing writes one `pending` row per recipient (`kind =
 broadcast`); the scheduled sweep drains the queue every 15 minutes. On a worker
@@ -119,10 +123,12 @@ without `RESEND_API_KEY` the rows simply stay pending (and eventually move to
 ## Migration 0020 and deploy order
 
 `worker/db/migrations/0020_email_kind.sql` adds `email_outbox.kind` (default
-`other`), backfills history by subject (`verification`, `waitlist`,
-`registration_confirmation`, `event_reminder`, `recruitment_decision`, `test`),
-and deletes **pending** rows for the retired confirmation/reminder kinds so the
-next sweep cannot deliver them after the policy change.
+`other`) and backfills history by subject: `verification`, `waitlist` for
+`Waitlisted:%` joins only (promotion `You're in:` subjects are **not**
+backfilled), `registration_confirmation`, `event_reminder`,
+`recruitment_decision` and `test`. It also deletes **pending** rows for the
+retired confirmation/reminder kinds so the next sweep cannot deliver them after
+the policy change.
 
 The worker selects `kind`, so apply the migration **before** deploying the new
 worker. Never the other way round: an old database without the column makes
