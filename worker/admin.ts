@@ -421,8 +421,14 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
   if (path === '/api/admin/users') {
     if (method !== 'GET') return methodNotAllowed('GET');
     const search = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-    const where = search ? 'WHERE lower(u.email) LIKE ? OR lower(COALESCE(u.name, \'\')) LIKE ?' : '';
-    const args: unknown[] = search ? [`%${search}%`, `%${search}%`] : [];
+    // D1 caps LIKE/GLOB patterns at 50 bytes (SQLITE_LIMIT_LIKE_PATTERN_LENGTH),
+    // so `%<full-college-email>%` fails with "LIKE or GLOB pattern too
+    // complex" for ordinary addresses. `instr` is a literal substring test
+    // with no pattern length limit (and treats `%`/`_` literally).
+    const where = search
+      ? "WHERE instr(lower(u.email), ?) > 0 OR instr(lower(COALESCE(u.name, '')), ?) > 0"
+      : '';
+    const args: unknown[] = search ? [search, search] : [];
     const rows = (
       await env.AUTH_DB
         .prepare(
