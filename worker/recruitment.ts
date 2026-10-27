@@ -441,7 +441,9 @@ export async function handleRecruitmentApi(
     if (applicant?.email) {
       try {
         const template = recruitmentDecisionEmail(status, applicant.name);
-        await enqueueEmail(env, applicant.email, template.subject, template.text);
+        await enqueueEmail(env, applicant.email, template.subject, template.text, {
+          kind: 'recruitment_decision',
+        });
       } catch (err) {
         console.error('[recruitment] verdict email enqueue failed', id, err);
       }

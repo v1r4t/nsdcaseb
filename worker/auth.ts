@@ -34,7 +34,7 @@ import {
   type UserRow,
 } from './auth-helpers';
 import { sha256Base64Url } from './auth-crypto';
-import { verificationEmail, passwordResetEmail, verifiedWelcomeEmail } from './email';
+import { verificationEmail, passwordResetEmail } from './email';
 
 // Re-export shared types so existing imports (`./auth`) keep working,
 // e.g. mailer.ts `import type { Env } from './auth'` and staging.ts.
@@ -333,11 +333,8 @@ async function handleVerifyEmail({ request, env }: RouteContext): Promise<Respon
     .bind(userId)
     .run();
 
-  // Confirmation mail is best-effort and never affects the response.
-  const user = await loadUserById(env, userId);
-  if (user) {
-    await trySendEmail(env, { to: user.email, ...verifiedWelcomeEmail() });
-  }
+  // No welcome mail: verification is confirmed on screen, and the "welcome"
+  // kind is intentionally retired (see the admin console "What we send").
   return json({ ok: true });
 }
 

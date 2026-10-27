@@ -12,7 +12,7 @@ import {
   storageConfigured,
 } from './supabase-storage';
 import type { Env } from './auth-helpers';
-import { enqueueEmail, registrationConfirmation } from './email';
+import { enqueueEmail, waitlistNotice, waitlistPromotionEmail } from './email';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 // auth-helpers' readJsonBody caps bodies at 2KB (tuned for auth); answers can
@@ -179,6 +179,30 @@ async function registeredCounts(env: Env): Promise<Map<string, number>> {
     .prepare(`SELECT event_id, COUNT(*) AS n FROM registrations WHERE status = 'registered' GROUP BY event_id`)
     .all<{ event_id: string; n: number }>();
   return new Map((rows.results ?? []).map((r) => [r.event_id, r.n]));
+}
+
+/**
+ * Move the oldest waitlisted registration for an event to `registered` and
+ * return it (with the member's email when they have an account). Callers own
+ * the notification; a guest row simply has no email and is not mailed.
+ */
+export async function promoteNextWaitlisted(
+  env: Env,
+  eventId: string,
+): Promise<{ id: string; email: string | null } | null> {
+  const next = await env.AUTH_DB.prepare(
+    `SELECT r.id AS id, u.email AS email
+     FROM registrations r LEFT JOIN users u ON u.id = r.user_id
+     WHERE r.event_id = ? AND r.status = 'waitlisted'
+     ORDER BY r.created_at ASC LIMIT 1`,
+  )
+    .bind(eventId)
+    .first<{ id: string; email: string | null }>();
+  if (!next) return null;
+  await env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`)
+    .bind(next.id)
+    .run();
+  return next;
 }
 
 export async function handleEventsApi(request: Request, env: Env): Promise<Response | null> {
@@ -564,25 +588,22 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
     const insertedStatus = (await env.AUTH_DB.prepare(`SELECT status FROM registrations WHERE id = ?`).bind(registrationId).first<{ status: string }>())?.status;
     const status: RegStatus = insertedStatus === 'waitlisted' ? 'waitlisted' : 'registered';
 
-    if (user?.email) {
+    if (status === 'waitlisted' && user?.email) {
       try {
-        if (status === 'registered') {
-          const template = registrationConfirmation(event.title, status);
-          await enqueueEmail(env, user.email, template.subject, template.text);
-        } else {
-          const position =
-            (await env.AUTH_DB.prepare(
-              `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'waitlisted'`,
-            )
-              .bind(id)
-              .first<{ n: number }>())?.n ?? 1;
-          const template = registrationConfirmation(event.title, 'waitlisted', Math.max(1, position));
-          await enqueueEmail(env, user.email, template.subject, template.text);
-        }
+        const position =
+          (await env.AUTH_DB.prepare(
+            `SELECT COUNT(*) AS n FROM registrations WHERE event_id = ? AND status = 'waitlisted'`,
+          )
+            .bind(id)
+            .first<{ n: number }>())?.n ?? 1;
+        const template = waitlistNotice(event.title, Math.max(1, position));
+        await enqueueEmail(env, user.email, template.subject, template.text, { kind: 'waitlist' });
       } catch (err) {
-        console.error('[events] confirmation email enqueue failed', err);
+        console.error('[events] waitlist email enqueue failed', err);
       }
     }
+    // Confirmed registrations are deliberately silent: the confirmation
+    // screen and the on-site roster already say everything.
     return json({ status, account_prompt: !user }, 201);
   }
   if (method === 'DELETE') {
@@ -591,16 +612,20 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       `SELECT id FROM registrations WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`,
     ).bind(id, user.id).first<{ id: string }>();
     if (!own) return json({ error: 'not_registered' }, 404);
-    const next = await env.AUTH_DB.prepare(
-      `SELECT id FROM registrations WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at ASC LIMIT 1`,
-    ).bind(id).first<{ id: string }>();
-    const statements = [
-      env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`).bind(own.id),
-    ];
-    if (next) {
-      statements.push(env.AUTH_DB.prepare(`UPDATE registrations SET status = 'registered' WHERE id = ?`).bind(next.id));
+    await env.AUTH_DB.prepare(`UPDATE registrations SET status = 'cancelled' WHERE id = ?`)
+      .bind(own.id)
+      .run();
+    // Free seat goes to the oldest waiter. The canceller gets no mail; the
+    // promoted member does (when we have their address).
+    const promoted = await promoteNextWaitlisted(env, id);
+    if (promoted?.email) {
+      try {
+        const template = waitlistPromotionEmail(event.title);
+        await enqueueEmail(env, promoted.email, template.subject, template.text, { kind: 'waitlist' });
+      } catch (err) {
+        console.error('[events] promotion email enqueue failed', promoted.id, err);
+      }
     }
-    await env.AUTH_DB.batch(statements);
     return json({ cancelled: true });
   }
   return json({ error: 'method_not_allowed' }, 405, { Allow: 'POST, DELETE' });

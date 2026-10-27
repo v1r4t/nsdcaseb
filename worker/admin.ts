@@ -20,7 +20,7 @@ import {
   type Env,
   type User,
 } from './auth-helpers';
-import { enqueueEmail } from './email';
+import { enqueueEmail, isEmailKind, verificationEmail, type EmailKind } from './email';
 import { sendEmail } from './mailer';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
@@ -189,18 +189,26 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     if (status !== 'pending' && status !== 'sent' && status !== 'failed') {
       return json({ error: 'invalid_status' }, 400);
     }
+    const kindParam = url.searchParams.get('kind');
+    let kind: EmailKind | null = null;
+    if (kindParam) {
+      if (!isEmailKind(kindParam)) return json({ error: 'invalid_kind' }, 400);
+      kind = kindParam;
+    }
     const rows = (
       await env.AUTH_DB.prepare(
-        `SELECT id, to_email, subject, status, attempts, created_at, sent_at,
+        `SELECT id, to_email, subject, status, kind, attempts, created_at, sent_at,
                 substr(text, 1, 500) AS preview
-         FROM email_outbox WHERE status = ? ORDER BY created_at DESC LIMIT 50`,
+         FROM email_outbox WHERE status = ?${kind ? ' AND kind = ?' : ''}
+         ORDER BY created_at DESC LIMIT 50`,
       )
-        .bind(status)
+        .bind(...(kind ? [status, kind] : [status]))
         .all<{
           id: string;
           to_email: string;
           subject: string;
           status: string;
+          kind: string | null;
           attempts: number;
           created_at: string;
           sent_at: string | null;
@@ -289,7 +297,9 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       ).results ?? [];
     }
     for (const r of recipients) {
-      await enqueueEmail(env, r.email, (subject as string).trim(), (text as string).trim());
+      await enqueueEmail(env, r.email, (subject as string).trim(), (text as string).trim(), {
+        kind: 'broadcast',
+      });
     }
     await audit(
       env,
@@ -396,10 +406,15 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       `SELECT id, email FROM users ${where}`,
     ).bind(...ids).all<{ id: string; email: string }>()).results ?? [];
     let queued = 0;
+    const origin = new URL(request.url).origin;
     for (const t of targets) {
       try {
         const token = await createEmailToken(env, t.id, 'verify');
-        await enqueueEmail(env, t.email, 'Verify your NSDC account', `Verify your email: ${new URL(request.url).origin}/verify-email?token=${token}`);
+        const template = verificationEmail(origin, token);
+        await enqueueEmail(env, t.email, template.subject, template.text, {
+          kind: 'verification',
+          html: template.html,
+        });
         queued += 1;
       } catch (err) {
         console.error('[admin] verification enqueue failed', t.id, err);

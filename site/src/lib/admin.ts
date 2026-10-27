@@ -73,6 +73,8 @@ export interface OutboxEntry {
   id: string;
   to_email: string;
   subject: string;
+  /** What kind of mail this row carries (defaults to 'other' on old rows). */
+  kind: OutboxKind;
   status: string;
   attempts: number;
   created_at: string;
@@ -112,12 +114,30 @@ export interface AuditEntry {
 
 export type OutboxStatus = 'pending' | 'sent' | 'failed';
 
+/** Mirrors `EmailKind` in worker/email.ts. */
+export type OutboxKind =
+  | 'verification'
+  | 'password_reset'
+  | 'waitlist'
+  | 'recruitment_decision'
+  | 'broadcast'
+  | 'test'
+  | 'registration_confirmation'
+  | 'event_reminder'
+  | 'other';
+
 export function getStats(): Promise<AdminStats> {
   return request<AdminStats>('/api/admin/stats');
 }
 
-export function getOutbox(status: OutboxStatus = 'pending'): Promise<{ outbox: OutboxEntry[] }> {
-  return request<{ outbox: OutboxEntry[] }>(`/api/admin/outbox?status=${status}`);
+/** List outbox rows, optionally narrowed to one mail kind. */
+export function getOutbox(
+  status: OutboxStatus = 'pending',
+  kind?: OutboxKind,
+): Promise<{ outbox: OutboxEntry[] }> {
+  const params = new URLSearchParams({ status });
+  if (kind) params.set('kind', kind);
+  return request<{ outbox: OutboxEntry[] }>(`/api/admin/outbox?${params.toString()}`);
 }
 
 export function sendBroadcast(input: {

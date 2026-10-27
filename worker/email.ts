@@ -14,6 +14,38 @@ export interface EmailTemplate {
   text: string;
 }
 
+/**
+ * Every queued mail is tagged with one of these kinds. The tag drives the
+ * admin console filter and lets a migration delete rows for retired sends.
+ */
+export type EmailKind =
+  | 'verification'
+  | 'password_reset'
+  | 'waitlist'
+  | 'recruitment_decision'
+  | 'broadcast'
+  | 'test'
+  | 'registration_confirmation'
+  | 'event_reminder'
+  | 'other';
+
+/** Runtime mirror of `EmailKind`, used to validate the admin filter. */
+export const EMAIL_KINDS: readonly EmailKind[] = [
+  'verification',
+  'password_reset',
+  'waitlist',
+  'recruitment_decision',
+  'broadcast',
+  'test',
+  'registration_confirmation',
+  'event_reminder',
+  'other',
+];
+
+export function isEmailKind(value: unknown): value is EmailKind {
+  return typeof value === 'string' && (EMAIL_KINDS as readonly string[]).includes(value);
+}
+
 /** Shared content shape for auth mails: text mirror always sent with html. */
 export interface TemplatedEmail {
   subject: string;
@@ -60,14 +92,6 @@ export function passwordResetEmail(origin: string, token: string): TemplatedEmai
   };
 }
 
-export function verifiedWelcomeEmail(): TemplatedEmail {
-  return {
-    subject: 'Your NSDC email is verified',
-    text: 'Your email address has been verified. Welcome to NSDC! Sign in to register for events.',
-    html: mailShell('You are verified', 'Your email address has been verified.', null, null, 'Welcome to NSDC — sign in to register for events.'),
-  };
-}
-
 /**
  * Final recruitment verdict. Sent once, when an OB selects or rejects a
  * pending application. Both variants say no reply is needed so applicants
@@ -104,37 +128,26 @@ export function recruitmentDecisionEmail(
 
 const MAX_ATTEMPTS = 5;
 
-/** Confirmation for a fresh registration, or a waitlist notice with position. */
-export function registrationConfirmation(
-  eventTitle: string,
-  status: 'registered' | 'waitlisted',
-  waitlistPosition?: number,
-): EmailTemplate {
-  if (status === 'waitlisted') {
-    const place = waitlistPosition ?? 1;
-    return {
-      subject: `Waitlisted: ${eventTitle}`,
-      text:
-        `You're #${place} on the waitlist for "${eventTitle}".\n\n` +
-        `We'll email you if a spot opens up — no need to register again.`,
-    };
-  }
+/**
+ * Waitlist notice with the member's place in line. This is the only
+ * registration-time mail we still send: confirmed registrations are silent
+ * (the confirmation screen already tells the member they are in).
+ */
+export function waitlistNotice(eventTitle: string, position: number): EmailTemplate {
+  const place = Math.max(1, position);
   return {
-    subject: `Registered: ${eventTitle}`,
+    subject: `Waitlisted: ${eventTitle}`,
     text:
-      `You're registered for "${eventTitle}".\n\n` +
-      `We'll email you a reminder the day before it starts. See you there!`,
+      `You're #${place} on the waitlist for "${eventTitle}".\n\n` +
+      `We'll email you if a spot opens up — no need to register again.`,
   };
 }
 
-/** Day-before reminder for an upcoming event. */
-export function eventReminder(eventTitle: string, startsAt: string): EmailTemplate {
-  let when = startsAt;
-  const parsed = Date.parse(startsAt);
-  if (!Number.isNaN(parsed)) when = new Date(parsed).toLocaleString();
+/** Sent when a cancellation frees a seat and the oldest waiter is promoted. */
+export function waitlistPromotionEmail(eventTitle: string): EmailTemplate {
   return {
-    subject: `Reminder: ${eventTitle} starts soon`,
-    text: `Reminder: "${eventTitle}" starts at ${when}.\n\nWe look forward to seeing you there!`,
+    subject: `You're in: ${eventTitle}`,
+    text: `A seat opened up — you're registered for "${eventTitle}". See you there!`,
   };
 }
 
@@ -144,11 +157,12 @@ export async function enqueueEmail(
   toEmail: string,
   subject: string,
   text: string,
+  opts: { kind: EmailKind; html?: string | null } = { kind: 'other' },
 ): Promise<void> {
   await env.AUTH_DB.prepare(
-    `INSERT INTO email_outbox (id, to_email, subject, text, status) VALUES (?, ?, ?, ?, 'pending')`,
+    `INSERT INTO email_outbox (id, to_email, subject, text, html, kind, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
   )
-    .bind(crypto.randomUUID(), toEmail, subject, text)
+    .bind(crypto.randomUUID(), toEmail, subject, text, opts.html ?? null, opts.kind)
     .run();
 }
 
@@ -157,6 +171,7 @@ interface OutboxRow {
   to_email: string;
   subject: string;
   text: string;
+  html: string | null;
   attempts: number;
 }
 
@@ -172,7 +187,7 @@ export async function processOutbox(env: Env, limit = 20): Promise<{ processed: 
     rows =
       (
         await env.AUTH_DB.prepare(
-          `SELECT id, to_email, subject, text, attempts FROM email_outbox
+          `SELECT id, to_email, subject, text, html, attempts FROM email_outbox
            WHERE status = 'pending' AND attempts < ? ORDER BY created_at ASC LIMIT ?`,
         )
           .bind(MAX_ATTEMPTS, limit)
@@ -186,7 +201,12 @@ export async function processOutbox(env: Env, limit = 20): Promise<{ processed: 
   let processed = 0;
   for (const row of rows) {
     try {
-      const result = await sendEmail(env, { to: row.to_email, subject: row.subject, text: row.text });
+      const result = await sendEmail(env, {
+        to: row.to_email,
+        subject: row.subject,
+        text: row.text,
+        ...(row.html ? { html: row.html } : {}),
+      });
       if (result.delivered) {
         await env.AUTH_DB.prepare(
           `UPDATE email_outbox SET status = 'sent', sent_at = datetime('now') WHERE id = ?`,
@@ -210,54 +230,11 @@ export async function processOutbox(env: Env, limit = 20): Promise<{ processed: 
 }
 
 /**
- * Cron entry point (the orchestrator wires it to scheduled): enqueue
- * reminders for events starting in 24–26h to their registered users —
- * skipping anyone who already has an identical reminder in the outbox —
- * then drain the queue via `processOutbox`. Never throws.
+ * Cron entry point (the orchestrator wires it to scheduled): drain the
+ * queue via `processOutbox`. Event reminders are no longer generated — the
+ * only scheduled work left is delivery. Never throws.
  */
 export async function handleScheduled(env: Env): Promise<void> {
-  try {
-    const now = Date.now();
-    const lo = new Date(now + 24 * 60 * 60 * 1000).toISOString();
-    const hi = new Date(now + 26 * 60 * 60 * 1000).toISOString();
-    const events = (
-      await env.AUTH_DB.prepare(`SELECT id, title, starts_at FROM events WHERE starts_at >= ? AND starts_at <= ?`)
-        .bind(lo, hi)
-        .all<{ id: string; title: string; starts_at: string }>()
-    ).results ?? [];
-
-    for (const event of events) {
-      try {
-        const recipients = (
-          await env.AUTH_DB.prepare(
-            `SELECT u.email AS email FROM registrations r
-             JOIN users u ON u.id = r.user_id
-             WHERE r.event_id = ? AND r.status = 'registered'`,
-          )
-            .bind(event.id)
-            .all<{ email: string }>()
-        ).results ?? [];
-        const template = eventReminder(event.title, event.starts_at);
-        for (const { email } of recipients) {
-          try {
-            const existing = await env.AUTH_DB.prepare(
-              `SELECT id FROM email_outbox WHERE to_email = ? AND subject = ? LIMIT 1`,
-            )
-              .bind(email, template.subject)
-              .first<{ id: string }>();
-            if (!existing) await enqueueEmail(env, email, template.subject, template.text);
-          } catch (err) {
-            console.error('[email] reminder enqueue failed', event.id, err);
-          }
-        }
-      } catch (err) {
-        console.error('[email] reminder sweep failed for event', event.id, err);
-      }
-    }
-  } catch (err) {
-    console.error('[email] reminder sweep failed', err);
-  }
-
   try {
     await processOutbox(env);
   } catch (err) {

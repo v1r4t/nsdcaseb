@@ -13,14 +13,46 @@ import type {
   AuditEntry,
   EmailTestResult,
   OutboxEntry,
+  OutboxKind,
   OutboxStatus,
 } from '../../lib/admin';
 import { errText, fmtDateTime } from './AdminOverview';
 import type { PanelProps } from './AdminOverview';
 
+const KIND_LABELS: Record<OutboxKind, string> = {
+  verification: 'Verification',
+  password_reset: 'Password reset',
+  waitlist: 'Waitlist',
+  recruitment_decision: 'Recruitment decision',
+  broadcast: 'Broadcast',
+  test: 'Delivery test',
+  registration_confirmation: 'Registration confirmation',
+  event_reminder: 'Event reminder',
+  other: 'Other',
+};
+
+const KIND_OPTIONS = Object.keys(KIND_LABELS) as OutboxKind[];
+
+/** Read-only summary of the mail policy surfaced next to the outbox. */
+const SEND_ON = [
+  'Verification',
+  'Password reset',
+  'Waitlist join',
+  'Waitlist promotion',
+  'Recruitment decision',
+  'Broadcast',
+  'Delivery test',
+];
+const SEND_OFF = ['Welcome', 'Registration confirmation', 'Event reminder'];
+
+function kindLabel(kind: OutboxKind | undefined): string {
+  return kind ? KIND_LABELS[kind] ?? kind : 'Other';
+}
+
 export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   const [events, setEvents] = useState<AdminEventSummary[]>([]);
   const [outboxStatus, setOutboxStatus] = useState<OutboxStatus>('pending');
+  const [outboxKind, setOutboxKind] = useState<'all' | OutboxKind>('all');
   const [outbox, setOutbox] = useState<OutboxEntry[]>([]);
   const [aud, setAud] = useState<'all' | 'event'>('all');
   const [audEvent, setAudEvent] = useState('');
@@ -30,9 +62,9 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   const [testResult, setTestResult] = useState<EmailTestResult | null>(null);
 
   const refreshOutbox = useCallback(
-    async (status: OutboxStatus): Promise<void> => {
+    async (status: OutboxStatus, kind: 'all' | OutboxKind): Promise<void> => {
       try {
-        const r = await getOutbox(status);
+        const r = await getOutbox(status, kind === 'all' ? undefined : kind);
         setOutbox(r.outbox);
       } catch (err) {
         notify(errText(err));
@@ -51,8 +83,8 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   }, [notify]);
 
   useEffect(() => {
-    void refreshOutbox(outboxStatus);
-  }, [outboxStatus, refreshOutbox]);
+    void refreshOutbox(outboxStatus, outboxKind);
+  }, [outboxStatus, outboxKind, refreshOutbox]);
 
   async function broadcast(): Promise<void> {
     setBusy(true);
@@ -61,7 +93,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
       notify(`Queued ${r.queued} email(s). The scheduled sweep delivers them within 15 minutes.`);
       setSubject('');
       setBody('');
-      await refreshOutbox(outboxStatus);
+      await refreshOutbox(outboxStatus, outboxKind);
     } catch (err) {
       notify(errText(err));
     } finally {
@@ -86,7 +118,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
     try {
       await retryOutbox(id);
       notify('Requeued for delivery.');
-      await refreshOutbox(outboxStatus);
+      await refreshOutbox(outboxStatus, outboxKind);
     } catch (err) {
       notify(errText(err));
     } finally {
@@ -158,20 +190,64 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
 
       <div className="border-t border-line pt-6">
         <h2 className="label">Outbox</h2>
-        <div className="mt-5 flex gap-2" role="group" aria-label="Status filter">
-          {(['pending', 'sent', 'failed'] as OutboxStatus[]).map((s) => (
-            <button key={s} type="button" className={s === outboxStatus ? 'btn-primary' : 'btn-ghost'} onClick={() => setOutboxStatus(s)}>
-              {s}
-            </button>
-          ))}
+
+        {/* Read-only policy panel: what the site still sends, and what it does not. */}
+        <div className="mt-4 border border-line p-4" role="note" aria-label="What we send">
+          <h3 className="label">What we send</h3>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-wide text-paper/80">On</p>
+              <ul className="mt-2 space-y-1 text-sm text-paper/80">
+                {SEND_ON.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Off</p>
+              <ul className="mt-2 space-y-1 text-sm text-muted">
+                {SEND_OFF.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <p className="hint mt-3">
+            Verification, password reset and welcome mail are sent immediately by the auth flow,
+            not queued here. Welcome is disabled.
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="flex gap-2" role="group" aria-label="Status filter">
+            {(['pending', 'sent', 'failed'] as OutboxStatus[]).map((s) => (
+              <button key={s} type="button" className={s === outboxStatus ? 'btn-primary' : 'btn-ghost'} onClick={() => setOutboxStatus(s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <select
+            aria-label="Email type filter"
+            value={outboxKind}
+            onChange={(e) => setOutboxKind(e.target.value as 'all' | OutboxKind)}
+            className="field max-w-xs"
+          >
+            <option value="all">All types</option>
+            {KIND_OPTIONS.map((kind) => (
+              <option key={kind} value={kind}>
+                {KIND_LABELS[kind]}
+              </option>
+            ))}
+          </select>
         </div>
         <ul className="mt-5 space-y-3">
           {outbox.map((o) => (
             <li key={o.id} className="border border-line p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="break-all text-sm text-paper/90">{o.to_email}</p>
-                <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
-                  {o.status} · tries {o.attempts}
+                <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-muted">
+                  <span className="border border-line px-1.5 py-0.5 text-paper/70">{kindLabel(o.kind)}</span>
+                  <span>{o.status} · tries {o.attempts}</span>
                 </p>
               </div>
               <p className="mt-1 text-sm text-paper/80">{o.subject}</p>
@@ -193,7 +269,12 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
             </li>
           ))}
         </ul>
-        {outbox.length === 0 && <p className="mt-5 text-sm text-muted">Outbox is empty for “{outboxStatus}”.</p>}
+        {outbox.length === 0 && (
+          <p className="mt-5 text-sm text-muted">
+            Outbox is empty for “{outboxStatus}”
+            {outboxKind === 'all' ? '' : ` · ${KIND_LABELS[outboxKind]}`}.
+          </p>
+        )}
       </div>
 
       <div className="border-t border-line pt-6">
