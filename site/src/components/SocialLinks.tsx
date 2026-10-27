@@ -41,9 +41,14 @@ const LINKS: SocialLink[] = [
   },
 ];
 
-export default function SocialLinks() {
+interface SocialLinksProps {
+  /** Extra list classes, e.g. alignment passed by the footer column. */
+  className?: string;
+}
+
+export default function SocialLinks({ className = '' }: SocialLinksProps) {
   return (
-    <ul className="flex items-center gap-4">
+    <ul className={`flex items-center gap-4 ${className}`.trim()}>
       {LINKS.map((link) => (
         <li key={link.label}>
           <a

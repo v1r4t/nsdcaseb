@@ -78,8 +78,10 @@ Hierarchy:
 
 ## FOOTER
 
-Tiny. NSDC / Amrita Vishwa Vidyapeetham / Bengaluru, social links, `© 2026`,
-`BUILT BY STUDENTS.` No columns of links, no newsletter pitch.
+Tiny. Identity and institution left (NSDC / Amrita Vishwa Vidyapeetham /
+Bengaluru / `© 2026` / `BUILT BY STUDENTS.`), contact email and social links
+right on desktop. One left-aligned column on mobile. No columns of page links,
+no newsletter pitch.
 
 ## DATA LANGUAGE
 
