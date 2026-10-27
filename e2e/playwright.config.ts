@@ -31,11 +31,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Local D1 is one SQLite file shared with the dev server AND with sibling
-  // verifyUserEmail wrangler invocations: keep local parallelism low so
+  // verifyUserEmail wrangler invocations: keep parallelism at one so
   // concurrent writers don't hit SQLITE_BUSY (verifyUserEmail also retries).
-  // With all three browser projects, serialize them: they share one D1, and
-  // the capacity test mutates a single-seat event.
-  workers: browsers === 'all' ? 1 : 2,
+  // The capacity/cancel/delete/email specs all start by clearing the same
+  // single-seat e2e event, so cross-file parallelism would race that seat and
+  // make promotions non-deterministic. Serial is also what CI uses for all
+  // three browser projects.
+  workers: 1,
   reporter: 'list',
   // 60s: WebKit's full registration/waitlist/cancel flow is ~2x Chromium and
   // was tripping the old 30s budget mid-assertion.

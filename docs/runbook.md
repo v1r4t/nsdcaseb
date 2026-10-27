@@ -12,12 +12,133 @@ members get 403.
 | --- | --- | --- |
 | Overview | Admin → Overview | Read-only stats (members, events, registrations, email queue). |
 | Events | Admin → Events | Create / edit events: title, description, schedule, registration window, capacity (blank = unlimited), force-closed flag, poster upload, up to 20 registration questions. "Show archived" reveals soft-archived events; Archive/Unarchive toggles them. Registration Open/Close flips `force_closed`. |
-| Registrations | Admin → Roster | Pick an event → roster table (search by email/name, status filter), "Download CSV (server)" for the full export. |
+| Registrations | Admin → Registrations | Pick an event → roster table (search by email/name, status filter), "Download CSV (server)" for the full export. Each registered/waitlisted row has a **Cancel** action; a confirmed seat promotes the oldest waiter. Guest rows show as "Guest registration" with their name and register number. |
 | Recruitment | Admin → Recruitment | Review applications (newest first), filter by status, expand "Answers", Select/Reject with a final-decision confirm, Download CSV. |
 | Gallery | Admin → Gallery | Create albums, then add event photos with a file picker: photos only, one at a time. The browser compresses the image and prepares WebP variants before upload. |
-| Email | Admin → Email and audit | **Send test email** (one click, proves delivery), broadcast to all or one event (subject + body), outbox queue with pending/sent/failed filter, retry failed, audit-log table. |
+| Email | Admin → Email and audit | **Send test email** (one click, proves delivery), rich broadcast to all or one event (bold/lists/links, optional image), "What we send" policy panel, outbox queue with pending/sent/failed + mail-kind filters, retry failed, audit-log table. |
 | Content | Admin → Content | Office bearers (name, role, links as `Label https://…` one per line) and Achievements (title, description) — add / edit inline / delete with confirm. |
-| Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification. |
+| Accounts | Admin → Accounts and roles | Search users, change role (member/executive/ob), toggle email-verified, resend verification, delete an account with a typed-email confirmation. |
+
+## Cancelling a registration (Admin → Registrations)
+
+1. Sign in as `ob`, unlock `/admin`, open **Registrations**, and pick the
+   event (archived events are listed too, so old rosters stay inspectable).
+2. Find the row and press **Cancel**. The browser asks for confirmation; a
+   guest is named by their registration name, not a missing email.
+3. The row stays in the database as `cancelled` — nothing is deleted, so the
+   answers and the audit trail remain. Cancelled rows have no cancel action.
+
+**Promotion.** Cancelling a `registered` row frees one seat and, in the same
+database batch, promotes the oldest `waitlisted` row for that event
+(`created_at ASC`). If that person has an account, a **Waitlist promotion**
+mail is queued to their account address; guest rows have no address and are
+promoted silently. Cancelling a `waitlisted` row frees no seat and therefore
+promotes nobody, so the event cannot overbook. The API response carries
+`promoted_email` and the action is audited as `registration_cancel_admin`.
+
+## Deleting an account (Admin → Accounts)
+
+Delete is for accounts that should disappear entirely, not for a single event
+registration (use **Registrations → Cancel** for that).
+
+1. Search the account by email or name, press **Delete**, then type the
+   account's exact email into the panel. Surrounding whitespace does **not**
+   satisfy the confirmation, and the destructive button stays disabled until
+   the strings match exactly.
+2. The panel shows how many registration rows the account owns. On success the
+   row leaves the list and the notice reports the removed/promoted counts.
+
+**Guards.** The action is not rendered for your own signed-in account, and the
+API refuses it with `400 cannot_delete_self` even if called directly. Deleting
+the last remaining `ob`/`admin` is refused with `400 last_ob`; the guard is
+evaluated inside the deleting statement, so concurrent demotions cannot leave
+the club with zero office bearers.
+
+**What is removed.** In one batch: the account, every registration row it owns
+(registered, waitlisted or cancelled), its sessions and email tokens, pending
+`email_outbox` rows addressed to it, recruitment applications with that email,
+and audit rows it authored. Sent outbox history is kept. Events themselves are
+never deleted.
+
+**What is promoted.** For every event that has not ended (`ends_at` in the
+future) where the account held a `registered` seat, the oldest waitlisted row
+is promoted and a **Waitlist promotion** mail is queued when that person has an
+account. Ended events and their waitlists are left alone. The action is audited
+as `user_delete`.
+
+## Email policy and outbox kinds
+
+The site no longer mails everything it used to. The **What we send** panel in
+**Admin → Email** is the live summary; this is the policy behind it.
+
+| Kind | Sent? | When / notes |
+| --- | --- | --- |
+| `verification` | Yes | Sent immediately by registration or "resend verification". **Admin → Accounts → Send verification to unverified** queues the same kind for the 15-minute sweep. |
+| `password_reset` | Yes | Sent immediately by the forgot-password flow. |
+| `waitlist` | Yes | Two cases: joining a waitlist (`Waitlisted: …`) and promotion (`You're in: …`). |
+| `recruitment_decision` | Yes | Queued when an application is selected or rejected. |
+| `broadcast` | Yes | Admin composer, queued per recipient; may carry HTML and an optional image. |
+| `test` | Yes | The delivery probe sends synchronously and bypasses `email_outbox`. |
+| `registration_confirmation` | No | Confirmed registrations are deliberately silent; the confirmation screen and roster say everything. |
+| `event_reminder` | No | No reminder job generates these any more. |
+| `other` | — | Fallback for old rows; new sends always tag a real kind. |
+
+The retired "Welcome" mail is not queued at all. Verification and password
+reset are the only **immediate** auth sends; admin bulk verification is queued.
+The outbox stores the kind per row, so **Email → Outbox → Email type filter**
+and `GET /api/admin/outbox?kind=…` work on history as well as new mail.
+
+## Broadcasts and the optional image
+
+**Compose.** In **Admin → Email**, choose **All members** or **Per-event**
+(per-event reaches only accounts registered or waitlisted for that event),
+enter a subject (≤ 200 characters), and write the body in the rich editor.
+The toolbar supports bold, italic, headings, bulleted/numbered lists, links
+(`http://`, `https://`, `mailto:`), block quotes and horizontal rules. The
+worker re-sanitises the HTML against a strict allow-list before queueing it,
+keeps a plain-text mirror, and rejects an empty body or an over-large request
+(the shared admin JSON cap is 32 KB).
+
+**Optional image.** The picker accepts JPEG/PNG/WebP up to 10 MB. Before
+upload the browser decodes it, caps the width at **1200 px** (never upscaling),
+and re-encodes it as **JPEG at quality 0.82**. The worker then accepts only
+JPEG/PNG up to 8 MB and stores the bytes in the public **`email-assets`**
+bucket (`email/{uuid}.jpg` or `.png`). The returned URL is the only image host
+the broadcast endpoint accepts — it must be the configured `SUPABASE_URL` and
+an `/storage/v1/object/public/email-assets/` object. The plain-text mirror gets
+`[Image: <alt or URL>]` plus the URL for clients that block images. Without
+storage configured the upload answers `503 storage_not_configured` and **no
+mail is queued** (there is no silent text-only fallback). There is no delete
+endpoint for these objects; remove a test upload from the bucket by hand.
+
+**Delivery.** Queueing writes one `pending` row per recipient (`kind =
+broadcast`); the scheduled sweep drains the queue every 15 minutes. On a worker
+without `RESEND_API_KEY` the rows simply stay pending (and eventually move to
+`failed` after five attempts), which is the normal local/CI state.
+
+## Migration 0020 and deploy order
+
+`worker/db/migrations/0020_email_kind.sql` adds `email_outbox.kind` (default
+`other`), backfills history by subject (`verification`, `waitlist`,
+`registration_confirmation`, `event_reminder`, `recruitment_decision`, `test`),
+and deletes **pending** rows for the retired confirmation/reminder kinds so the
+next sweep cannot deliver them after the policy change.
+
+The worker selects `kind`, so apply the migration **before** deploying the new
+worker. Never the other way round: an old database without the column makes
+every outbox query fail.
+
+```bash
+# Local (what e2e/CI use)
+npx wrangler d1 migrations apply nsdc-auth --local -c wrangler.staging.jsonc
+
+# Staging
+npm run migrate:staging
+npm run deploy:staging
+```
+
+Production is the separate apex teaser worker and is not part of this flow.
+
 
 ## Email delivery test
 
@@ -277,6 +398,9 @@ the public form (the API floor is 10). Public submissions are limited to
   never fallback copy. An error there means the API is unreachable.
 
 ## Deploy
+
+**Order matters.** Apply migrations before the worker build that reads them
+(notably `0020_email_kind.sql`, which adds `email_outbox.kind`):
 
 ```bash
 npm run migrate:staging   # apply worker/db/migrations to the staging D1

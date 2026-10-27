@@ -1,31 +1,10 @@
 import { test, expect, registerViaApi, uniqueEmail, clearEventRegistrations } from './fixtures';
-import type { Page } from '@playwright/test';
+import { completeRegistrationFlow } from './registration-flow';
 
 // Capacity lifecycle on a capacity-1 event: first member is confirmed, the
 // second is waitlisted, and cancelling the first promotes the second.
 // Two isolated browser contexts stand in for two members. Skips on an empty
 // dev DB (see fixtures).
-
-async function completeRegistrationFlow(page: Page, name: string, regNumber: string) {
-  await page.getByPlaceholder('Your full name').fill(name);
-  await page.getByPlaceholder('Registration number').fill(regNumber);
-  await page.getByRole('button', { name: 'Continue →' }).click();
-
-  // Step 2: answer inline when the event asks questions, else just continue.
-  await expect(page.getByRole('heading', { name: '02 / Event questions' })).toBeVisible();
-  const form = page.locator('form[aria-label="Event questions"]');
-  if ((await form.count()) > 0) {
-    for (const input of await form.locator('input[required]').all()) {
-      await input.fill('E2E answer');
-    }
-    await form.getByRole('button', { name: 'Continue →' }).click();
-  } else {
-    await page.getByRole('button', { name: 'Continue →' }).click();
-  }
-
-  await expect(page.getByRole('heading', { name: '03 / Confirm' })).toBeVisible();
-  await page.getByRole('button', { name: 'Register →' }).click();
-}
 
 test('capacity 1: first registers, second waitlists, cancel promotes', async ({
   browser,
