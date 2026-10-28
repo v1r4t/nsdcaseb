@@ -2,6 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import type { ArchiveSlide } from '../lib/media';
+import { galleryFullSources } from '../lib/image-variants';
+
+// The carousel spans the shell (max 1440px minus its horizontal padding).
+const TEASER_SIZES = '(max-width: 768px) 100vw, 1344px';
 
 /**
  * ARCHIVE — manual carousel of photos from the media archive, capped at six
@@ -56,6 +60,7 @@ export default function ArchiveTeaser({ slides }: { slides: ArchiveSlide[] }) {
   }
 
   const current = slides[index];
+  const sources = galleryFullSources(current.url, current.variants);
 
   return (
     <div>
@@ -72,7 +77,9 @@ export default function ArchiveTeaser({ slides }: { slides: ArchiveSlide[] }) {
         <div className="relative aspect-[16/10] overflow-hidden bg-ink">
           <img
             key={current.url}
-            src={current.url}
+            src={sources.src}
+            srcSet={sources.srcSet}
+            sizes={TEASER_SIZES}
             alt={current.caption || current.title || 'NSDC archive photo'}
             loading="lazy"
             decoding="async"

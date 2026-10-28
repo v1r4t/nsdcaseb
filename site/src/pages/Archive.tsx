@@ -6,6 +6,7 @@ import { useFocusTrap } from '../lib/focus-trap';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { ApiError, listMedia } from '../lib/media';
 import type { MediaAlbum, MediaItem } from '../lib/media';
+import { galleryFullSources, galleryTileSources } from '../lib/image-variants';
 import { listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 
@@ -32,17 +33,6 @@ function chipClass(on: boolean): string {
   return on
     ? 'rounded-sm border border-signal bg-signal/10 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wide text-signal'
     : 'rounded-sm border border-line px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:border-paper/40 hover:text-paper';
-}
-
-// TODO(media-variants): the gallery API serves full-size original URLs only —
-// there is no thumb/full variant pipeline yet. When one lands, the expected
-// convention is `<original-url>` with a width suffix (e.g. `?width=640` or a
-// `-640w` derived key) so `srcSet` below can list a 640w thumb + 1280w full.
-// Until then this helper intentionally returns the original as the only
-// source (no invented URLs that would 404); `srcSet` stays undefined and the
-// `sizes` wiring on each <img> is already in place for when variants exist.
-function variantSources(url: string): { src: string; srcSet: string | undefined } {
-  return { src: url, srcSet: undefined };
 }
 
 // Grid tiles render at 50vw (2-col) below md, 25vw (4-col) at md+.
@@ -77,7 +67,7 @@ function Tile({ item, onOpen }: { item: MediaItem; onOpen: (item: MediaItem) => 
   }
   // aspect-video reserves a 16:9 box so grid tiles never shift layout (CLS);
   // width/height mirror that box. object-cover crops off-ratio originals.
-  const sources = variantSources(item.url);
+  const sources = galleryTileSources(item.url, item.variants);
   return (
     <button
       type="button"
@@ -220,8 +210,9 @@ export default function Archive() {
   }, [lightbox]);
 
   const current = lightbox ? lightbox.items[lightbox.index] : null;
-  // Resolved once per render; still the original until variants exist (see TODO above).
-  const currentSources = current ? variantSources(current.url) : null;
+  // The full variant (capped 1600w) stands in for the original in the viewer;
+  // URL-based items without variants keep their original URL.
+  const currentSources = current ? galleryFullSources(current.url, current.variants) : null;
 
   return (
     <div className="shell py-12 md:py-16">

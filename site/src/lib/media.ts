@@ -6,6 +6,8 @@
  * points at an external https URL, videos at YouTube.
  */
 
+import type { GalleryVariantUrls } from './image-variants';
+
 export type MediaType = 'image' | 'video';
 
 export interface MediaItem {
@@ -15,6 +17,8 @@ export interface MediaItem {
   title: string;
   caption: string;
   sort_order: number;
+  /** Upload-pipeline WebP derivatives; absent for URL-based and legacy items. */
+  variants?: GalleryVariantUrls | null;
 }
 
 export interface MediaAlbum {
@@ -39,6 +43,8 @@ export interface ArchiveSlide {
   albumId: string;
   albumTitle: string;
   eventId: string | null;
+  /** Upload-pipeline WebP derivatives; absent for URL-based and legacy items. */
+  variants?: GalleryVariantUrls | null;
 }
 
 /**
@@ -61,6 +67,7 @@ export function archiveSlides(albums: MediaAlbum[], perAlbum = 6): ArchiveSlide[
         albumId: album.id,
         albumTitle: album.title,
         eventId: album.event_id,
+        variants: item.variants ?? null,
       });
       taken += 1;
     }

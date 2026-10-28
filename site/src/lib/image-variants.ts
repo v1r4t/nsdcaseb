@@ -66,7 +66,8 @@ export function posterVariantSrcSet(
   return `${variants.thumb} ${POSTER_THUMB_WIDTH}w, ${variants.full} ${POSTER_FULL_WIDTH}w`;
 }
 
-export interface PosterImageSources {
+/** Image `src`/`srcSet` pair used by public pages. */
+export interface ImageSources {
   src: string;
   srcSet: string | undefined;
 }
@@ -82,10 +83,55 @@ export interface PosterImageSources {
 export function posterSources(
   posterUrl: string | null | undefined,
   variants: PosterVariantUrls | null | undefined,
-): PosterImageSources | null {
+): ImageSources | null {
   if (!posterUrl) return null;
   const srcSet = posterVariantSrcSet(variants);
   return srcSet ? { src: posterUrl, srcSet } : { src: posterUrl, srcSet: undefined };
+}
+
+// Gallery photo sources ------------------------------------------------------
+// `GET /api/media` returns a `variants` pair for items uploaded through the
+// admin photo pipeline; URL-based items and photos uploaded before it have
+// none. An original can be several megabytes, so tiles use the thumb as `src`
+// and never fall back to the original when a variant pair exists.
+
+/** URL pair as returned by the media API (`variants`). */
+export interface GalleryVariantUrls {
+  thumb: string;
+  full: string;
+}
+
+/** `srcset` for stored gallery variants; undefined when there are none. */
+export function galleryVariantSrcSet(
+  variants: GalleryVariantUrls | null | undefined,
+): string | undefined {
+  if (!variants?.thumb || !variants?.full) return undefined;
+  return `${variants.thumb} ${GALLERY_THUMB_WIDTH}w, ${variants.full} ${GALLERY_FULL_WIDTH}w`;
+}
+
+/**
+ * Grid-tile sources. The 640w thumb is `src` on purpose: a browser without
+ * `srcset` would otherwise download the multi-megabyte original.
+ */
+export function galleryTileSources(
+  url: string,
+  variants?: GalleryVariantUrls | null,
+): ImageSources {
+  if (variants?.thumb && variants.full) {
+    return { src: variants.thumb, srcSet: galleryVariantSrcSet(variants) };
+  }
+  return { src: url, srcSet: undefined };
+}
+
+/** Lightbox and carousel sources: the capped-1600w full variant. */
+export function galleryFullSources(
+  url: string,
+  variants?: GalleryVariantUrls | null,
+): ImageSources {
+  if (variants?.thumb && variants.full) {
+    return { src: variants.full, srcSet: galleryVariantSrcSet(variants) };
+  }
+  return { src: url, srcSet: undefined };
 }
 
 interface DecodedImage {

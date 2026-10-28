@@ -6,8 +6,11 @@ import {
   GALLERY_QUALITIES,
   GALLERY_SOURCE_MAX_BYTES,
   galleryCompressionPlan,
+  galleryFullSources,
   galleryNeedsCompression,
   galleryPhotoFilename,
+  galleryTileSources,
+  galleryVariantSrcSet,
   GalleryPhotoError,
   generatePosterVariants,
   posterSources,
@@ -65,6 +68,53 @@ describe('posterSources', () => {
       src: 'https://cdn.example/events/e1/poster.webp',
       srcSet: posterVariantSrcSet(variants),
     });
+  });
+});
+
+describe('galleryVariantSrcSet', () => {
+  const gallery = {
+    thumb: 'https://cdn.example/gallery/g1/photo-thumb.webp',
+    full: 'https://cdn.example/gallery/g1/photo-full.webp',
+  };
+
+  it('emits 640w and 1600w candidates', () => {
+    expect(galleryVariantSrcSet(gallery)).toBe(`${gallery.thumb} 640w, ${gallery.full} 1600w`);
+  });
+
+  it('is undefined when either half is missing', () => {
+    expect(galleryVariantSrcSet(null)).toBeUndefined();
+    expect(galleryVariantSrcSet({ thumb: gallery.thumb, full: '' })).toBeUndefined();
+  });
+});
+
+describe('galleryTileSources', () => {
+  const original = 'https://cdn.example/gallery/g1/photo.webp';
+
+  it('uses the thumb as src so a no-srcset browser never pulls the original', () => {
+    expect(galleryTileSources(original, variants)).toEqual({
+      src: variants.thumb,
+      srcSet: galleryVariantSrcSet(variants),
+    });
+  });
+
+  it('falls back to the original for URL-based or legacy items', () => {
+    expect(galleryTileSources(original, undefined)).toEqual({ src: original, srcSet: undefined });
+    expect(galleryTileSources(original, null)).toEqual({ src: original, srcSet: undefined });
+  });
+});
+
+describe('galleryFullSources', () => {
+  const original = 'https://cdn.example/gallery/g1/photo.webp';
+
+  it('uses the capped-1600w full variant as src', () => {
+    expect(galleryFullSources(original, variants)).toEqual({
+      src: variants.full,
+      srcSet: galleryVariantSrcSet(variants),
+    });
+  });
+
+  it('falls back to the original when there are no variants', () => {
+    expect(galleryFullSources(original, null)).toEqual({ src: original, srcSet: undefined });
   });
 });
 

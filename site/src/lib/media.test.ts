@@ -15,8 +15,12 @@ function album(overrides: Partial<MediaAlbum> = {}): MediaAlbum {
   };
 }
 
-function image(id: string, url = `https://example.com/${id}.jpg`) {
-  return { id, type: 'image' as const, url, title: `Photo ${id}`, caption: '', sort_order: 0 };
+function image(
+  id: string,
+  url = `https://example.com/${id}.jpg`,
+  variants: { thumb: string; full: string } | null = null,
+) {
+  return { id, type: 'image' as const, url, title: `Photo ${id}`, caption: '', sort_order: 0, variants };
 }
 
 describe('archiveSlides', () => {
@@ -52,5 +56,18 @@ describe('archiveSlides', () => {
       album({ id: 'a2', title: 'Two', items: [image('two')] }),
     ]);
     expect(slides.map((s) => s.albumTitle)).toEqual(['One', 'Two']);
+  });
+
+  it('carries upload variants through to the carousel', () => {
+    const variants = { thumb: 'https://cdn.example/t.webp', full: 'https://cdn.example/f.webp' };
+    const [slide] = archiveSlides([
+      album({ items: [image('p1', 'https://cdn.example/p1.webp', variants)] }),
+    ]);
+    expect(slide.variants).toEqual(variants);
+  });
+
+  it('leaves variants null for URL-based items', () => {
+    const [slide] = archiveSlides([album({ items: [image('p1')] })]);
+    expect(slide.variants).toBeNull();
   });
 });
