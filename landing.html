@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NSDC — landing preview</title>
+<style>
+  @font-face {
+    font-family: 'Space Grotesk';
+    src: url('public/fonts/space-grotesk-var.woff2') format('woff2');
+    font-weight: 300 700;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Geist Mono';
+    src: url('public/fonts/geist-mono-var.woff2') format('woff2');
+    font-weight: 300 600;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #080808;
+    --text: #f5f5f2;
+    --muted: #777777;
+    --border: #242424;
+    --accent: #ff5a36;
+    --shell: 1440px;
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- ambient layers -------------------------------------------------- */
+  #ambient {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .7;
+    transition: opacity 900ms cubic-bezier(.16,1,.3,1);
+  }
+  #gridlines {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .5;
+    transition: opacity 400ms ease;
+    background-image:
+      linear-gradient(to right, rgba(245,245,242,.045) 1px, transparent 1px);
+    background-size: calc((100vw - 96px) / 12) 100%;
+    background-position: 48px 0;
+    mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+  }
+  #progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 1px;
+    width: 0;
+    background: var(--accent);
+    z-index: 60;
+    opacity: .85;
+  }
+
+  /* ---- margin tickers -------------------------------------------------- */
+  .edge {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    pointer-events: none;
+    user-select: none;
+  }
+  .edge.left { left: 14px; }
+  .edge.right { right: 14px; transform: translateY(-50%) rotate(180deg); }
+  .edge b { color: var(--text); font-weight: 400; }
+  @media (max-width: 1100px) { .edge { display: none; } }
+
+  /* ---- layout ---------------------------------------------------------- */
+  .shell { width: 100%; max-width: var(--shell); margin: 0 auto; padding: 0 48px; }
+  @media (max-width: 768px) { .shell { padding: 0 24px; } }
+
+  main { position: relative; z-index: 1; }
+
+  section {
+    position: relative;
+    border-top: 1px solid var(--border);
+    padding: 96px 0;
+  }
+  @media (max-width: 768px) { section { padding: 64px 0; } }
+  section:first-of-type { border-top: 0; }
+
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+  .index {
+    position: absolute;
+    top: 96px;
+    left: -8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .2em;
+    color: #3a3a3a;
+    transform: rotate(-90deg);
+    transform-origin: left top;
+  }
+  @media (max-width: 1280px) { .index { display: none; } }
+
+  /* oversized section numeral filling the right gutter */
+  .ghost {
+    position: absolute;
+    top: 40px;
+    right: 16px;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(120px, 15vw, 220px);
+    line-height: .8;
+    letter-spacing: -.055em;
+    color: rgba(245,245,242,.032);
+    pointer-events: none;
+    user-select: none;
+  }
+  @media (max-width: 900px) { .ghost { display: none; } }
+
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.03em; }
+  h1 { font-size: clamp(48px, 9vw, 104px); line-height: .94; }
+  h2 { font-size: clamp(24px, 3vw, 34px); line-height: 1.05; margin-top: 32px; }
+  p.body { max-width: 46ch; color: rgba(245,245,242,.7); line-height: 1.65; font-size: 16px; }
+
+  /* ---- hero ------------------------------------------------------------ */
+  .hero {
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    padding: 128px 0 96px;
+  }
+  .hero .shell {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 40px 24px;
+    align-items: end;
+  }
+  .hero-meta { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .hero h1 { grid-column: 1 / span 8; }
+  .hero .telemetry { grid-column: 10 / -1; align-self: end; }
+  .hero-foot {
+    grid-column: 1 / -1;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 32px; flex-wrap: wrap; margin-top: 24px;
+  }
+  @media (max-width: 1024px) {
+    .hero h1 { grid-column: 1 / -1; }
+    .hero .telemetry { display: none; }
+  }
+  .hero-foot .coords { font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em; color: var(--muted); }
+
+  /* faint instrument readout — sample values in this preview; the real build
+     pulls these from /api/site and /api/events. */
+  .telemetry {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .telemetry div {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(36,36,36,.75);
+  }
+  .telemetry b { color: rgba(245,245,242,.8); font-weight: 400; }
+  .telemetry .live { color: var(--accent); }
+  .scroll {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+  }
+  .scroll span.dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+
+  /* ---- stats ----------------------------------------------------------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-top: 56px; }
+  @media (max-width: 768px) { .stats { grid-template-columns: repeat(2, 1fr); gap: 40px 24px; } }
+  .stat .n { font-size: clamp(44px, 6vw, 76px); font-weight: 600; letter-spacing: -.04em; line-height: 1; }
+  .stat .k { margin-top: 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+  .stat.accent .n { color: var(--accent); }
+
+  /* ---- poster band ----------------------------------------------------- */
+  .poster {
+    padding: 140px 0;
+    background:
+      radial-gradient(90% 80% at 82% 8%, rgba(255,90,54,.075), transparent 62%),
+      radial-gradient(70% 60% at 10% 90%, rgba(245,245,242,.028), transparent 70%);
+  }
+  .poster .lines { font-size: clamp(56px, 12vw, 150px); line-height: .86; letter-spacing: -.045em; }
+  .poster .lines div:nth-child(2) { margin-left: 12%; }
+  .poster .lines div:nth-child(3) { margin-left: 4%; }
+  .poster .note { margin-top: 48px; max-width: 44ch; font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); line-height: 1.9; }
+
+  /* ---- rows ------------------------------------------------------------ */
+  .rows { margin-top: 40px; border-top: 1px solid var(--border); }
+  .row {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+  @media (max-width: 768px) { .row { grid-template-columns: 84px 1fr; } .row .status { grid-column: 2; } }
+  .row .date { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); }
+  .row .title { font-size: 19px; letter-spacing: -.01em; }
+  .row .status { font-family: var(--font-mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .row .status.open { color: var(--text); }
+  .row .status.open::before, .row .status.wait::before, .row .status.closed::before {
+    content: '●'; margin-right: 8px; font-size: 8px; vertical-align: 1px;
+  }
+  .row .status.open::before { color: var(--accent); }
+  .row .status.wait::before { color: #c9a227; }
+  .row .status.closed::before { color: #3a3a3a; }
+  .row:hover .title { color: var(--accent); }
+
+  /* ---- people / archive ------------------------------------------------ */
+  .people { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 48px; }
+  @media (max-width: 900px) { .people { grid-template-columns: repeat(2, 1fr); } }
+  .person .name { font-size: 18px; }
+  .person .role { margin-top: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+
+  .archive { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+  @media (max-width: 768px) { .archive { grid-template-columns: repeat(2, 1fr); } }
+  .frame {
+    aspect-ratio: 16 / 9;
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(135deg, rgba(245,245,242,.035), transparent 55%),
+      repeating-linear-gradient(90deg, rgba(245,245,242,.02) 0 1px, transparent 1px 12px);
+    display: flex; align-items: flex-end; padding: 12px;
+  }
+  .frame span { font-family: var(--font-mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: #555; }
+
+  /* ---- quotes ---------------------------------------------------------- */
+  blockquote { margin: 56px 0 0; max-width: 34ch; }
+  blockquote p { font-size: clamp(20px, 2.4vw, 28px); line-height: 1.35; letter-spacing: -.02em; margin: 0; }
+  blockquote footer { margin-top: 20px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+
+  /* ---- reduced motion -------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    #ambient, #gridlines, #progress { transition: none; }
+    .scroll span.dot { animation: none; opacity: 1; }
+  }
+
+  /* ---- preview panel --------------------------------------------------- */
+  #panel {
+    position: fixed;
+    right: 18px; bottom: 18px;
+    z-index: 80;
+    width: 228px;
+    padding: 14px 14px 12px;
+    border: 1px solid var(--border);
+    background: rgba(8,8,8,.86);
+    backdrop-filter: blur(10px);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #panel h4 { margin: 0 0 10px; font-size: 9px; letter-spacing: .22em; color: var(--text); font-weight: 500; }
+  #panel label { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+  #panel input[type=checkbox] { accent-color: var(--accent); width: 12px; height: 12px; margin: 0; }
+  #panel input[type=range] { width: 100%; accent-color: var(--accent); margin: 8px 0 2px; }
+  #panel .hint { margin-top: 8px; color: #4a4a4a; font-size: 9px; line-height: 1.7; }
+  #panel.collapsed .body { display: none; }
+  #panel .head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  #panel .head button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0 2px; }
+  @media (max-width: 768px) { #panel { display: none; } }
+
+  /* ---- footer ---------------------------------------------------------- */
+  footer.site {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 40px 0 64px;
+  }
+  footer.site .shell { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<canvas id="ambient" aria-hidden="true"></canvas>
+<div id="gridlines" aria-hidden="true"></div>
+<div id="progress" aria-hidden="true"></div>
+
+<div class="edge left" aria-hidden="true">
+  <b>NSDC</b> · 12.894702° N · 77.675574° E · BENGALURU
+</div>
+<div class="edge right" aria-hidden="true">
+  SYSTEM.STATUS · <b>ONLINE</b> · 26—27 · MMXXVI
+</div>
+
+<main>
+
+  <!-- 01 STATEMENT -->
+  <section class="hero" aria-label="Introduction" data-folio="01 / Statement" data-intensity="1">
+    <div class="shell">
+      <div class="hero-meta">
+        <p class="label">12.894702° N, 77.675574° E · EST. 2024</p>
+        <p class="label">AMRITA / BENGALURU</p>
+      </div>
+      <h1>NATIONAL<br />STUDENT<br />DATA CORPS</h1>
+      <div class="telemetry" aria-hidden="true">
+        <div><span>Session</span><b>2026—27</b></div>
+        <div><span>Members</span><b>084</b></div>
+        <div><span>Events</span><b>08</b></div>
+        <div><span>Projects</span><b>12</b></div>
+        <div><span>Stack</span><b>PyTorch / Postgres</b></div>
+        <div><span>Status</span><b class="live">● Online</b></div>
+      </div>
+      <div class="hero-foot">
+        <p class="body" style="margin:0">A student technology community working across data, AI and emerging tech. Build. Learn. Ship.</p>
+        <a class="scroll" href="#about"><span class="dot"></span> Scroll to about</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 ABOUT -->
+  <section id="about" aria-label="What we do" data-folio="02 / About" data-intensity=".55">
+    <span class="index">02 / ABOUT</span>
+    <span class="ghost" aria-hidden="true">02</span>
+    <div class="shell">
+      <p class="label">What we do</p>
+      <h2>We take students from theory to shipped<br />systems, in public.</h2>
+      <p class="body" style="margin-top:28px">Weekly sessions on data engineering, machine learning and LLM tooling. Every semester ends with something real: a model, a dataset, a service, a paper.</p>
+    </div>
+  </section>
+
+  <!-- 03 NUMBERS -->
+  <section aria-label="Numbers" data-folio="03 / Numbers" data-intensity=".4">
+    <span class="index">03 / NUMBERS</span>
+    <span class="ghost" aria-hidden="true">03</span>
+    <div class="shell">
+      <p class="label">The record so far</p>
+      <div class="stats">
+        <div class="stat"><div class="n">2024</div><div class="k">Founded</div></div>
+        <div class="stat"><div class="n">08</div><div class="k">Events</div></div>
+        <div class="stat"><div class="n">12</div><div class="k">Projects</div></div>
+        <div class="stat accent"><div class="n">∞</div><div class="k">Ideas</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- POSTER BAND -->
+  <section class="poster" aria-label="Motto" data-folio="Interlude" data-intensity="1.15">
+    <div class="shell">
+      <div class="lines"><div>Build.</div><div>Learn.</div><div>Ship.</div></div>
+      <p class="note">A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru.</p>
+    </div>
+  </section>
+
+  <!-- 04 ORIGIN -->
+  <section id="origin" aria-label="The origin" data-folio="04 / The Origin" data-intensity=".9">
+    <span class="index">04 / ORIGIN</span>
+    <span class="ghost" aria-hidden="true">04</span>
+    <div class="shell">
+      <p class="label">The origin</p>
+      <h2>It started with six people and one<br />whiteboard.</h2>
+      <p class="body" style="margin-top:28px">No budget, no lab, one borrowed projector. The first session was a notebook walkthrough of gradient descent. The room was full anyway.</p>
+    </div>
+  </section>
+
+  <!-- 05 PROJECTS -->
+  <section aria-label="Projects" data-folio="05 / Projects" data-intensity=".6">
+    <span class="index">05 / PROJECTS</span>
+    <span class="ghost" aria-hidden="true">05</span>
+    <div class="shell">
+      <p class="label">05 / Projects</p>
+      <h2 style="margin-top:24px">Things we shipped.</h2>
+      <div class="rows">
+        <a class="row" href="#">
+          <span class="date">2026 · ML</span>
+          <span class="title">Campus air-quality forecaster</span>
+          <span class="status open">Shipped</span>
+        </a>
+        <a class="row" href="#">
+          <span class="date">2026 · LLM</span>
+          <span class="title">Retrieval assistant for course material</span>
+          <span class="status open">Shipped</span>
+        </a>
+        <a class="row" href="#">
+          <span class="date">2025 · DATA</span>
+          <span class="title">Attendance analytics pipeline</span>
+          <span class="status closed">Archived</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 EVENTS -->
+  <section aria-label="Events" data-folio="06 / Events" data-intensity=".5">
+    <span class="index">06 / EVENTS</span>
+    <span class="ghost" aria-hidden="true">06</span>
+    <div class="shell">
+      <p class="label">06 / Events</p>
+      <h2 style="margin-top:24px">Next on the calendar.</h2>
+      <div class="rows">
+        <a class="row" href="#">
+          <span class="date">NOV 08</span>
+          <span class="title">Fine-tuning small models on one GPU</span>
+          <span class="status open">Open</span>
+        </a>
+        <a class="row" href="#">
+          <span class="date">NOV 19</span>
+          <span class="title">Benchmarking week: evals that mean something</span>
+          <span class="status wait">Waitlist</span>
+        </a>
+        <a class="row" href="#">
+          <span class="date">DEC 02</span>
+          <span class="title">Data engineering night: pipelines from scratch</span>
+          <span class="status open">Open</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 NOW -->
+  <section aria-label="Now" data-folio="07 / Now" data-intensity=".75">
+    <span class="index">07 / NOW</span>
+    <span class="ghost" aria-hidden="true">07</span>
+    <div class="shell">
+      <p class="label">System.status · Online</p>
+      <h2>Currently building.</h2>
+      <p class="body" style="margin-top:24px">Three teams are mid-sprint: an LLM evaluation harness, a campus sensor mesh, and a retrieval stack for the club archive.</p>
+    </div>
+  </section>
+
+  <!-- 08 PEOPLE -->
+  <section aria-label="People" data-folio="08 / People" data-intensity=".45">
+    <span class="index">08 / PEOPLE</span>
+    <span class="ghost" aria-hidden="true">08</span>
+    <div class="shell">
+      <p class="label">08 / People</p>
+      <h2 style="margin-top:24px">The people holding it together.</h2>
+      <div class="people">
+        <div class="person"><div class="name">A. Rao</div><div class="role">Core · ML</div></div>
+        <div class="person"><div class="name">S. Iyer</div><div class="role">Core · Data</div></div>
+        <div class="person"><div class="name">N. Menon</div><div class="role">Core · Ops</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 ARCHIVE -->
+  <section aria-label="Archive" data-folio="09 / Archive" data-intensity=".8">
+    <span class="index">09 / ARCHIVE</span>
+    <span class="ghost" aria-hidden="true">09</span>
+    <div class="shell">
+      <p class="label">09 / Archive</p>
+      <h2 style="margin-top:24px">From the room.</h2>
+      <div class="archive">
+        <div class="frame"><span>IMG_0421</span></div>
+        <div class="frame"><span>IMG_0438</span></div>
+        <div class="frame"><span>IMG_0462</span></div>
+      </div>
+      <p class="label" style="margin-top:20px">Preview frames are placeholders — real photos stay in the existing archive pipeline.</p>
+    </div>
+  </section>
+
+  <!-- 10 VOICES -->
+  <section aria-label="Voices" data-folio="10 / Voices" data-intensity=".65">
+    <span class="index">10 / VOICES</span>
+    <span class="ghost" aria-hidden="true">10</span>
+    <div class="shell">
+      <p class="label">10 / Voices</p>
+      <blockquote>
+        <p>“The first session I attended was an LLM internals talk. By the end of the semester I had a working eval harness.”</p>
+        <footer>Member · 2025 cohort</footer>
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- 11 ACHIEVEMENTS -->
+  <section aria-label="Achievements" data-folio="11 / Achievements" data-intensity=".5">
+    <span class="index">11 / ACHIEVEMENTS</span>
+    <span class="ghost" aria-hidden="true">11</span>
+    <div class="shell">
+      <p class="label">11 / Achievements · System.status · Online</p>
+      <h2>On the record.</h2>
+      <div class="rows">
+        <div class="row"><span class="date">2026</span><span class="title">Two papers accepted at a student research symposium</span><span class="status open">Filed</span></div>
+        <div class="row"><span class="date">2025</span><span class="title">Campus data challenge — first place</span><span class="status open">Filed</span></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="shell">
+    <span>NSDC · Amrita Vishwa Vidyapeetham · Bengaluru · © 2026</span>
+    <span>Built by students.</span>
+  </div>
+</footer>
+
+<aside id="panel" aria-label="Preview controls">
+  <div class="head">
+    <h4>Preview</h4>
+    <button id="collapse" aria-label="Collapse preview controls">—</button>
+  </div>
+  <div class="body">
+    <label><input type="checkbox" id="t-ambient" checked /> Ambient layer</label>
+    <label><input type="checkbox" id="t-grid" checked /> 12-col grid</label>
+    <label><input type="checkbox" id="t-edge" checked /> Margin tickers</label>
+    <label for="t-opacity" style="margin-top:8px;display:block">Intensity</label>
+    <input type="range" id="t-opacity" min="10" max="90" value="70" />
+    <p class="hint">Canvas, not GIF. Freeze test: set OS reduced-motion.</p>
+  </div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+  const canvas = document.getElementById('ambient');
+  const ctx = canvas.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const gridlines = document.getElementById('gridlines');
+  const edge = document.querySelectorAll('.edge');
+  const progress = document.getElementById('progress');
+
+  let w = 0, h = 0, dpr = 1;
+  let nodes = [];
+  let glyphs = [];
+  let scan = 0;
+  let intensity = 1;          // eased current section intensity
+  let targetIntensity = 1;
+  let running = !reduce.matches;
+  let frame = 0;
+
+  const GLYPHS = '01<>{}[]#/\\|=+*·';
+  const COL_W = 92;
+
+  function makeNodes() {
+    const count = Math.round(Math.min(140, Math.max(40, (w * h) / 17000)));
+    nodes = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      r: Math.random() < 0.12 ? 1.7 : 1,
+      accent: Math.random() < 0.07,
+    }));
+  }
+
+  function makeGlyphs() {
+    const cols = Math.ceil(w / COL_W);
+    glyphs = Array.from({ length: cols }, (_, i) => {
+      const chars = Array.from({ length: 2 }, () => GLYPHS[(Math.random() * GLYPHS.length) | 0]);
+      return {
+        x: i * COL_W + 24,
+        y: Math.random() * h,
+        speed: 8 + Math.random() * 16,
+        chars,
+        gap: 26,
+      };
+    });
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    makeNodes();
+    makeGlyphs();
+    draw(0);
+  }
+
+  function draw(dt) {
+    ctx.clearRect(0, 0, w, h);
+
+    // sparse drifting glyph rain — reads as data, not decoration
+    ctx.font = '9px "Geist Mono", ui-monospace, monospace';
+    ctx.fillStyle = 'rgba(245,245,242,1)';
+    for (const g of glyphs) {
+      if (running) g.y = (g.y + g.speed * dt) % (h + 80);
+      for (let k = 0; k < g.chars.length; k++) {
+        const y = g.y + k * g.gap;
+        if (y < 0 || y > h) continue;
+        const a = (1 - Math.abs(y / h - 0.5) * 1.6);
+        if (a <= 0) continue;
+        ctx.globalAlpha = 0.16 * a * intensity;
+        ctx.fillText(g.chars[k], g.x, y);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // constellation
+    const maxD = 170;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      if (running) {
+        a.x += a.vx * dt * 60;
+        a.y += a.vy * dt * 60;
+        if (a.x < -20) a.x = w + 20;
+        if (a.x > w + 20) a.x = -20;
+        if (a.y < -20) a.y = h + 20;
+        if (a.y > h + 20) a.y = -20;
+      }
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.hypot(dx, dy);
+        if (d > maxD) continue;
+        const alpha = (1 - d / maxD) * 0.16 * intensity;
+        ctx.strokeStyle = 'rgba(245,245,242,' + alpha.toFixed(3) + ')';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+    for (const n of nodes) {
+      ctx.fillStyle = n.accent
+        ? 'rgba(255,90,54,' + (0.6 * intensity).toFixed(3) + ')'
+        : 'rgba(245,245,242,' + (0.42 * intensity).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // slow scan band
+    if (running) scan = (scan + dt * 26) % (h + 240);
+    const grad = ctx.createLinearGradient(0, scan - 120, 0, scan + 120);
+    grad.addColorStop(0, 'rgba(255,90,54,0)');
+    grad.addColorStop(0.5, 'rgba(255,90,54,' + (0.035 * intensity).toFixed(3) + ')');
+    grad.addColorStop(1, 'rgba(255,90,54,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, scan - 120, w, 240);
+  }
+
+  let last = 0;
+  function loop(t) {
+    if (!running) return;
+    const dt = Math.min(0.05, (t - last) / 1000 || 0.016);
+    last = t;
+    intensity += (targetIntensity - intensity) * 0.04;
+    draw(dt);
+    frame = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    last = performance.now();
+    frame = requestAnimationFrame(loop);
+  }
+  function stop() {
+    running = false;
+    cancelAnimationFrame(frame);
+    intensity = targetIntensity;
+    draw(0);
+  }
+
+  // per-section intensity: the layer breathes with the editorial rhythm.
+  const sections = Array.from(document.querySelectorAll('section[data-intensity]'));
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const v = parseFloat(e.target.dataset.intensity || '1');
+      targetIntensity = v;
+    }
+  }, { threshold: 0.35 });
+  sections.forEach((s) => io.observe(s));
+
+  // scroll progress hairline
+  addEventListener('scroll', () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    progress.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%';
+  }, { passive: true });
+
+  // controls
+  const tAmbient = document.getElementById('t-ambient');
+  const tGrid = document.getElementById('t-grid');
+  const tEdge = document.getElementById('t-edge');
+  const tOpacity = document.getElementById('t-opacity');
+
+  tAmbient.addEventListener('change', () => {
+    canvas.style.opacity = tAmbient.checked ? (tOpacity.value / 100) : '0';
+  });
+  tGrid.addEventListener('change', () => { gridlines.style.opacity = tGrid.checked ? '.5' : '0'; });
+  tEdge.addEventListener('change', () => {
+    edge.forEach((el) => { el.style.display = tEdge.checked ? '' : 'none'; });
+  });
+  tOpacity.addEventListener('input', () => {
+    canvas.style.opacity = tAmbient.checked ? (tOpacity.value / 100) : '0';
+  });
+
+  document.getElementById('collapse').addEventListener('click', () => {
+    document.getElementById('panel').classList.toggle('collapsed');
+  });
+
+  // motion preference can change while the page is open
+  const onReduce = () => { reduce.matches ? stop() : start(); };
+  if (reduce.addEventListener) reduce.addEventListener('change', onReduce);
+
+  addEventListener('resize', resize);
+  addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelAnimationFrame(frame); }
+    else if (running) { last = performance.now(); frame = requestAnimationFrame(loop); }
+  });
+
+  resize();
+  canvas.style.opacity = (tOpacity.value / 100);
+  if (!reduce.matches) start();
+})();
+</script>
+</body>
+</html>
