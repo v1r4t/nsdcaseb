@@ -1,0 +1,40 @@
+/* ==========================================================================
+   Component-level CSS the Tailwind bridge does not carry.
+   Import after tokens.css. Independent of Tailwind.
+   ========================================================================== */
+
+/* The route wipe: one 1px seal stroke dragged across the header's bottom edge. */
+@keyframes wipe {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  35% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.route-wipe {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--color-seal);
+  transform-origin: left center;
+  animation: wipe 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Only needed when the host runs Lenis. Harmless otherwise. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}

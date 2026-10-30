@@ -1,0 +1,89 @@
+/* ==========================================================================
+   Tailwind v4 bridge. Only needed if the host uses Tailwind 4.
+
+   In the host's main stylesheet, after `@import "tailwindcss"`:
+
+     @source "../path/to/design";
+     @import "./design/tokens.css";
+     @import "./design/tailwind-v4.css";
+     @import "./design/components.css";
+
+   `@source` is only required when `design/` lives outside the directory
+   Tailwind scans. Skip it when the folder sits inside the project.
+
+   Tailwind 3 hosts use tailwind-v3.cjs as a preset instead of this file.
+   ========================================================================== */
+
+@theme {
+  --color-paper: #f2eee3;
+  --color-ink: #111110;
+  --color-faint: #67635a;
+  --color-seal: #b33c1b;
+
+  --color-quiet: #5f5b53;
+  --color-footer-muted: #98968f;
+  --color-footer-accent: #dd7048;
+
+  --font-display: "Bespoke Serif", "Iowan Old Style", Georgia, serif;
+  --font-serif: "Bespoke Serif", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Switzer", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  --ease-ink: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The nine custom utilities the components use, under the names they use. */
+
+@utility mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@utility mono-sm {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+}
+
+@utility serif {
+  font-family: var(--font-serif);
+}
+
+@utility sans {
+  font-family: var(--font-sans);
+}
+
+@utility hairline {
+  border-color: var(--hairline);
+}
+
+@utility rule-top {
+  border-top: 1px solid var(--hairline);
+}
+
+@utility wrap {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+@utility statement {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(2.75rem, 7.2vw, 6.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+}
+
+@utility statement-sm {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}

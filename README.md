@@ -18,7 +18,7 @@ apex intentionally still serves the teaser.
 ## Stack
 
 - Vite 6 + React 19 + TypeScript (strict)
-- Tailwind CSS 3, custom editorial design system (`design/design.md`)
+- Tailwind CSS 3, ink-on-paper design system (`design/README.md`)
 - Three.js globe, GSAP teaser intro, lazy-loaded
 - Cloudflare Workers + D1 (SQLite) + KV
 - Supabase Storage for event posters and gallery photos

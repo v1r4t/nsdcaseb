@@ -2,7 +2,7 @@
  * Skip link + Signal Trail payoff styles.
  *
  * This file owns ONLY the accessibility chrome and egg effects listed here.
- * The design system stays in index.css / tokens.css — do not move rules
+ * The design system stays in index.css / design tokens — do not move rules
  * between them.
  */
 
@@ -13,21 +13,21 @@
   left: 1rem;
   z-index: 100;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--color-ink);
   padding: 0.6rem 1rem;
   font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--bg);
+  color: var(--color-paper);
   text-decoration: none;
-  transition: top var(--dur-micro) var(--ease-out-expo);
+  transition: top 200ms var(--ease-ink);
 }
 
 .nsdc-skip-link:focus-visible {
   top: 1rem;
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  box-shadow: 0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-seal);
 }
 
 /* ---- Signal toast: fixed bottom-right, never intercepts input ----------- */
@@ -37,21 +37,20 @@
   bottom: 1rem;
   z-index: 80;
   pointer-events: none;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--color-seal);
   border-radius: 2px;
-  background: var(--bg);
+  background: var(--color-paper);
   padding: 0.65rem 1rem;
   font-family: var(--font-mono);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--text);
-  box-shadow: 0 0 24px var(--accent-soft);
-  animation: nsdc-toast-in 200ms var(--ease-out-expo);
+  color: var(--color-ink);
+  animation: nsdc-toast-in 200ms var(--ease-ink);
 }
 
 .nsdc-toast-accent {
-  color: var(--accent);
+  color: var(--color-seal);
 }
 
 @keyframes nsdc-toast-in {
@@ -65,7 +64,7 @@
   }
 }
 
-/* ---- Signal sweep: one full-width orange line, top → bottom ------------- */
+/* ---- Signal sweep: one full-width seal line, top → bottom --------------- */
 .nsdc-sweep {
   position: fixed;
   left: 0;
@@ -74,9 +73,8 @@
   z-index: 80;
   height: 1px;
   pointer-events: none;
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
-  animation: nsdc-sweep-y 800ms var(--ease-out-expo) forwards;
+  background: var(--color-seal);
+  animation: nsdc-sweep-y 800ms var(--ease-ink) forwards;
 }
 
 @keyframes nsdc-sweep-y {
@@ -113,8 +111,8 @@
   inset: 0;
   z-index: 80;
   pointer-events: none;
-  background: rgba(8, 8, 8, 0.55);
-  animation: nsdc-konami-in 300ms var(--ease-out-expo);
+  background: rgba(17, 17, 16, 0.55);
+  animation: nsdc-konami-in 300ms var(--ease-ink);
 }
 
 .nsdc-konami-canvas {

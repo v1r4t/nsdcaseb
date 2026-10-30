@@ -1,0 +1,125 @@
+/* ==========================================================================
+   NSDC design system — tokens and type
+   Framework-agnostic. Import once, after your CSS reset.
+
+   Three tones, and nothing else: paper, ink, seal. Every mid-tone in the
+   system is one of these three thinned with color-mix, never a fourth hue.
+   There is one ground; the components never switch it.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Bespoke Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/bespoke-serif-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Bespoke Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/bespoke-serif-italic-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Switzer";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/switzer-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Switzer";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/switzer-medium-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Switzer";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/switzer-semibold-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/geist-mono-latin.woff2") format("woff2");
+}
+
+:root {
+  /* The three tones. */
+  --color-paper: #f2eee3;
+  --color-ink: #111110;
+  --color-faint: #67635a;
+  --color-seal: #b33c1b;
+
+  /* Secondary text, and the footer's ink mass. */
+  --color-quiet: #5f5b53;
+  --color-footer-muted: #98968f;
+  --color-footer-accent: #dd7048;
+
+  /* Type: a high-contrast editorial serif, a neutral grotesque, mono for data. */
+  --font-display: "Bespoke Serif", "Iowan Old Style", Georgia, serif;
+  --font-serif: "Bespoke Serif", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Switzer", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Motion: one easing curve for the whole system. */
+  --ease-ink: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Rules. A 1px rule is always this, never a solid ink line. */
+  --hairline: color-mix(in srgb, var(--color-faint) 35%, transparent);
+  --gutter: 1.5rem;
+
+  color-scheme: light;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 2.5rem;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-seal) 22%, transparent);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

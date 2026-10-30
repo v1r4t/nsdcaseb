@@ -26,8 +26,8 @@ if (!globalThis.__nsdcCallingCard) {
   // eslint-disable-next-line no-console
   console.log(
     '%cNSDC — National Student Data Corps\n%cBUILD · LEARN · SHIP\n\n%cCurious? Type `nsdc` in the command palette (⌘K).',
-    'font-weight: bold; color: #f5f5f2;',
-    'font-weight: bold; color: #ff5a36;',
+    'font-weight: bold; color: #f2eee3;',
+    'font-weight: bold; color: #b33c1b;',
     'color: inherit;',
   );
 }
