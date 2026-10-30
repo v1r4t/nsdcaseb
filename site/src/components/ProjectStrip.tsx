@@ -10,16 +10,14 @@ function pad(n: number): string {
 
 function CompactRow({ project, index }: { project: Project; index: number }) {
   return (
-    <li className="flex items-baseline gap-4 border-t border-line py-4">
-      <span aria-hidden="true" className="shrink-0 font-mono text-[11px] text-muted">
+    <li className="flex items-baseline gap-4 border-b hairline py-4">
+      <span aria-hidden="true" className="mono shrink-0 text-faint">
         {pad(index + 1)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-base font-medium text-paper">{project.title}</p>
+        <p className="truncate font-display text-lg leading-tight text-ink">{project.title}</p>
         {project.stack.length > 0 && (
-          <p className="mt-1 truncate font-mono text-[11px] uppercase tracking-wide text-muted">
-            {project.stack.join(' · ')}
-          </p>
+          <p className="mono mt-1 truncate text-quiet">{project.stack.join(' · ')}</p>
         )}
       </div>
       {project.url && (
@@ -28,7 +26,7 @@ function CompactRow({ project, index }: { project: Project; index: number }) {
           target="_blank"
           rel="noopener"
           aria-label={`Visit ${project.title} (opens in a new tab)`}
-          className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:text-signal"
+          className="mono shrink-0 text-quiet transition-colors duration-200 hover:text-seal"
         >
           Visit →
         </a>
@@ -63,13 +61,13 @@ export default function ProjectStrip() {
 
   if (projects.length === 0) {
     return (
-      <Reveal className="md:ml-[25%] md:max-w-[50%]">
-        <div className="border-t border-line pt-6">
-          <p className="font-mono text-xs text-signal">NEXT</p>
-          <p className="mt-3 font-display text-xl font-bold tracking-tight text-paper sm:text-2xl">
+      <Reveal className="md:ml-[33.333%] md:max-w-[50%]">
+        <div className="border-t hairline pt-6">
+          <p className="mono text-seal">Next</p>
+          <p className="mt-3 font-display text-2xl leading-tight tracking-tight text-ink sm:text-3xl">
             Projects coming soon.
           </p>
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-paper/70">
+          <p className="mt-3 max-w-xl text-base leading-relaxed text-quiet">
             The project index opens here — work from project nights and small teams, listed as
             it ships.
           </p>
@@ -80,22 +78,20 @@ export default function ProjectStrip() {
 
   return (
     <Reveal>
-      <div className="border-t border-line pt-6">
-        <div className="flex items-baseline justify-between">
-          <p className="label">Projects</p>
+      <div className="border-t hairline pt-6">
+        <div className="flex items-baseline justify-between gap-6">
+          <p className="mono text-quiet">Projects</p>
           <Link
             to="/projects"
-            className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:text-signal"
+            className="mono text-quiet transition-colors duration-200 hover:text-ink"
           >
             All projects →
           </Link>
         </div>
-        <ul className="mt-2">
+        <ul className="mt-3">
           {projects.slice(0, 3).map((project, i) => (
             <CompactRow key={project.id} project={project} index={i} />
           ))}
-          {/* Closing hairline for the last row */}
-          <li aria-hidden="true" className="border-t border-line" />
         </ul>
       </div>
     </Reveal>

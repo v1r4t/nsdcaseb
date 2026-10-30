@@ -43,14 +43,14 @@ async function fetchAllApplications(): Promise<RecruitmentApplication[]> {
 }
 
 function statusTone(status: RecruitmentStatus): string {
-  if (status === 'selected') return 'text-signal';
-  if (status === 'rejected') return 'text-muted';
-  return 'text-paper/80';
+  if (status === 'selected') return 'text-seal';
+  if (status === 'rejected') return 'text-quiet';
+  return 'text-ink/80';
 }
 
 function StatusBadge({ status }: { status: RecruitmentStatus }) {
   return (
-    <span className={`font-mono text-[11px] uppercase tracking-wide ${statusTone(status)}`}>
+    <span className={`mono ${statusTone(status)}`}>
       {status}
     </span>
   );
@@ -65,19 +65,19 @@ function Answers({ app }: { app: RecruitmentApplication }) {
   ];
   return (
     <details className="mt-2">
-      <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-wide text-signal">
+      <summary className="cursor-pointer mono text-seal">
         Answers
       </summary>
-      <dl className="mt-2 space-y-2 text-sm text-paper/80">
+      <dl className="mt-2 space-y-2 text-sm text-ink/80">
         {fields.map(([label, value]) => (
           <div key={label}>
-            <dt className="label">{label}</dt>
+            <dt className="mono text-quiet">{label}</dt>
             <dd className="break-words whitespace-pre-wrap">{value?.trim() ? value : '—'}</dd>
           </div>
         ))}
       </dl>
       {app.decided_at ? (
-        <p className="mt-2 font-mono text-xs text-muted">Decided {fmtDateTime(app.decided_at)}</p>
+        <p className="mt-2 font-mono text-xs text-quiet">Decided {fmtDateTime(app.decided_at)}</p>
       ) : null}
     </details>
   );
@@ -92,7 +92,7 @@ function DecisionButtons({
   busy: boolean;
   onDecide: (app: RecruitmentApplication, status: Exclude<RecruitmentStatus, 'pending'>) => void;
 }) {
-  if (app.status !== 'pending') return <span className="font-mono text-xs text-muted">—</span>;
+  if (app.status !== 'pending') return <span className="font-mono text-xs text-quiet">—</span>;
   return (
     <div className="flex flex-wrap gap-2">
       <button
@@ -105,7 +105,7 @@ function DecisionButtons({
       </button>
       <button
         type="button"
-        className="btn-ghost"
+        className="btn-ghost text-seal"
         disabled={busy}
         onClick={() => onDecide(app, 'rejected')}
       >
@@ -253,16 +253,16 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
   return (
     <section aria-label="Recruitment">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="label">Recruitment</h2>
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Recruitment</h2>
         <a className="btn-ghost shrink-0" href={csvHref}>
           Download CSV
         </a>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-        <p role="status" aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t hairline pt-4">
+        <p role="status" aria-live="polite" className="mono text-quiet">
           Recruitment{' '}
-          <span className={recruitmentOpen ? 'text-signal' : recruitmentOpen === false ? 'text-paper/80' : 'text-muted'}>
+          <span className={recruitmentOpen ? 'text-seal' : recruitmentOpen === false ? 'text-ink/80' : 'text-quiet'}>
             {recruitmentOpen === null ? 'checking…' : recruitmentOpen ? 'open' : 'closed'}
           </span>
         </p>
@@ -291,7 +291,7 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
       </div>
 
       {error && (
-        <div className="mt-5 border-t border-line pt-4">
+        <div className="mt-5 border-t hairline pt-4">
           <p role="alert" aria-live="assertive" className="error-text text-sm">
             {error}
           </p>
@@ -302,13 +302,13 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
       )}
 
       {apps === null && !error && (
-        <p aria-live="polite" className="mt-5 font-mono text-xs uppercase tracking-wide text-muted">
+        <p aria-live="polite" className="mt-5 mono text-quiet">
           Loading applications…
         </p>
       )}
 
       {apps !== null && visible.length === 0 && (
-        <p className="mt-5 text-sm text-muted">
+        <p className="mt-5 text-sm text-quiet">
           {filter === 'all'
             ? 'No applications yet.'
             : `No ${filter} applications.`}
@@ -319,29 +319,29 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
       {visible.length > 0 && (
         <ul className="mt-5 space-y-3 sm:hidden">
           {visible.map((app) => (
-            <li key={app.id} className="border border-line p-3">
+            <li key={app.id} className="border hairline p-3">
               <div className="flex items-start justify-between gap-3">
-                <p className="break-words text-sm text-paper/90">{app.name}</p>
+                <p className="break-words text-sm text-ink/90">{app.name}</p>
                 <StatusBadge status={app.status} />
               </div>
-              <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">
+              <p className="mt-1 mono text-quiet">
                 {[app.year, app.branch].filter(Boolean).join(' · ')}
               </p>
-              <dl className="mt-2 space-y-1 text-sm text-paper/80">
+              <dl className="mt-2 space-y-1 text-sm text-ink/80">
                 <div>
-                  <dt className="label">Email</dt>
+                  <dt className="mono text-quiet">Email</dt>
                   <dd className="break-all">{app.email}</dd>
                 </div>
                 <div>
-                  <dt className="label">Register ID</dt>
+                  <dt className="mono text-quiet">Register ID</dt>
                   <dd className="break-words">{app.reg_number || '—'}</dd>
                 </div>
                 <div>
-                  <dt className="label">Phone</dt>
+                  <dt className="mono text-quiet">Phone</dt>
                   <dd className="break-words">{app.phone || '—'}</dd>
                 </div>
               </dl>
-              <p className="mt-2 font-mono text-xs text-muted">Applied {fmtDateTime(app.created_at)}</p>
+              <p className="mt-2 font-mono text-xs text-quiet">Applied {fmtDateTime(app.created_at)}</p>
               <Answers app={app} />
               <div className="mt-3">
                 <DecisionButtons
@@ -357,18 +357,18 @@ export default function AdminRecruitment({ busy, setBusy, notify }: PanelProps) 
 
       {visible.length > 0 && (
         <div className="mt-5 hidden overflow-x-auto sm:block">
-          <table className="w-full min-w-[44rem] text-left text-sm text-paper/80">
-            <thead className="sticky top-0 border-b border-line bg-[inherit]">
+          <table className="w-full min-w-[44rem] text-left text-sm text-ink/80">
+            <thead className="sticky top-0 border-b hairline bg-paper">
               <tr>
-                <th scope="col" className="label py-2 pr-6 text-left">Applicant</th>
-                <th scope="col" className="label py-2 pr-6 text-left">Year · branch</th>
-                <th scope="col" className="label py-2 pr-6 text-left">Register ID · phone</th>
-                <th scope="col" className="label py-2 pr-6 text-left">Applied</th>
-                <th scope="col" className="label py-2 pr-6 text-left">Status</th>
-                <th scope="col" className="label py-2 text-left">Decision</th>
+                <th scope="col" className="mono py-2 pr-6 text-left text-quiet">Applicant</th>
+                <th scope="col" className="mono py-2 pr-6 text-left text-quiet">Year · branch</th>
+                <th scope="col" className="mono py-2 pr-6 text-left text-quiet">Register ID · phone</th>
+                <th scope="col" className="mono py-2 pr-6 text-left text-quiet">Applied</th>
+                <th scope="col" className="mono py-2 pr-6 text-left text-quiet">Status</th>
+                <th scope="col" className="mono py-2 text-left text-quiet">Decision</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody className="divide-y divide-[color:var(--hairline)]">
               {visible.map((app) => (
                 <FragmentRow
                   key={app.id}
@@ -398,15 +398,15 @@ function FragmentRow({
     <>
       <tr>
         <td className="py-3 pr-6">
-          <span className="block break-words text-paper/90">{app.name}</span>
-          <span className="block break-all font-mono text-xs text-muted">{app.email}</span>
+          <span className="block break-words text-ink/90">{app.name}</span>
+          <span className="block break-all font-mono text-xs text-quiet">{app.email}</span>
         </td>
         <td className="py-3 pr-6">{[app.year, app.branch].filter(Boolean).join(' · ') || '—'}</td>
         <td className="py-3 pr-6">
           <span className="block break-words">{app.reg_number || '—'}</span>
-          <span className="block font-mono text-xs text-muted">{app.phone || '—'}</span>
+          <span className="block font-mono text-xs text-quiet">{app.phone || '—'}</span>
         </td>
-        <td className="whitespace-nowrap py-3 pr-6 font-mono text-xs text-muted">
+        <td className="whitespace-nowrap py-3 pr-6 font-mono text-xs text-quiet">
           {fmtDateTime(app.created_at)}
         </td>
         <td className="py-3 pr-6">

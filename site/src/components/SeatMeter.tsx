@@ -17,16 +17,23 @@ export default function SeatMeter({ spotsLeft, capacity }: { spotsLeft: number; 
   }, [pct]);
 
   return (
-    <div aria-label={`${taken} of ${capacity} seats taken`}>
-      <div className="h-px w-full bg-line" role="presentation">
+    <div
+      role="meter"
+      aria-valuemin={0}
+      aria-valuemax={capacity}
+      aria-valuenow={taken}
+      aria-label={`${taken} of ${capacity} seats taken`}
+    >
+      {/* Drawn rule, not a progress bar with a fill colour per state. */}
+      <div className="relative h-[7px] w-full overflow-hidden border hairline" role="presentation">
         <div
-          className="h-px bg-signal transition-[width] duration-700 ease-out"
+          className="absolute inset-y-0 left-0 bg-seal transition-[width] duration-700 ease-ink"
           style={{ width: `${width}%` }}
         />
       </div>
-      <div className="mt-3 flex items-baseline justify-between font-mono text-[11px] uppercase tracking-wide">
-        <span className="text-muted">{taken} / {capacity} SEATS</span>
-        <span className="text-paper/80">{pct}%</span>
+      <div className="mono mt-2 flex items-baseline justify-between gap-4 text-faint">
+        <span>{taken} / {capacity} seats</span>
+        <span className="text-ink">{pct}%</span>
       </div>
     </div>
   );

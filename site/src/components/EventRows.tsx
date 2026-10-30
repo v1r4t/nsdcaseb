@@ -1,21 +1,57 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { EventSummary } from '../lib/events';
 import Reveal from './Reveal';
+import { Row } from '../../../design/primitives/Row';
 
 /** `2025-08-14` stays as-is; a longer timestamp is trimmed to its date part. */
 function readableDate(value: string): string {
   return value.length > 10 ? value.slice(0, 10) : value;
 }
 
-function statusOf(event: EventSummary): { glyph: string; text: string } {
-  if (!event.registration_open) return { glyph: '○', text: 'CLOSED' };
+function statusOf(event: EventSummary): string {
+  if (!event.registration_open) return 'CLOSED';
   if (event.spots_left !== null) {
-    if (event.spots_left <= 0) return { glyph: '●', text: 'WAITLIST' };
+    if (event.spots_left <= 0) return 'WAITLIST';
     if (event.capacity !== null && event.spots_left <= event.capacity * 0.15) {
-      return { glyph: '●', text: 'FILLING FAST' };
+      return 'FILLING FAST';
     }
   }
-  return { glyph: '●', text: 'OPEN' };
+  return 'OPEN';
+}
+
+/** Router link adapter for the kit Row; keeps the row's cursor cue. */
+function EventLink({
+  href,
+  className,
+  children,
+  'data-testid': testId,
+}: {
+  href: string;
+  className?: string;
+  children?: ReactNode;
+  'data-testid'?: string;
+}) {
+  return (
+    <Link to={href} className={className} data-testid={testId} data-cursor="VIEW EVENT →">
+      {children}
+    </Link>
+  );
+}
+
+/** Small seal/ink square + the word. The word is the status; the mark is not. */
+function StatusMark({ status }: { status: string }) {
+  const closed = status === 'CLOSED';
+  const tone = closed ? 'text-quiet' : status === 'FILLING FAST' ? 'text-seal' : 'text-ink';
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${tone}`}>
+      <span
+        aria-hidden="true"
+        className={`inline-block h-1.5 w-1.5 ${closed ? 'border border-current' : 'bg-current'}`}
+      />
+      {status}
+    </span>
+  );
 }
 
 interface EventRowsProps {
@@ -24,55 +60,40 @@ interface EventRowsProps {
 }
 
 /**
- * EVENTS — the next 3 events as hairline rows: date (mono) · title ·
- * status. Hover turns the row signal orange with a `VIEW EVENT →` cue.
- * No cards. Links to /registrations in the section footer.
+ * EVENTS — the next 3 events as hairline rows: date (mono) · title (serif) ·
+ * status. The kit Row draws the hover box and the arrow; no cards.
+ * Links to /registrations in the section footer.
  */
 export default function EventRows({ events }: EventRowsProps) {
   if (!events || events.length === 0) {
-    return <p className="text-sm text-muted">No events listed right now — check back soon.</p>;
+    return <p className="text-sm text-quiet">No events listed right now — check back soon.</p>;
   }
   return (
     <div>
       <ul>
         {events.slice(0, 3).map((event, i) => {
           const status = statusOf(event);
-          const live = status.text !== 'CLOSED';
           return (
-            <li key={event.id} className="border-t border-line last:border-b">
+            <li key={event.id}>
               <Reveal delay={Math.min(i, 3) * 60}>
-                <Link
-                  to={`/registrations/${encodeURIComponent(event.id)}`}
-                  data-cursor="VIEW EVENT →"
-                  className="group grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1.5 py-5 transition-colors duration-200 hover:text-signal sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-1"
-                >
-                  {/* Phones: date + status share the top line, title gets the full width. */}
-                  <time
-                    dateTime={event.starts_at}
-                    className="col-start-1 row-start-1 font-mono text-xs text-muted group-hover:text-signal/80 sm:w-24 sm:shrink-0"
-                  >
-                    {readableDate(event.starts_at)}
-                  </time>
-                  <span className="col-span-2 row-start-2 min-w-0 font-display text-lg font-bold tracking-tight text-paper group-hover:text-signal sm:flex-1 sm:truncate">
-                    {event.title}
-                  </span>
-                  <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-3 font-mono text-xs">
-                    <span className={live ? 'text-signal' : 'text-muted'}>
-                      {status.glyph} {status.text}
-                    </span>
-                    {/* Hover cue is desktop-only; on touch it would only steal title width. */}
-                    <span aria-hidden="true" className="hidden text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:inline">
-                      VIEW EVENT →
-                    </span>
-                  </span>
-                </Link>
+                <Row
+                  index={readableDate(event.starts_at)}
+                  title={event.title}
+                  meta={<StatusMark status={status} />}
+                  href={`/registrations/${encodeURIComponent(event.id)}`}
+                  linkComponent={EventLink}
+                  className="max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:gap-3 max-sm:[&>span:last-child]:hidden"
+                />
               </Reveal>
             </li>
           );
         })}
       </ul>
       <p className="mt-6">
-        <Link to="/registrations" className="font-mono text-xs uppercase tracking-wide text-muted transition-colors hover:text-signal">
+        <Link
+          to="/registrations"
+          className="mono text-quiet transition-colors duration-200 hover:text-seal"
+        >
           All registrations →
         </Link>
       </p>

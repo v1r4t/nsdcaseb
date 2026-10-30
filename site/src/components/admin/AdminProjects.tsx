@@ -259,27 +259,27 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
   return (
     <section aria-label="Projects" className="space-y-8">
       <div>
-        <h2 className="label">Projects</h2>
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Projects</h2>
         <ul className="mt-5">
           {sorted.map((p) => (
-            <li key={p.id} className="border-t border-line py-4 last:border-b">
+            <li key={p.id} className="border-t hairline py-4 last:border-b">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm text-paper/80">
-                    <span aria-hidden="true" className={p.featured ? 'text-signal' : 'text-muted'}>
+                  <p className="text-sm text-ink/80">
+                    <span aria-hidden="true" className={p.featured ? 'text-seal' : 'text-quiet'}>
                       {p.featured ? '★' : '☆'}{' '}
                     </span>
                     {p.title}
-                    <span className="ml-3 font-mono text-[11px] uppercase tracking-wide text-muted">
+                    <span className="ml-3 mono text-quiet">
                       {p.status}
                     </span>
                     {p.author !== '' && (
-                      <span className="ml-3 font-mono text-[11px] uppercase tracking-wide text-muted">
+                      <span className="ml-3 mono text-quiet">
                         by {p.author}
                       </span>
                     )}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-muted">
+                  <p className="mt-1 font-mono text-xs text-quiet">
                     sort {p.sort_order} · stack {p.stack.join(', ') || '—'} ·{' '}
                     {p.event_id ? `event ${eventTitles.get(p.event_id) ?? p.event_id.slice(0, 8)}` : 'no event'}
                   </p>
@@ -299,7 +299,7 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
                   <button type="button" className="btn-ghost" disabled={busy} onClick={() => startEdit(p)}>
                     Edit
                   </button>
-                  <button type="button" className="btn-ghost" disabled={busy} onClick={() => remove(p)}>
+                  <button type="button" className="btn-ghost text-seal" disabled={busy} onClick={() => remove(p)}>
                     Delete
                   </button>
                 </div>
@@ -307,11 +307,11 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
             </li>
           ))}
         </ul>
-        {sorted.length === 0 && <p className="mt-5 text-sm text-muted">No projects yet.</p>}
+        {sorted.length === 0 && <p className="mt-5 text-sm text-quiet">No projects yet.</p>}
       </div>
 
-      <div className="border-t border-line pt-6">
-        <h3 className="label">{editingId ? 'Edit project' : 'Create project'}</h3>
+      <div className="border-t hairline pt-6">
+        <h3 className="font-display text-lg font-normal tracking-tight text-ink">{editingId ? 'Edit project' : 'Create project'}</h3>
         <form className="mt-5 space-y-3" onSubmit={editingId ? submitEdit : submitCreate}>
           <input
             aria-label="Title"
@@ -379,7 +379,7 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
           <p className="hint">Cover is a URL string only — paste an image URL. No upload flow here (posters live in Supabase via events).</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="label">Linked event</span>
+              <span className="mono text-quiet">Linked event</span>
               <select
                 aria-label="Linked event"
                 value={form.event_id}
@@ -395,7 +395,7 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
               </select>
             </label>
             <label className="space-y-1">
-              <span className="label">Status</span>
+              <span className="mono text-quiet">Status</span>
               <select
                 aria-label="Status"
                 value={form.status}
@@ -419,12 +419,12 @@ export default function AdminProjects({ busy, setBusy, notify }: PanelProps) {
             className="field"
           />
           <p className="hint">Whole number. Featured projects list first regardless of sort order.</p>
-          <label className="flex items-center gap-2 text-sm text-paper/80">
+          <label className="flex items-center gap-2 text-sm text-ink/80">
             <input
               type="checkbox"
               checked={form.featured}
               onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-              className="h-4 w-4 shrink-0 accent-signal"
+              className="h-4 w-4 shrink-0 accent-seal"
             />
             Featured (standout project)
           </label>

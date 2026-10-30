@@ -1,7 +1,8 @@
 /**
- * Signal sweep (Egg 3 payoff) — a thin orange line crossing the viewport once.
+ * Signal sweep (Egg 3 payoff) — a thin seal line crossing the viewport once.
  * `aria-hidden`, `pointer-events-none`. Never rendered under
  * `prefers-reduced-motion` (callers skip it; CSS hides it as a backstop).
+ * `.nsdc-sweep` in a11y-eggs.css paints `--color-seal` over the paper ground.
  */
 
 import { useEffect } from 'react';

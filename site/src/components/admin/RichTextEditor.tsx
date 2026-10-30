@@ -82,7 +82,9 @@ export default function RichTextEditor({
     content: '',
     editorProps: {
       attributes: {
-        class: 'rte-content',
+        // Paper ground + hairline from `.rte-content`; seal focus border keeps
+        // the editable region legible and consistent with `.field`.
+        class: 'rte-content bg-paper focus:border-seal',
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': label,
@@ -214,7 +216,7 @@ export default function RichTextEditor({
         ) : (
           // Preview is read-only: hiding the toolbar prevents edits landing in
           // the hidden editor while the admin thinks they are reviewing.
-          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Preview</p>
+          <p className="mono text-quiet">Preview</p>
         )}
         <div className="flex gap-1" role="group" aria-label="Editor mode">
           <button
@@ -241,7 +243,7 @@ export default function RichTextEditor({
           {isEmpty && (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-2.5 text-sm text-muted"
+              className="pointer-events-none absolute left-3 top-2.5 text-sm text-quiet"
             >
               {placeholder}
             </span>
@@ -249,9 +251,9 @@ export default function RichTextEditor({
           <EditorContent editor={editor} />
         </div>
       ) : (
-        <div className="rte-content">
+        <div className="rte-content bg-paper">
           {isEmpty ? (
-            <p className="text-muted">{placeholder}</p>
+            <p className="text-quiet">{placeholder}</p>
           ) : (
             // TipTap's schema is the filter here: pasted scripts/iframes never
             // enter the document, and the worker sanitises this HTML again.

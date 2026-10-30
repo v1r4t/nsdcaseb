@@ -46,15 +46,15 @@ interface AnnouncementBannerProps {
    * fetching.
    */
   announcement?: Announcement | null;
-  /** Extra classes on the strip, e.g. to re-skin it inside a shell. */
+  /** Extra classes on the strip, e.g. to re-skin it inside a page wrapper. */
   className?: string;
 }
 
 /**
- * ANNOUNCEMENT — a slim site-wide strip under the header. Renders nothing at
- * all when there is no announcement, so the normal state costs zero pixels.
- * The accent is reserved for the leading marker; the strip itself is ink,
- * hairline-ruled and mono.
+ * ANNOUNCEMENT — a slim paper strip under the header, hairline-ruled. Renders
+ * nothing at all when there is no announcement, so the normal state costs zero
+ * pixels. The seal is reserved for the leading marker; copy and controls stay
+ * quiet ink and turn ink on hover.
  */
 export default function AnnouncementBanner({ announcement, className }: AnnouncementBannerProps) {
   const [fetched, setFetched] = useState<Announcement | null>(announcement ?? null);
@@ -84,9 +84,7 @@ export default function AnnouncementBanner({ announcement, className }: Announce
 
   const { text, href } = fetched;
   const marker = (
-    <span aria-hidden="true" className="shrink-0 text-signal">
-      →
-    </span>
+    <span aria-hidden="true" className="h-[5px] w-[5px] shrink-0 bg-seal" />
   );
 
   const body = (
@@ -99,18 +97,18 @@ export default function AnnouncementBanner({ announcement, className }: Announce
   return (
     <aside
       aria-label="Site announcement"
-      className={`border-b border-line bg-ink ${className ?? ''}`.trim()}
+      className={`border-b hairline bg-paper ${className ?? ''}`.trim()}
     >
-      <div className="shell flex items-center gap-3 py-2">
+      <div className="wrap flex items-center gap-3 py-2">
         {href ? (
           <a
             href={href}
-            className="flex min-w-0 flex-1 items-center gap-3 font-mono text-[11px] uppercase tracking-wide text-muted transition-colors duration-200 hover:text-paper"
+            className="mono flex min-w-0 flex-1 items-center gap-3 text-quiet transition-colors duration-200 hover:text-ink"
           >
             {body}
           </a>
         ) : (
-          <p className="flex min-w-0 flex-1 items-center gap-3 font-mono text-[11px] uppercase tracking-wide text-muted">
+          <p className="mono flex min-w-0 flex-1 items-center gap-3 text-quiet">
             {body}
           </p>
         )}
@@ -121,7 +119,7 @@ export default function AnnouncementBanner({ announcement, className }: Announce
             rememberDismissal(text);
           }}
           aria-label={`Dismiss announcement: ${text}`}
-          className="shrink-0 px-1 font-mono text-xs leading-none text-muted transition-colors duration-200 hover:text-paper"
+          className="shrink-0 px-1 font-mono text-sm leading-none text-quiet transition-colors duration-200 hover:text-ink"
         >
           <span aria-hidden="true">×</span>
         </button>

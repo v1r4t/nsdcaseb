@@ -92,16 +92,26 @@ export default function Register() {
   }
 
   return (
-    <div className="shell py-12 md:py-16">
-      <div className="rule max-w-md pt-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Create your account</h1>
-        <p className="mt-2 text-sm text-muted">
+    <section className="wrap py-14 md:py-20">
+      <div className="max-w-xl">
+        {/* Dossier line: the page states its purpose before it asks for anything. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+          <p className="mono text-quiet">02 / Register</p>
+          <p className="mono text-quiet">NSDC · Members</p>
+        </div>
+
+        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          Create your account
+        </h1>
+        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
           Members use this to register for events and access club media.
         </p>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit} aria-busy={pending} noValidate>
+        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+
+        <form className="mt-8 max-w-md space-y-6" onSubmit={handleSubmit} aria-busy={pending} noValidate>
           <div>
-            <label htmlFor="register-name" className="label">
+            <label htmlFor="register-name" className="mono mb-2 block text-ink/80">
               Name
             </label>
             <input
@@ -127,7 +137,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-mobile" className="label">
+            <label htmlFor="register-mobile" className="mono mb-2 block text-ink/80">
               Mobile number
             </label>
             <input
@@ -153,7 +163,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-email" className="label">
+            <label htmlFor="register-email" className="mono mb-2 block text-ink/80">
               Email
             </label>
             <input
@@ -179,7 +189,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-password" className="label">
+            <label htmlFor="register-password" className="mono mb-2 block text-ink/80">
               Password
             </label>
             <PasswordField
@@ -205,7 +215,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-confirm" className="label">
+            <label htmlFor="register-confirm" className="mono mb-2 block text-ink/80">
               Confirm password
             </label>
             <PasswordField
@@ -228,7 +238,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-ob-code" className="label">
+            <label htmlFor="register-ob-code" className="mono mb-2 block text-ink/80">
               Office bearer code (if you have one)
             </label>
             <PasswordField
@@ -255,7 +265,7 @@ export default function Register() {
             {pending ? 'Creating account...' : 'Create account'}
           </button>
 
-          <p className="pt-2 text-sm text-muted">
+          <p className="pt-2 text-sm text-quiet">
             Already a member?{' '}
             <Link to="/login" className="link">
               Sign in
@@ -263,6 +273,6 @@ export default function Register() {
           </p>
         </form>
       </div>
-    </div>
+    </section>
   );
 }

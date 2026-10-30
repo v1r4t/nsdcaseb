@@ -102,6 +102,15 @@ type LookupResult =
   | { kind: 'missing' }
   | { kind: 'error'; message: string };
 
+/** A mono folio numeral: decoration only, so the heading keeps its own name. */
+function Folio({ children }: { children: string }) {
+  return (
+    <span aria-hidden="true" className="mono shrink-0 text-quiet">
+      {children}
+    </span>
+  );
+}
+
 export default function Recruit() {
   useDocumentMeta({
     title: 'Join the corps — NSDC Recruitment',
@@ -226,6 +235,13 @@ export default function Recruit() {
         ? 'Recruitment is currently closed.'
         : 'Checking recruitment status…';
 
+  const statusMark =
+    recruitmentOpen === true
+      ? 'bg-seal'
+      : recruitmentOpen === false
+        ? 'bg-faint'
+        : 'border border-faint';
+
   return (
     // Reserve a full viewport of page height so the footer starts below the
     // fold while `loadSiteState()` is in flight. Without it the footer sits at
@@ -233,21 +249,28 @@ export default function Recruit() {
     // and is pushed down when the form mounts (mobile /recruit CLS 0, desktop
     // 0.36 — the footer shift). No visible content is added; the space is
     // simply the page's minimum height.
-    <div className="shell min-h-[100svh] py-12 md:py-16">
-      <div className="max-w-xl">
-        <header className="rule pt-8">
-          <p className="label">Recruitment</p>
-          <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight text-paper sm:text-4xl">
+    <div className="wrap min-h-[100svh] py-12 md:py-16">
+      <div className="max-w-xl md:max-w-2xl">
+        <header>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+            <p className="mono text-quiet">Recruitment</p>
+            <p className="mono text-quiet">NSDC · Apply</p>
+          </div>
+          <h1 className="mt-8 font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
             Join the corps.
           </h1>
-          <p role="status" className="mt-3 font-mono text-xs uppercase tracking-wide text-muted">
-            {statusLine}
+          <p role="status" className="mono mt-5 flex items-start gap-2 text-quiet">
+            <span
+              aria-hidden="true"
+              className={`mt-[0.5em] inline-block h-1.5 w-1.5 shrink-0 ${statusMark}`}
+            />
+            <span>{statusLine}</span>
           </p>
         </header>
 
         {siteLoaded && recruitmentOpen === null && (
-          <section aria-label="Recruitment status" className="mt-8 border border-line p-5">
-            <p className="text-sm leading-relaxed text-paper/70">
+          <section aria-label="Recruitment status" className="mt-10 border-t hairline pt-5">
+            <p className="text-[15px] leading-relaxed text-quiet">
               We could not confirm recruitment status right now. Refresh the page in a moment, or
               check an existing application below.
             </p>
@@ -255,11 +278,11 @@ export default function Recruit() {
         )}
 
         {recruitmentOpen === false && (
-          <section aria-label="Recruitment closed" className="mt-8 border border-line p-5">
-            <h2 className="font-display text-xl font-semibold tracking-tight text-paper">
+          <section aria-label="Recruitment closed" className="mt-10 border-t hairline pt-5">
+            <h2 className="font-display text-2xl tracking-tight text-ink">
               Applications are closed.
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-paper/70">
+            <p className="mt-3 text-[15px] leading-relaxed text-quiet">
               Recruitment for this cycle is closed, so there is no form to submit. The next opening
               will be announced on this page. If you already applied, you can check its status
               below.
@@ -268,244 +291,259 @@ export default function Recruit() {
         )}
 
         {recruitmentOpen === true && receipt && (
-          <section aria-labelledby="recruit-success-title" className="mt-8 border border-line p-5">
+          <section
+            aria-labelledby="recruit-success-title"
+            className="mt-10 border-t-2 border-seal pt-6"
+          >
             <h2
               id="recruit-success-title"
               ref={successRef}
               tabIndex={-1}
-              className="font-display text-xl font-semibold tracking-tight text-paper"
+              className="font-display text-2xl tracking-tight text-ink"
             >
               Application received
             </h2>
-            <p className="mt-3 text-sm leading-relaxed text-paper/70">
+            <p className="mt-3 text-[15px] leading-relaxed text-quiet">
               Your reference ID is{' '}
-              <span className="font-mono text-paper">{receipt.id}</span>. Keep it — you can use the
+              <span className="mono-sm text-ink">{receipt.id}</span>. Keep it — you can use the
               status check below at any time.
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-paper/70">
+            <p className="mt-3 text-[15px] leading-relaxed text-quiet">
               Every application is reviewed, and you will be notified whether you are selected or
               not.
             </p>
-            <p className="mt-5 font-mono text-[11px] uppercase tracking-wide text-muted">
+            <p className="mono mt-5 text-quiet">
               Status: {applicationStatusCopy(receipt.status).label}
             </p>
           </section>
         )}
 
         {recruitmentOpen === true && !receipt && (
-          <form className="mt-8 space-y-5" onSubmit={handleSubmit} aria-busy={pending} noValidate>
-            <fieldset className="space-y-5" disabled={pending}>
-              <legend className="label">Application form</legend>
+          <form
+            className="mt-10 border-t hairline pt-6"
+            onSubmit={handleSubmit}
+            aria-busy={pending}
+            noValidate
+          >
+            <h2 className="flex items-baseline gap-4 font-display text-2xl tracking-tight text-ink">
+              <Folio>01</Folio>
+              Application form
+            </h2>
 
-              <div>
-                <label htmlFor="recruit-name" className="label">
-                  Full name
-                </label>
-                <input
-                  id="recruit-name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={form.name}
-                  onChange={(event) => update('name', event.target.value)}
-                  aria-invalid={errors.name ? true : undefined}
-                  aria-describedby={errors.name ? 'recruit-name-error' : undefined}
-                  className={`field ${errors.name ? 'field-invalid' : ''}`}
-                  placeholder="Your full name"
-                />
-                <FieldError id="recruit-name-error" message={errors.name} />
-              </div>
+            <fieldset className="mt-6" disabled={pending}>
+              <legend className="sr-only">Application form</legend>
 
-              <div>
-                <label htmlFor="recruit-email" className="label">
-                  College email
-                </label>
-                <input
-                  id="recruit-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={form.email}
-                  onChange={(event) => update('email', event.target.value)}
-                  aria-invalid={errors.email ? true : undefined}
-                  aria-describedby={errors.email ? 'recruit-email-error' : undefined}
-                  className={`field ${errors.email ? 'field-invalid' : ''}`}
-                  placeholder="you@bl.students.amrita.edu"
-                />
-                <FieldError id="recruit-email-error" message={errors.email} />
-              </div>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-name" className="mono mb-2 block text-ink/80">
+                    Full name
+                  </label>
+                  <input
+                    id="recruit-name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    value={form.name}
+                    onChange={(event) => update('name', event.target.value)}
+                    aria-invalid={errors.name ? true : undefined}
+                    aria-describedby={errors.name ? 'recruit-name-error' : undefined}
+                    className={`field ${errors.name ? 'field-invalid' : ''}`}
+                    placeholder="Your full name"
+                  />
+                  <FieldError id="recruit-name-error" message={errors.name} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-reg_number" className="label">
-                  Register ID
-                </label>
-                <input
-                  id="recruit-reg_number"
-                  name="reg_number"
-                  type="text"
-                  autoComplete="off"
-                  required
-                  value={form.reg_number}
-                  onChange={(event) => update('reg_number', event.target.value)}
-                  aria-invalid={errors.reg_number ? true : undefined}
-                  aria-describedby={errors.reg_number ? 'recruit-reg_number-error' : undefined}
-                  className={`field ${errors.reg_number ? 'field-invalid' : ''}`}
-                  placeholder="BL.SC.U4CSE24001"
-                />
-                <FieldError id="recruit-reg_number-error" message={errors.reg_number} />
-              </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-email" className="mono mb-2 block text-ink/80">
+                    College email
+                  </label>
+                  <input
+                    id="recruit-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={form.email}
+                    onChange={(event) => update('email', event.target.value)}
+                    aria-invalid={errors.email ? true : undefined}
+                    aria-describedby={errors.email ? 'recruit-email-error' : undefined}
+                    className={`field ${errors.email ? 'field-invalid' : ''}`}
+                    placeholder="you@bl.students.amrita.edu"
+                  />
+                  <FieldError id="recruit-email-error" message={errors.email} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-phone" className="label">
-                  Phone number
-                </label>
-                <input
-                  id="recruit-phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={form.phone}
-                  onChange={(event) => update('phone', event.target.value)}
-                  aria-invalid={errors.phone ? true : undefined}
-                  aria-describedby={errors.phone ? 'recruit-phone-error' : undefined}
-                  className={`field ${errors.phone ? 'field-invalid' : ''}`}
-                  placeholder="+91 98765 43210"
-                />
-                <FieldError id="recruit-phone-error" message={errors.phone} />
-              </div>
+                <div>
+                  <label htmlFor="recruit-reg_number" className="mono mb-2 block text-ink/80">
+                    Register ID
+                  </label>
+                  <input
+                    id="recruit-reg_number"
+                    name="reg_number"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    value={form.reg_number}
+                    onChange={(event) => update('reg_number', event.target.value)}
+                    aria-invalid={errors.reg_number ? true : undefined}
+                    aria-describedby={errors.reg_number ? 'recruit-reg_number-error' : undefined}
+                    className={`field ${errors.reg_number ? 'field-invalid' : ''}`}
+                    placeholder="BL.SC.U4CSE24001"
+                  />
+                  <FieldError id="recruit-reg_number-error" message={errors.reg_number} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-year" className="label">
-                  Year of study
-                </label>
-                <select
-                  id="recruit-year"
-                  name="year"
-                  required
-                  value={form.year}
-                  onChange={(event) => update('year', event.target.value)}
-                  aria-invalid={errors.year ? true : undefined}
-                  aria-describedby={errors.year ? 'recruit-year-error' : undefined}
-                  className={`field ${errors.year ? 'field-invalid' : ''}`}
-                >
-                  <option value="">Select year</option>
-                  {ELIGIBLE_YEARS.map((year) => (
-                    <option key={year.value} value={year.value}>
-                      {year.label}
-                    </option>
-                  ))}
-                </select>
-                <FieldError id="recruit-year-error" message={errors.year} />
-              </div>
+                <div>
+                  <label htmlFor="recruit-phone" className="mono mb-2 block text-ink/80">
+                    Phone number
+                  </label>
+                  <input
+                    id="recruit-phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={form.phone}
+                    onChange={(event) => update('phone', event.target.value)}
+                    aria-invalid={errors.phone ? true : undefined}
+                    aria-describedby={errors.phone ? 'recruit-phone-error' : undefined}
+                    className={`field ${errors.phone ? 'field-invalid' : ''}`}
+                    placeholder="+91 98765 43210"
+                  />
+                  <FieldError id="recruit-phone-error" message={errors.phone} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-branch" className="label">
-                  Branch
-                </label>
-                <input
-                  id="recruit-branch"
-                  name="branch"
-                  type="text"
-                  autoComplete="off"
-                  required
-                  value={form.branch}
-                  onChange={(event) => update('branch', event.target.value)}
-                  aria-invalid={errors.branch ? true : undefined}
-                  aria-describedby={errors.branch ? 'recruit-branch-error' : undefined}
-                  className={`field ${errors.branch ? 'field-invalid' : ''}`}
-                  placeholder="Computer Science"
-                />
-                <FieldError id="recruit-branch-error" message={errors.branch} />
-              </div>
+                <div>
+                  <label htmlFor="recruit-year" className="mono mb-2 block text-ink/80">
+                    Year of study
+                  </label>
+                  <select
+                    id="recruit-year"
+                    name="year"
+                    required
+                    value={form.year}
+                    onChange={(event) => update('year', event.target.value)}
+                    aria-invalid={errors.year ? true : undefined}
+                    aria-describedby={errors.year ? 'recruit-year-error' : undefined}
+                    className={`field ${errors.year ? 'field-invalid' : ''}`}
+                  >
+                    <option value="">Select year</option>
+                    {ELIGIBLE_YEARS.map((year) => (
+                      <option key={year.value} value={year.value}>
+                        {year.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError id="recruit-year-error" message={errors.year} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-why_join" className="label">
-                  Why do you want to join?
-                </label>
-                <textarea
-                  id="recruit-why_join"
-                  name="why_join"
-                  rows={4}
-                  required
-                  value={form.why_join}
-                  onChange={(event) => update('why_join', event.target.value)}
-                  aria-invalid={errors.why_join ? true : undefined}
-                  aria-describedby={
-                    errors.why_join ? 'recruit-why_join-hint recruit-why_join-error' : 'recruit-why_join-hint'
-                  }
-                  className={`field ${errors.why_join ? 'field-invalid' : ''}`}
-                  placeholder="What draws you to data, AI and this community?"
-                />
-                <p id="recruit-why_join-hint" className="hint">
-                  At least {MIN_ANSWER_LENGTH} characters.
-                </p>
-                <FieldError id="recruit-why_join-error" message={errors.why_join} />
-              </div>
+                <div>
+                  <label htmlFor="recruit-branch" className="mono mb-2 block text-ink/80">
+                    Branch
+                  </label>
+                  <input
+                    id="recruit-branch"
+                    name="branch"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    value={form.branch}
+                    onChange={(event) => update('branch', event.target.value)}
+                    aria-invalid={errors.branch ? true : undefined}
+                    aria-describedby={errors.branch ? 'recruit-branch-error' : undefined}
+                    className={`field ${errors.branch ? 'field-invalid' : ''}`}
+                    placeholder="Computer Science"
+                  />
+                  <FieldError id="recruit-branch-error" message={errors.branch} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-contribute" className="label">
-                  What can you contribute?
-                </label>
-                <textarea
-                  id="recruit-contribute"
-                  name="contribute"
-                  rows={4}
-                  required
-                  value={form.contribute}
-                  onChange={(event) => update('contribute', event.target.value)}
-                  aria-invalid={errors.contribute ? true : undefined}
-                  aria-describedby={
-                    errors.contribute
-                      ? 'recruit-contribute-hint recruit-contribute-error'
-                      : 'recruit-contribute-hint'
-                  }
-                  className={`field ${errors.contribute ? 'field-invalid' : ''}`}
-                  placeholder="Skills, interests or time you can bring to the team"
-                />
-                <p id="recruit-contribute-hint" className="hint">
-                  At least {MIN_ANSWER_LENGTH} characters.
-                </p>
-                <FieldError id="recruit-contribute-error" message={errors.contribute} />
-              </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-why_join" className="mono mb-2 block text-ink/80">
+                    Why do you want to join?
+                  </label>
+                  <textarea
+                    id="recruit-why_join"
+                    name="why_join"
+                    rows={5}
+                    required
+                    value={form.why_join}
+                    onChange={(event) => update('why_join', event.target.value)}
+                    aria-invalid={errors.why_join ? true : undefined}
+                    aria-describedby={
+                      errors.why_join ? 'recruit-why_join-hint recruit-why_join-error' : 'recruit-why_join-hint'
+                    }
+                    className={`field ${errors.why_join ? 'field-invalid' : ''}`}
+                    placeholder="What draws you to data, AI and this community?"
+                  />
+                  <p id="recruit-why_join-hint" className="hint">
+                    At least {MIN_ANSWER_LENGTH} characters.
+                  </p>
+                  <FieldError id="recruit-why_join-error" message={errors.why_join} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-time_commitment" className="label">
-                  Time commitment
-                </label>
-                <input
-                  id="recruit-time_commitment"
-                  name="time_commitment"
-                  type="text"
-                  autoComplete="off"
-                  required
-                  value={form.time_commitment}
-                  onChange={(event) => update('time_commitment', event.target.value)}
-                  aria-invalid={errors.time_commitment ? true : undefined}
-                  aria-describedby={
-                    errors.time_commitment ? 'recruit-time_commitment-error' : undefined
-                  }
-                  className={`field ${errors.time_commitment ? 'field-invalid' : ''}`}
-                  placeholder="e.g. 4–6 hours a week"
-                />
-                <FieldError id="recruit-time_commitment-error" message={errors.time_commitment} />
-              </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-contribute" className="mono mb-2 block text-ink/80">
+                    What can you contribute?
+                  </label>
+                  <textarea
+                    id="recruit-contribute"
+                    name="contribute"
+                    rows={5}
+                    required
+                    value={form.contribute}
+                    onChange={(event) => update('contribute', event.target.value)}
+                    aria-invalid={errors.contribute ? true : undefined}
+                    aria-describedby={
+                      errors.contribute
+                        ? 'recruit-contribute-hint recruit-contribute-error'
+                        : 'recruit-contribute-hint'
+                    }
+                    className={`field ${errors.contribute ? 'field-invalid' : ''}`}
+                    placeholder="Skills, interests or time you can bring to the team"
+                  />
+                  <p id="recruit-contribute-hint" className="hint">
+                    At least {MIN_ANSWER_LENGTH} characters.
+                  </p>
+                  <FieldError id="recruit-contribute-error" message={errors.contribute} />
+                </div>
 
-              <div>
-                <label htmlFor="recruit-remarks" className="label">
-                  Remarks (optional)
-                </label>
-                <textarea
-                  id="recruit-remarks"
-                  name="remarks"
-                  rows={3}
-                  value={form.remarks ?? ''}
-                  onChange={(event) => update('remarks', event.target.value)}
-                  className="field"
-                  placeholder="Anything else we should know?"
-                />
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-time_commitment" className="mono mb-2 block text-ink/80">
+                    Time commitment
+                  </label>
+                  <input
+                    id="recruit-time_commitment"
+                    name="time_commitment"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    value={form.time_commitment}
+                    onChange={(event) => update('time_commitment', event.target.value)}
+                    aria-invalid={errors.time_commitment ? true : undefined}
+                    aria-describedby={
+                      errors.time_commitment ? 'recruit-time_commitment-error' : undefined
+                    }
+                    className={`field ${errors.time_commitment ? 'field-invalid' : ''}`}
+                    placeholder="e.g. 4–6 hours a week"
+                  />
+                  <FieldError id="recruit-time_commitment-error" message={errors.time_commitment} />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="recruit-remarks" className="mono mb-2 block text-ink/80">
+                    Remarks (optional)
+                  </label>
+                  <textarea
+                    id="recruit-remarks"
+                    name="remarks"
+                    rows={3}
+                    value={form.remarks ?? ''}
+                    onChange={(event) => update('remarks', event.target.value)}
+                    className="field"
+                    placeholder="Anything else we should know?"
+                  />
+                </div>
               </div>
 
               {formError && (
@@ -521,93 +559,103 @@ export default function Recruit() {
                 </p>
               )}
 
-              <button type="submit" className="btn-primary w-full sm:w-auto">
-                {pending ? 'Submitting…' : 'Submit application'}
-              </button>
+              <div className="mt-8 border-t hairline pt-6">
+                <button type="submit" className="btn-primary w-full sm:w-auto">
+                  {pending ? 'Submitting…' : 'Submit application'}
+                </button>
+              </div>
             </fieldset>
           </form>
         )}
 
-        <section aria-labelledby="lookup-title" className="mt-12 border-t border-line pt-8">
-          <h2 id="lookup-title" className="font-display text-xl font-semibold tracking-tight text-paper">
+        <section aria-labelledby="lookup-title" className="mt-14 border-t hairline pt-6">
+          <h2
+            id="lookup-title"
+            className="flex items-baseline gap-4 font-display text-2xl tracking-tight text-ink"
+          >
+            <Folio>02</Folio>
             Check your application status
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-paper/70">
+          <p className="mt-3 text-[15px] leading-relaxed text-quiet">
             Use the same email and register ID you applied with.
           </p>
 
-          <form className="mt-5 space-y-4" onSubmit={handleLookup} aria-busy={lookupPending} noValidate>
-            <div>
-              <label htmlFor="lookup-email" className="label">
-                College email
-              </label>
-              <input
-                id="lookup-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                disabled={lookupPending}
-                value={lookupEmail}
-                onChange={(event) => {
-                  setLookupEmail(event.target.value);
-                  setLookupErrors((current) => ({ ...current, email: undefined }));
-                }}
-                aria-invalid={lookupErrors.email ? true : undefined}
-                aria-describedby={lookupErrors.email ? 'lookup-email-error' : undefined}
-                className={`field ${lookupErrors.email ? 'field-invalid' : ''}`}
-                placeholder="you@bl.students.amrita.edu"
-              />
-              {lookupErrors.email && (
-                <p id="lookup-email-error" className="error-text">
-                  <span aria-hidden="true">! </span>
-                  {lookupErrors.email}
-                </p>
-              )}
+          <form className="mt-6" onSubmit={handleLookup} aria-busy={lookupPending} noValidate>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="lookup-email" className="mono mb-2 block text-ink/80">
+                  College email
+                </label>
+                <input
+                  id="lookup-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  disabled={lookupPending}
+                  value={lookupEmail}
+                  onChange={(event) => {
+                    setLookupEmail(event.target.value);
+                    setLookupErrors((current) => ({ ...current, email: undefined }));
+                  }}
+                  aria-invalid={lookupErrors.email ? true : undefined}
+                  aria-describedby={lookupErrors.email ? 'lookup-email-error' : undefined}
+                  className={`field ${lookupErrors.email ? 'field-invalid' : ''}`}
+                  placeholder="you@bl.students.amrita.edu"
+                />
+                {lookupErrors.email && (
+                  <p id="lookup-email-error" className="error-text">
+                    <span aria-hidden="true">! </span>
+                    {lookupErrors.email}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="lookup-reg" className="mono mb-2 block text-ink/80">
+                  Register ID
+                </label>
+                <input
+                  id="lookup-reg"
+                  name="reg_number"
+                  type="text"
+                  autoComplete="off"
+                  required
+                  disabled={lookupPending}
+                  value={lookupReg}
+                  onChange={(event) => {
+                    setLookupReg(event.target.value);
+                    setLookupErrors((current) => ({ ...current, reg_number: undefined }));
+                  }}
+                  aria-invalid={lookupErrors.reg_number ? true : undefined}
+                  aria-describedby={lookupErrors.reg_number ? 'lookup-reg-error' : undefined}
+                  className={`field ${lookupErrors.reg_number ? 'field-invalid' : ''}`}
+                  placeholder="BL.SC.U4CSE24001"
+                />
+                {lookupErrors.reg_number && (
+                  <p id="lookup-reg-error" className="error-text">
+                    <span aria-hidden="true">! </span>
+                    {lookupErrors.reg_number}
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div>
-              <label htmlFor="lookup-reg" className="label">
-                Register ID
-              </label>
-              <input
-                id="lookup-reg"
-                name="reg_number"
-                type="text"
-                autoComplete="off"
-                required
-                disabled={lookupPending}
-                value={lookupReg}
-                onChange={(event) => {
-                  setLookupReg(event.target.value);
-                  setLookupErrors((current) => ({ ...current, reg_number: undefined }));
-                }}
-                aria-invalid={lookupErrors.reg_number ? true : undefined}
-                aria-describedby={lookupErrors.reg_number ? 'lookup-reg-error' : undefined}
-                className={`field ${lookupErrors.reg_number ? 'field-invalid' : ''}`}
-                placeholder="BL.SC.U4CSE24001"
-              />
-              {lookupErrors.reg_number && (
-                <p id="lookup-reg-error" className="error-text">
-                  <span aria-hidden="true">! </span>
-                  {lookupErrors.reg_number}
-                </p>
-              )}
+            <div className="mt-6 border-t hairline pt-6">
+              <button type="submit" className="btn-ghost w-full sm:w-auto">
+                {lookupPending ? 'Checking…' : 'Check status'}
+              </button>
             </div>
-
-            <button type="submit" className="btn-ghost w-full sm:w-auto">
-              {lookupPending ? 'Checking…' : 'Check status'}
-            </button>
           </form>
 
           <div
             ref={lookupResultRef}
             tabIndex={-1}
             aria-live="polite"
-            className="mt-5 empty:mt-0"
+            className="mt-6 empty:mt-0"
           >
             {lookupResult?.kind === 'missing' && (
-              <p className="text-sm leading-relaxed text-paper/70">
+              <p className="text-[15px] leading-relaxed text-quiet">
                 No application found for those details.
               </p>
             )}
@@ -618,15 +666,15 @@ export default function Recruit() {
               </p>
             )}
             {lookupResult?.kind === 'found' && (
-              <div className="border border-line p-5">
-                <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
+              <div className="border hairline p-5">
+                <p className="mono text-quiet">
                   {applicationStatusCopy(lookupResult.application.status).label}
                 </p>
-                <p className="mt-2 text-sm leading-relaxed text-paper/70">
+                <p className="mt-2 text-[15px] leading-relaxed text-quiet">
                   {applicationStatusCopy(lookupResult.application.status).body}
                 </p>
                 {lookupResult.application.created_at && (
-                  <p className="mt-3 font-mono text-xs text-muted">
+                  <p className="mono mt-3 text-quiet">
                     Applied {lookupResult.application.created_at.slice(0, 10)}
                   </p>
                 )}

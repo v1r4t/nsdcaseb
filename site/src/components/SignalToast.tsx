@@ -2,7 +2,8 @@
  * Signal toast (Egg 3 payoff) — fixed bottom-right mono `SHIPPED.`.
  * `aria-live="polite"`, auto-dismisses after ~4s, `pointer-events-none`,
  * no layout impact, reduced-motion safe (plain fade, killed by the global
- * reduced-motion rule when requested).
+ * reduced-motion rule when requested). `.nsdc-toast` in a11y-eggs.css owns
+ * the paper ground, seal border and ink type.
  */
 
 import { useEffect } from 'react';

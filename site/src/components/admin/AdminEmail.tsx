@@ -186,16 +186,16 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
   const testCopy = testResult ? describeEmailTest(testResult) : null;
   const testToneClass =
     testCopy?.tone === 'error'
-      ? 'text-signal'
+      ? 'text-seal'
       : testCopy?.tone === 'delivered'
-        ? 'text-paper/80'
-        : 'text-muted';
+        ? 'text-ink'
+        : 'text-quiet';
 
   return (
     <section aria-label="Email and audit" className="space-y-8">
       {/* One-click delivery probe — proves the Resend key + sender domain. */}
-      <div className="border border-line p-4" role="note" aria-label="Delivery test">
-        <h2 className="label">Delivery test</h2>
+      <div className="border hairline p-4" role="note" aria-label="Delivery test">
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Delivery test</h2>
         <p className="hint mt-2">
           Send one message to your signed-in admin address to prove this worker can deliver through
           Resend. The result says whether delivery worked, the key is missing, or the provider
@@ -217,14 +217,14 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
       </div>
 
       <div>
-        <h2 className="label">Broadcast</h2>
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Broadcast</h2>
         <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap gap-6 text-sm text-paper/80">
+          <div className="flex flex-wrap gap-6 text-sm text-ink">
             <label>
-              <input type="radio" className="accent-signal" checked={aud === 'all'} onChange={() => setAud('all')} /> All members
+              <input type="radio" className="accent-seal" checked={aud === 'all'} onChange={() => setAud('all')} /> All members
             </label>
             <label>
-              <input type="radio" className="accent-signal" checked={aud === 'event'} onChange={() => setAud('event')} /> Per-event
+              <input type="radio" className="accent-seal" checked={aud === 'event'} onChange={() => setAud('event')} /> Per-event
             </label>
           </div>
           {aud === 'event' && (
@@ -249,8 +249,8 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
             onInvalidLink={notify}
           />
 
-          <div className="border border-line p-3">
-            <label className="label" htmlFor="broadcast-image">
+          <div className="border hairline p-3">
+            <label className="mono text-quiet" htmlFor="broadcast-image">
               Image (optional)
             </label>
             <input
@@ -260,7 +260,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
               accept="image/jpeg,image/png,image/webp"
               aria-label="Broadcast image"
               onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-              className="field mt-2 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-signal file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink"
+              className="field mt-2 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-seal file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-paper"
             />
             <p className="hint">
               JPEG, PNG or WebP up to 10 MB. Resized to 1200px wide and re-encoded as JPEG before upload.
@@ -269,7 +269,7 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
               <img
                 src={imagePreview}
                 alt={imageAlt.trim() || 'Selected broadcast image preview'}
-                className="mt-3 max-h-48 w-auto border border-line"
+                className="mt-3 max-h-48 w-auto border hairline"
               />
             )}
             {imageFile && (
@@ -308,24 +308,24 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
         </div>
       </div>
 
-      <div className="border-t border-line pt-6">
-        <h2 className="label">Outbox</h2>
+      <div className="border-t hairline pt-6">
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Outbox</h2>
 
         {/* Read-only policy panel: what the site still sends, and what it does not. */}
-        <div className="mt-4 border border-line p-4" role="note" aria-label="What we send">
-          <h3 className="label">What we send</h3>
+        <div className="mt-4 border hairline p-4" role="note" aria-label="What we send">
+          <h3 className="font-display text-lg font-normal tracking-tight text-ink">What we send</h3>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-wide text-paper/80">On</p>
-              <ul className="mt-2 space-y-1 text-sm text-paper/80">
+              <p className="mono text-ink">On</p>
+              <ul className="mt-2 space-y-1 text-sm text-ink">
                 {SEND_ON.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-wide text-muted">Off</p>
-              <ul className="mt-2 space-y-1 text-sm text-muted">
+              <p className="mono text-quiet">Off</p>
+              <ul className="mt-2 space-y-1 text-sm text-quiet">
                 {SEND_OFF.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -362,23 +362,23 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
         </div>
         <ul className="mt-5 space-y-3">
           {outbox.map((o) => (
-            <li key={o.id} className="border border-line p-3">
+            <li key={o.id} className="border hairline p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="break-all text-sm text-paper/90">{o.to_email}</p>
-                <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-muted">
-                  <span className="border border-line px-1.5 py-0.5 text-paper/70">{kindLabel(o.kind)}</span>
+                <p className="break-all text-sm text-ink">{o.to_email}</p>
+                <p className="mono flex flex-wrap items-center gap-2 text-quiet">
+                  <span className="border hairline px-1.5 py-0.5">{kindLabel(o.kind)}</span>
                   <span>{o.status} · tries {o.attempts}</span>
                 </p>
               </div>
-              <p className="mt-1 text-sm text-paper/80">{o.subject}</p>
-              <p className="mt-1 font-mono text-xs text-muted">
+              <p className="mt-1 text-sm text-ink">{o.subject}</p>
+              <p className="mt-1 font-mono text-xs text-quiet">
                 queued {fmtDateTime(o.created_at)}
                 {o.sent_at ? ` · sent ${fmtDateTime(o.sent_at)}` : ''}
               </p>
               {o.preview ? (
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-sm text-paper/70 underline underline-offset-4">Preview</summary>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-sm text-paper/80">{o.preview}</p>
+                  <summary className="cursor-pointer text-sm text-quiet underline underline-offset-4">Preview</summary>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink">{o.preview}</p>
                 </details>
               ) : null}
               {(o.status === 'failed' || o.status === 'pending') && RETRYABLE_KINDS.has(o.kind) && (
@@ -390,39 +390,39 @@ export default function AdminEmail({ busy, setBusy, notify }: PanelProps) {
           ))}
         </ul>
         {outbox.length === 0 && (
-          <p className="mt-5 text-sm text-muted">
+          <p className="mt-5 text-sm text-quiet">
             Outbox is empty for “{outboxStatus}”
             {outboxKind === 'all' ? '' : ` · ${KIND_LABELS[outboxKind]}`}.
           </p>
         )}
       </div>
 
-      <div className="border-t border-line pt-6">
-        <h2 className="label">Audit log</h2>
+      <div className="border-t hairline pt-6">
+        <h2 className="font-display text-xl font-normal tracking-tight text-ink">Audit log</h2>
         {audit === null ? (
-          <p className="mt-5 font-mono text-xs uppercase tracking-wide text-muted">Loading audit log…</p>
+          <p className="mono mt-5 text-quiet">Loading audit log…</p>
         ) : audit.length === 0 ? (
-          <p className="mt-5 text-sm text-muted">No audit entries yet.</p>
+          <p className="mt-5 text-sm text-quiet">No audit entries yet.</p>
         ) : (
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-left text-sm text-paper/80">
-              <thead className="border-b border-line">
+            <table className="w-full min-w-[36rem] text-left text-sm text-ink">
+              <thead className="border-b hairline">
                 <tr>
-                  <th scope="col" className="label py-2 pr-6 text-left">Action</th>
-                  <th scope="col" className="label py-2 pr-6 text-left">Admin</th>
-                  <th scope="col" className="label py-2 pr-6 text-left">Detail</th>
-                  <th scope="col" className="label py-2 text-left">Date</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left">Action</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left">Admin</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left">Detail</th>
+                  <th scope="col" className="mono py-2 text-left">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody className="divide-y divide-[color:var(--hairline)]">
                 {audit.map((a, i) => (
                   <tr key={`${a.created_at}-${a.action}-${i}`}>
-                    <td className="py-3 pr-6 font-mono text-xs uppercase tracking-wide">{a.action}</td>
+                    <td className="mono py-3 pr-6">{a.action}</td>
                     <td className="py-3 pr-6 break-all">{a.admin_email}</td>
-                    <td className="max-w-xs truncate py-3 pr-6 font-mono text-xs text-muted" title={a.detail}>
+                    <td className="max-w-xs truncate py-3 pr-6 font-mono text-xs text-quiet" title={a.detail}>
                       {a.detail}
                     </td>
-                    <td className="whitespace-nowrap py-3 font-mono text-xs text-muted">{fmtDateTime(a.created_at)}</td>
+                    <td className="whitespace-nowrap py-3 font-mono text-xs text-quiet">{fmtDateTime(a.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

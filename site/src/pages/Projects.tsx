@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Reveal from '../components/Reveal';
+import { SectionIndex } from '../../../design/primitives/SectionIndex';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { ApiError, listProjects } from '../lib/projects';
 import type { Project } from '../lib/projects';
@@ -26,11 +27,11 @@ const COVER_SIZES = '(max-width: 768px) 100vw, 42vw';
 function StackTokens({ stack }: { stack: string[] }) {
   if (stack.length === 0) return null;
   return (
-    <ul aria-label="Tech stack" className="mt-4 flex flex-wrap gap-2">
+    <ul aria-label="Tech stack" className="mt-5 flex flex-wrap gap-2">
       {stack.map((s) => (
         <li
           key={s}
-          className="border border-line px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted"
+          className="mono border border-[color:var(--hairline)] px-2 py-1 text-quiet"
         >
           {s}
         </li>
@@ -45,7 +46,7 @@ function EventLink({ event }: { event: EventSummary | undefined }) {
     <Link
       to={`/registrations/${encodeURIComponent(event.id)}`}
       aria-label={`From: ${event.title}`}
-      className="text-muted transition-colors duration-200 hover:text-paper"
+      className="text-quiet transition-colors duration-200 hover:text-ink"
     >
       From: {event.title} →
     </Link>
@@ -63,39 +64,44 @@ function FeaturedCard({
   event: EventSummary | undefined;
 }) {
   const even = index % 2 === 1;
-  const textCols = even ? 'md:col-span-7 md:col-start-6' : 'md:col-span-7';
-  const imageCols = even ? 'md:col-span-5 md:col-start-1 md:row-start-1' : 'md:col-span-5';
+  const textCols = even ? 'md:col-span-6 md:col-start-7' : 'md:col-span-6';
+  const imageCols = even
+    ? 'md:col-span-5 md:col-start-1 md:row-start-1'
+    : 'md:col-span-5 md:col-start-8';
   const cover = project.cover_url ? coverSources(project.cover_url) : null;
   return (
-    <li className="grid gap-6 border-t border-line py-10 md:grid-cols-12 md:gap-8">
+    <li className="grid gap-8 border-t hairline py-10 md:grid-cols-12 md:gap-8 md:py-14">
       <div className={textCols}>
-        <p aria-hidden="true" className="font-mono text-[11px] tracking-wide text-muted">
-          {pad(index + 1)}
-          <span className="ml-3 text-signal">Featured</span>
+        <p aria-hidden="true" className="mono flex flex-wrap items-baseline gap-x-4 gap-y-2 text-faint">
+          <span>{pad(index + 1)}</span>
+          <span className="inline-flex items-baseline gap-2 text-seal">
+            <span className="h-px w-5 translate-y-[-0.2em] bg-seal" />
+            Featured
+          </span>
         </p>
-        <h2 className="mt-3 font-display text-2xl font-semibold uppercase leading-tight tracking-tight text-paper sm:text-3xl">
+        <h2 className="mt-4 font-display text-[clamp(1.9rem,3.4vw,3rem)] leading-[1.02] tracking-tight text-ink">
           <Link
             to={`/projects/${encodeURIComponent(project.id)}`}
-            className="transition-colors duration-200 hover:text-signal"
+            className="transition-colors duration-200 hover:text-seal"
           >
             {project.title}
           </Link>
         </h2>
         {project.summary && (
-          <p className="mt-3 max-w-xl text-base leading-relaxed text-paper/70">{project.summary}</p>
+          <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-quiet">{project.summary}</p>
         )}
         <StackTokens stack={project.stack} />
         {project.author && (
-          <p className="mt-4 font-mono text-[11px] tracking-wide text-muted">{project.author}</p>
+          <p className="mono mt-4 text-quiet">{project.author}</p>
         )}
-        <p className="mt-5 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-wide">
+        <p className="mono mt-6 flex flex-wrap gap-x-6 gap-y-2">
           {project.url && (
             <a
               href={project.url}
               target="_blank"
               rel="noopener"
               aria-label={`Visit ${project.title} (opens in a new tab)`}
-              className="text-signal underline decoration-signal/40 underline-offset-4 transition-colors hover:decoration-signal"
+              className="text-seal underline decoration-seal/40 underline-offset-4 transition-colors hover:decoration-seal"
             >
               Visit →
             </a>
@@ -115,7 +121,7 @@ function FeaturedCard({
               decoding="async"
               width={800}
               height={450}
-              className="aspect-video w-full border border-line object-cover"
+              className="aspect-video w-full border border-[color:var(--hairline)] object-cover"
             />
           </Link>
         </div>
@@ -135,39 +141,37 @@ function TextRow({
   event: EventSummary | undefined;
 }) {
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t border-line py-5">
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline gap-x-4">
-          <span aria-hidden="true" className="font-mono text-[11px] tracking-wide text-muted">
-            {pad(index + 1)}
-          </span>
+    <li className="border-b hairline">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 py-5 md:grid-cols-[3rem_minmax(0,1fr)_auto] md:items-baseline md:gap-x-6">
+        <span aria-hidden="true" className="mono pt-1 text-faint">
+          {pad(index + 1)}
+        </span>
+        <div className="min-w-0">
           <Link
             to={`/projects/${encodeURIComponent(project.id)}`}
-            className="font-display text-lg font-medium text-paper transition-colors duration-200 hover:text-signal"
+            className="font-display text-xl leading-tight text-ink transition-colors duration-200 hover:text-seal md:text-2xl"
           >
             {project.title}
           </Link>
+          {project.stack.length > 0 && (
+            <p className="mono mt-2 text-quiet">{project.stack.join(' · ')}</p>
+          )}
+        </div>
+        <p className="mono col-start-2 flex flex-wrap gap-x-6 gap-y-2 md:col-start-3 md:justify-end">
+          {project.url && (
+            <a
+              href={project.url}
+              target="_blank"
+              rel="noopener"
+              aria-label={`Visit ${project.title} (opens in a new tab)`}
+              className="text-seal underline decoration-seal/40 underline-offset-4 transition-colors hover:decoration-seal"
+            >
+              Visit →
+            </a>
+          )}
+          <EventLink event={event} />
         </p>
-        {project.stack.length > 0 && (
-          <p className="mt-1 pl-8 font-mono text-[11px] uppercase tracking-wide text-muted">
-            {project.stack.join(' · ')}
-          </p>
-        )}
       </div>
-      <p className="flex flex-wrap gap-x-6 gap-y-2 pl-8 font-mono text-[11px] uppercase tracking-wide">
-        {project.url && (
-          <a
-            href={project.url}
-            target="_blank"
-            rel="noopener"
-            aria-label={`Visit ${project.title} (opens in a new tab)`}
-            className="text-signal underline decoration-signal/40 underline-offset-4 transition-colors hover:decoration-signal"
-          >
-            Visit →
-          </a>
-        )}
-        <EventLink event={event} />
-      </p>
     </li>
   );
 }
@@ -249,21 +253,32 @@ export default function Projects() {
     p.event_id && eventsById ? eventsById.get(p.event_id) : undefined;
 
   return (
-    <div className="shell py-12 md:py-16">
+    <div className="wrap py-12 md:py-16">
       <Reveal>
-        <p className="label">Projects / 26—27</p>
-        <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight text-paper sm:text-6xl">
-          PROJECTS
-        </h1>
-        {projects !== null && (
-          <p aria-live="polite" className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted">
-            Active {pad(counts.active)}
-            <span aria-hidden="true" className="mx-3">
-              /
-            </span>
-            Shipped {pad(counts.shipped)}
-          </p>
-        )}
+        <header className="border-b hairline pb-8 md:pb-10">
+          <div className="grid gap-8 md:grid-cols-12 md:items-end">
+            <div className="md:col-span-8">
+              <p className="mono text-quiet">Projects / 26—27</p>
+              <h1 className="mt-4 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink">
+                Projects
+              </h1>
+            </div>
+            <div className="md:col-span-3 md:col-start-10 md:justify-self-end">
+              <SectionIndex value="03" className="hidden md:block" />
+            </div>
+          </div>
+          {projects !== null && (
+            <p aria-live="polite" className="mono mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-quiet">
+              <span>
+                Active <span className="text-ink">{pad(counts.active)}</span>
+              </span>
+              <span aria-hidden="true">/</span>
+              <span>
+                Shipped <span className="text-ink">{pad(counts.shipped)}</span>
+              </span>
+            </p>
+          )}
+        </header>
       </Reveal>
 
       {error && (
@@ -272,12 +287,12 @@ export default function Projects() {
         </p>
       )}
       {!error && projects === null && (
-        <p aria-live="polite" className="mt-8 font-mono text-xs uppercase tracking-wide text-muted">
+        <p aria-live="polite" className="mono mt-8 text-quiet">
           Loading projects…
         </p>
       )}
       {!error && projects !== null && projects.length === 0 && (
-        <p className="mt-10 border-t border-line py-8 text-sm text-muted">
+        <p className="mt-10 border-t hairline py-8 text-sm text-quiet">
           No projects published yet.
         </p>
       )}
@@ -289,10 +304,10 @@ export default function Projects() {
                 type="button"
                 aria-pressed={activeStack === null}
                 onClick={() => setActiveStack(null)}
-                className={`border px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide transition-colors ${
+                className={`mono rounded-[2px] border px-3 py-1.5 transition-colors duration-200 ${
                   activeStack === null
-                    ? 'border-paper text-paper'
-                    : 'border-line text-muted hover:text-paper'
+                    ? 'border-ink text-ink'
+                    : 'border-[color:var(--hairline)] text-quiet hover:border-ink/40 hover:text-ink'
                 }`}
               >
                 All
@@ -303,10 +318,10 @@ export default function Projects() {
                   type="button"
                   aria-pressed={activeStack === s}
                   onClick={() => setActiveStack((cur) => (cur === s ? null : s))}
-                  className={`border px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide transition-colors ${
+                  className={`mono rounded-[2px] border px-3 py-1.5 transition-colors duration-200 ${
                     activeStack === s
-                      ? 'border-paper text-paper'
-                      : 'border-line text-muted hover:text-paper'
+                      ? 'border-ink text-ink'
+                      : 'border-[color:var(--hairline)] text-quiet hover:border-ink/40 hover:text-ink'
                   }`}
                 >
                   {s}
@@ -315,24 +330,24 @@ export default function Projects() {
             </div>
           )}
           {filtered.length === 0 ? (
-            <p className="mt-10 border-t border-line py-8 text-sm text-muted">
+            <p className="mt-10 border-t hairline py-8 text-sm text-quiet">
               No projects use this stack yet.
             </p>
           ) : (
             <>
-              <ol className="mt-6" aria-label="Featured projects">
+              <ol className="mt-10" aria-label="Featured projects">
                 {featured.map((project, i) => (
                   <Reveal key={project.id} delay={Math.min(i, 4) * 60}>
                     <FeaturedCard project={project} index={i} event={eventFor(project)} />
                   </Reveal>
                 ))}
                 {/* Closing hairline for the last featured card */}
-                <li aria-hidden="true" className="border-t border-line" />
+                <li aria-hidden="true" className="border-t hairline" />
               </ol>
               {remainder.length > 0 && (
                 <>
-                  <p className="label mt-12">More work</p>
-                  <ol className="mt-2" aria-label="More projects">
+                  <p className="mono mt-14 text-quiet">More work</p>
+                  <ol className="mt-4" aria-label="More projects">
                     {remainder.map((project, i) => (
                       <Reveal key={project.id} delay={Math.min(i, 4) * 60}>
                         <TextRow
@@ -342,8 +357,6 @@ export default function Projects() {
                         />
                       </Reveal>
                     ))}
-                    {/* Closing hairline for the last row */}
-                    <li aria-hidden="true" className="border-t border-line" />
                   </ol>
                 </>
               )}

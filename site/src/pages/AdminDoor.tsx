@@ -20,8 +20,8 @@ export default function AdminDoor() {
   return (
     <Suspense
       fallback={
-        <div className="shell py-12 md:py-16">
-          <p aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+        <div className="wrap min-h-[100svh] py-12 md:py-16">
+          <p aria-live="polite" className="mono text-quiet">
             Loading…
           </p>
         </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { posterSources } from '../lib/image-variants';
 import StatusDot from '../components/StatusDot';
 import Reveal from '../components/Reveal';
+import { SectionIndex } from '../../../design/primitives/SectionIndex';
 
 function dateParts(iso: string): { day: string; mon: string; year: string } | null {
   return eventDateParts(iso);
@@ -15,40 +16,47 @@ function timeRange(starts: string, ends: string): string {
   return formatEventTimeRange(starts, ends);
 }
 
-function Row({ event }: { event: EventSummary }) {
+/** Hairline event row. Kept custom (not kit Row) so the title stays an h3 and
+ *  spans the full width on phones, as the mobile-layout regression expects. */
+function EventRow({ event }: { event: EventSummary }) {
   const parts = dateParts(event.starts_at);
   const range = timeRange(event.starts_at, event.ends_at);
+
   return (
     <li>
       <Link
         to={`/registrations/${encodeURIComponent(event.id)}`}
         data-cursor="VIEW EVENT →"
-        className="group grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-2 border-t border-line py-5 transition-colors duration-200 hover:bg-paper/[0.025] sm:flex sm:gap-8 sm:px-3"
+        className="group relative grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1 border-b hairline py-5 transition-colors duration-200 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center sm:gap-6 sm:px-3"
       >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 -inset-x-1 border border-transparent transition-colors duration-200 group-hover:border-ink/35 group-focus-visible:border-ink/35"
+        />
         {/* Phones: date + status share the top line, title gets the full width. */}
-        <div aria-hidden="true" className="col-start-1 row-start-1 w-14 shrink-0 font-mono leading-none">
+        <div aria-hidden="true" className="relative col-start-1 row-start-1 w-16 shrink-0 leading-none sm:w-auto">
           {parts ? (
             <>
-              <span className="block text-sm text-paper">
+              <time dateTime={event.starts_at} className="mono block text-ink">
                 {parts.day} {parts.mon}
-              </span>
-              <span className="mt-1 block text-[11px] text-muted">{parts.year}</span>
+              </time>
+              <span className="mono mt-1 block text-faint">{parts.year}</span>
             </>
           ) : (
-            <span className="block text-sm text-muted">TBD</span>
+            <span className="mono block text-quiet">TBD</span>
           )}
         </div>
-        <div className="col-span-2 row-start-2 min-w-0 sm:flex-1">
-          <h3 className="font-display text-lg font-medium leading-snug text-paper transition-colors duration-200 group-hover:text-signal sm:text-xl">
+        <div className="relative col-span-2 row-start-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+          <h3 className="font-display text-[clamp(1.15rem,2vw,1.6rem)] font-normal leading-tight text-ink transition-colors duration-200 group-hover:text-seal">
             {event.title}
           </h3>
-          {range && <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">{range}</p>}
+          {range && <p className="mono mt-1 text-quiet">{range}</p>}
         </div>
-        <div className="col-start-2 row-start-1 flex shrink-0 flex-col items-end gap-2 justify-self-end">
+        <div className="relative col-start-2 row-start-1 flex shrink-0 flex-col items-end gap-2 justify-self-end sm:col-start-3 sm:row-start-1">
           <StatusDot event={event} />
           <span
             aria-hidden="true"
-            className="hidden font-mono text-[11px] uppercase tracking-wide text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline"
+            className="mono hidden text-faint opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 sm:inline"
           >
             View event →
           </span>
@@ -72,20 +80,32 @@ function FeaturedNext({ event }: { event: EventSummary }) {
       ? 'Register →'
       : 'View event →';
   return (
-    <section aria-label="Next event" className="mt-12 border border-line p-4 sm:p-6">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="min-w-0 truncate font-mono text-[11px] uppercase tracking-wide text-muted">
-          Next up
-        </h2>
+    <section aria-label="Next event" className="mt-10">
+      <div className="flex items-baseline justify-between gap-4 sm:justify-start sm:gap-8">
+        <p className="mono text-quiet">Next up</p>
         <StatusDot event={event} />
       </div>
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+      <div className="mt-5 grid gap-6 sm:grid-cols-[minmax(0,1fr)_18rem] sm:items-start">
+        <div className="min-w-0">
+          <p className="mono text-faint">
+            {formatEventDate(event.starts_at)}
+            {range ? ` / ${range}` : ''}
+          </p>
+          <h2 className="statement-sm mt-3 text-ink">{event.title}</h2>
+          <Link
+            to={`/registrations/${encodeURIComponent(event.id)}`}
+            data-cursor="VIEW EVENT →"
+            className="link mt-5 inline-block text-sm"
+          >
+            {cta}
+          </Link>
+        </div>
         {poster && (
           <img
             key={variantFailed ? 'poster-original' : 'poster-variants'}
             src={poster.src}
             srcSet={variantFailed ? undefined : poster.srcSet}
-            sizes="(max-width: 640px) 100vw, 176px"
+            sizes="(max-width: 640px) 100vw, 288px"
             alt=""
             aria-hidden="true"
             loading="lazy"
@@ -93,25 +113,9 @@ function FeaturedNext({ event }: { event: EventSummary }) {
             onError={() => {
               if (poster.srcSet) setVariantFailed(true);
             }}
-            className="h-32 w-full border border-line object-cover sm:h-28 sm:w-44 sm:shrink-0"
+            className="h-44 w-full border hairline object-cover sm:h-52"
           />
         )}
-        <div className="min-w-0 flex-1">
-          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
-            {formatEventDate(event.starts_at)}
-            {range ? ` / ${range}` : ''}
-          </p>
-          <h3 className="mt-2 font-display text-2xl font-semibold leading-tight text-paper sm:text-3xl">
-            {event.title}
-          </h3>
-          <Link
-            to={`/registrations/${encodeURIComponent(event.id)}`}
-            data-cursor="VIEW EVENT →"
-            className="link mt-3 inline-block text-sm"
-          >
-            {cta}
-          </Link>
-        </div>
       </div>
     </section>
   );
@@ -134,21 +138,19 @@ function Group({
 }) {
   return (
     <section aria-label={label} id={id} className="mt-12 scroll-mt-24">
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-mono text-[11px] uppercase tracking-wide text-muted">{label}</h2>
-        <span aria-hidden="true" className="font-mono text-[11px] text-muted">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="mono text-quiet">{label}</h2>
+        <span aria-hidden="true" className="mono text-faint">
           {String(count).padStart(2, '0')}
         </span>
       </div>
       {events.length === 0 ? (
-        <p className="border-t border-line py-8 font-mono text-xs uppercase tracking-wide text-muted">{empty}</p>
+        <p className="mono mt-3 border-t hairline py-8 text-quiet">{empty}</p>
       ) : (
-        <ul className={dimmed ? 'opacity-60' : undefined}>
+        <ul className={`mt-3 border-t hairline ${dimmed ? 'opacity-60' : ''}`}>
           {events.map((e) => (
-            <Row key={e.id} event={e} />
+            <EventRow key={e.id} event={e} />
           ))}
-          {/* Closing hairline for the last row */}
-          <li aria-hidden="true" className="border-t border-line" />
         </ul>
       )}
     </section>
@@ -204,21 +206,32 @@ export default function Registrations() {
   }, [events]);
 
   return (
-    <div className="shell py-12 md:py-16">
+    <div className="wrap py-12 md:py-16">
       <Reveal>
-        <p className="label">01 / Index</p>
-        <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight text-paper sm:text-6xl">
-          EVENTS
-        </h1>
-        {events !== null && (
-          <p aria-live="polite" className="mt-4 font-mono text-[11px] uppercase tracking-wide text-muted">
-            Upcoming {String(upcoming.length).padStart(2, '0')}
-            <span aria-hidden="true" className="mx-3">
-              /
-            </span>
-            Archive {String(archive.length).padStart(2, '0')}
-          </p>
-        )}
+        <header className="border-b hairline pb-8 md:pb-10">
+          <div className="grid gap-8 md:grid-cols-12 md:items-end">
+            <div className="md:col-span-8">
+              <p className="mono text-quiet">01 / Index</p>
+              <h1 className="mt-4 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink">
+                Events
+              </h1>
+            </div>
+            <div className="md:col-span-3 md:col-start-10 md:justify-self-end">
+              <SectionIndex value="01" className="hidden md:block" />
+            </div>
+          </div>
+          {events !== null && (
+            <p aria-live="polite" className="mono mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-quiet">
+              <span>
+                Upcoming <span className="text-ink">{String(upcoming.length).padStart(2, '0')}</span>
+              </span>
+              <span aria-hidden="true">/</span>
+              <span>
+                Archive <span className="text-ink">{String(archive.length).padStart(2, '0')}</span>
+              </span>
+            </p>
+          )}
+        </header>
       </Reveal>
 
       {error && (
@@ -228,22 +241,21 @@ export default function Registrations() {
       )}
       {!error && events === null && (
         <div aria-live="polite" aria-busy="true" className="mt-12">
-          <p className="font-mono text-xs uppercase tracking-wide text-muted">Loading events…</p>
+          <p className="mono text-quiet">Loading events…</p>
           {/* Skeleton reserves ~the list area (6 rows + hairlines) so the rows
-              popping in don't shift layout. Same shell rhythm (mt-12 section,
-              border-t hairline, py-5 rows) as Group below. */}
-          <div aria-hidden="true" className="mt-4 min-h-[480px] animate-pulse border-t border-line">
+              popping in don't shift layout. Same rhythm as Group below. */}
+          <div aria-hidden="true" className="mt-4 min-h-[480px] animate-pulse border-t hairline">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-2 border-b border-line py-5 sm:flex sm:gap-8 sm:px-3"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-2 border-b hairline py-5"
               >
-                <div className="col-start-1 row-start-1 h-8 w-14 shrink-0 bg-line" />
-                <div className="col-span-2 row-start-2 min-w-0 sm:flex-1">
-                  <div className="h-5 w-3/4 bg-line" />
-                  <div className="mt-2 h-3 w-1/3 bg-line" />
+                <div className="h-3 w-14 bg-quiet/15" />
+                <div className="min-w-0">
+                  <div className="h-5 w-3/4 bg-quiet/15" />
+                  <div className="mt-2 h-3 w-1/3 bg-quiet/15" />
                 </div>
-                <div className="col-start-2 row-start-1 h-4 w-16 shrink-0 justify-self-end bg-line" />
+                <div className="h-3 w-16 bg-quiet/15" />
               </div>
             ))}
           </div>
@@ -255,40 +267,36 @@ export default function Registrations() {
           {upcoming.length > 0 && <FeaturedNext event={upcoming[0]} />}
           <Group label="Upcoming" count={upcoming.length} events={upcoming} empty="No upcoming events" />
           {!user && (
-            <p className="mt-8 font-mono text-[11px] uppercase tracking-wide text-muted">
-              <Link to="/login" state={{ from: location }} className="link font-mono text-[11px] uppercase">
+            <p className="mono mt-8 text-quiet">
+              <Link to="/login" state={{ from: location }} className="link mono">
                 Sign in to register
               </Link>
             </p>
           )}
           <section aria-label="Archive" id="archive" className="mt-12 scroll-mt-24">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-mono text-[11px] uppercase tracking-wide text-muted">Archive</h2>
-              <span aria-hidden="true" className="font-mono text-[11px] text-muted">
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 className="mono text-quiet">Archive</h2>
+              <span aria-hidden="true" className="mono text-faint">
                 {String(archive.length).padStart(2, '0')}
               </span>
             </div>
             {archive.length === 0 ? (
-              <p className="border-t border-line py-8 font-mono text-xs uppercase tracking-wide text-muted">
+              <p className="mono mt-3 border-t hairline py-8 text-quiet">
                 Nothing in the archive yet
               </p>
             ) : (
               archiveByYear.map(([year, yearEvents]) => (
                 <div key={year} className="mt-8 first:mt-4">
                   <div className="flex items-baseline justify-between gap-4">
-                    <h3 className="min-w-0 truncate font-mono text-[11px] uppercase tracking-wide text-paper/80">
-                      {year}
-                    </h3>
-                    <span aria-hidden="true" className="shrink-0 font-mono text-[11px] text-muted">
+                    <h3 className="mono text-ink">{year}</h3>
+                    <span aria-hidden="true" className="mono text-faint">
                       {String(yearEvents.length).padStart(2, '0')}
                     </span>
                   </div>
-                  <ul>
+                  <ul className="mt-3 border-t hairline">
                     {yearEvents.map((e) => (
-                      <Row key={e.id} event={e} />
+                      <EventRow key={e.id} event={e} />
                     ))}
-                    {/* Closing hairline for the last row */}
-                    <li aria-hidden="true" className="border-t border-line" />
                   </ul>
                 </div>
               ))

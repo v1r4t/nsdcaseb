@@ -16,38 +16,42 @@ function indexOf(position: number): string {
 
 /**
  * PEOPLE — the bearers as an editorial index, not profile cards. Each row is
- * a mono index number, the name in display type, the role in muted mono.
- * Hover reveals a large low-opacity initials monogram behind the row.
- * No photos: `photo_url` is null.
+ * a mono index number, the name in Bespoke Serif, the role in quiet mono.
+ * Hover raises a large ink-wash initials monogram behind the row. No photos:
+ * `photo_url` is null.
  */
 export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   if (bearers.length === 0) {
-    return <p className="text-sm text-muted">The current board has not been published yet.</p>;
+    return (
+      <p className="border-t py-5 text-sm text-quiet hairline">
+        The current board has not been published yet.
+      </p>
+    );
   }
   return (
-    <ol>
+    <ol className="border-t hairline">
       {bearers.map((bearer, i) => (
-        <li key={bearer.id} className="border-t border-line last:border-b">
+        <li key={bearer.id} className="border-b hairline">
           <Reveal delay={Math.min(i, 5) * 60}>
             <div className="group relative overflow-hidden py-6 sm:py-7">
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 select-none font-display text-[7rem] font-bold leading-none tracking-tight text-signal opacity-0 transition-opacity duration-200 group-hover:opacity-10 sm:text-[10rem]"
+                className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 select-none font-display text-[7rem] leading-none tracking-tight text-ink/5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:text-[10rem]"
               >
                 {initials(bearer.name)}
               </span>
               <div className="relative flex items-baseline gap-5 sm:gap-8">
-                <span className="w-8 shrink-0 font-mono text-xs text-muted">{indexOf(i)}</span>
+                <span className="mono w-8 shrink-0 text-faint">{indexOf(i)}</span>
                 <div className="min-w-0">
-                  <p className="truncate font-display text-xl font-bold uppercase tracking-tight text-paper sm:text-3xl">
+                  <p className="truncate font-serif text-xl leading-tight tracking-tight text-ink sm:text-3xl">
                     {bearer.name}
                   </p>
-                  <p className="mt-1.5 font-mono text-xs uppercase tracking-wide text-muted">
+                  <p className="mono mt-2 text-quiet">
                     {bearer.role}
                     {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
                   </p>
                   {bearer.links.length > 0 && (
-                    <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] uppercase tracking-wide">
+                    <p className="mono mt-3 flex flex-wrap gap-x-4 gap-y-1">
                       {bearer.links.map((link) => (
                         <a
                           key={`${link.label}-${link.url}`}
@@ -55,7 +59,7 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${bearer.name} — ${link.label} (opens in a new tab)`}
-                          className="text-muted underline decoration-line underline-offset-4 transition-colors duration-200 hover:text-signal"
+                          className="text-quiet underline decoration-[color:var(--hairline)] underline-offset-4 transition-colors duration-200 hover:text-seal hover:decoration-seal/40"
                         >
                           ↗ {link.label}
                         </a>

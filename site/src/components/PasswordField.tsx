@@ -42,7 +42,7 @@ export default function PasswordField({
         aria-pressed={visible}
         aria-label={visible ? `Hide ${label}` : `Show ${label}`}
         onClick={() => setVisible((v) => !v)}
-        className="link absolute right-2 top-1/2 -translate-y-1/2 text-sm"
+        className="mono absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-1 text-seal transition-colors duration-200 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
       >
         {visible ? 'Hide' : 'Show'}
       </button>

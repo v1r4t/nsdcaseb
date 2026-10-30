@@ -69,14 +69,20 @@ function swapMarqueeShip(): () => void {
 }
 
 /**
- * Egg 4 payoff overlay — drifting mono glyph columns in signal orange over
- * a translucent backdrop. Canvas 2D only (no three.js), half-resolution
- * backing store scaled up by CSS, one paint per ~33ms tick (~30fps cap).
+ * Egg 4 payoff overlay — drifting mono glyph columns in seal over an ink
+ * veil. Canvas 2D only (no three.js), half-resolution backing store scaled
+ * up by CSS, one paint per ~33ms tick (~30fps cap).
  * `aria-hidden` + `pointer-events: none`: never intercepts input, never
  * blocks navigation. Unmounts after KONAMI_OVERLAY_MS with every timer
  * cleared. Kept in this file so the whole trail stays centrally owned.
+ *
+ * Colours are the ink-on-paper tokens (ink #111110, seal #b33c1b, the seal
+ * tint used on ink #dd7048) because the canvas cannot read CSS variables.
  */
 const KONAMI_GLYPHS = '01NSDC<>+*#$%&'.split('');
+const KONAMI_TRAIL = 'rgba(17, 17, 16, 0.22)';
+const KONAMI_GLYPH = '#b33c1b';
+const KONAMI_GLYPH_HEAD = '#dd7048';
 
 function KonamiOverlay({ overlayKey, onDone }: { overlayKey: number; onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -111,13 +117,13 @@ function KonamiOverlay({ overlayKey, onDone }: { overlayKey: number; onDone: () 
         onDone();
         return;
       }
-      ctx.fillStyle = 'rgba(8, 8, 8, 0.22)';
+      ctx.fillStyle = KONAMI_TRAIL;
       ctx.fillRect(0, 0, width, height);
-      ctx.font = `${fontPx}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+      ctx.font = `${fontPx}px "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace`;
       for (let i = 0; i < columns; i += 1) {
         const glyph = KONAMI_GLYPHS[Math.floor(Math.random() * KONAMI_GLYPHS.length)];
         const head = Math.random() < 0.12;
-        ctx.fillStyle = head ? '#ffd9cd' : '#ff5a36';
+        ctx.fillStyle = head ? KONAMI_GLYPH_HEAD : KONAMI_GLYPH;
         ctx.fillText(glyph, i * fontPx, drops[i] * fontPx);
         drops[i] += 1;
         if (drops[i] * fontPx > height && Math.random() < 0.06) drops[i] = 0;

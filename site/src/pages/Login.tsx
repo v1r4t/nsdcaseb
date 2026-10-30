@@ -106,22 +106,32 @@ export default function Login() {
     setNotice(null);
   }
 
+  const signin = mode === 'signin';
+
   return (
-    <div className="shell py-12 md:py-16">
-      <div className="rule max-w-md pt-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">
-          {mode === 'signin' ? 'Sign in' : 'Reset your password'}
+    <section className="wrap py-14 md:py-20">
+      <div className="max-w-xl">
+        {/* Dossier line: the page states its purpose before it asks for anything. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+          <p className="mono text-quiet">{signin ? '01 / Access' : '01 / Recovery'}</p>
+          <p className="mono text-quiet">NSDC · Members</p>
+        </div>
+
+        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          {signin ? 'Sign in' : 'Reset your password'}
         </h1>
-        <p className="mt-2 text-sm text-muted">
-          {mode === 'signin'
+        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+          {signin
             ? 'Sign in to reach registrations, club media and member resources.'
             : 'Enter your email and we will send a reset link if the address is registered.'}
         </p>
 
-        {mode === 'signin' ? (
-          <form className="mt-6 space-y-4" onSubmit={handleSignIn} aria-busy={busy}>
+        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+
+        {signin ? (
+          <form className="mt-8 max-w-md space-y-6" onSubmit={handleSignIn} aria-busy={busy}>
             <div>
-              <label htmlFor="login-email" className="label">
+              <label htmlFor="login-email" className="mono mb-2 block text-ink/80">
                 Email
               </label>
               <input
@@ -139,7 +149,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="login-password" className="label">
+              <label htmlFor="login-password" className="mono mb-2 block text-ink/80">
                 Password
               </label>
               <PasswordField
@@ -154,7 +164,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="login-admin-code" className="label">
+              <label htmlFor="login-admin-code" className="mono mb-2 block text-ink/80">
                 Office bearer code (if applicable)
               </label>
               <PasswordField
@@ -169,14 +179,14 @@ export default function Login() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-paper/80">
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink/75">
               <input
                 type="checkbox"
                 name="remember"
                 checked={remember}
                 disabled={busy}
                 onChange={(event) => setRemember(event.target.checked)}
-                className="h-4 w-4 shrink-0 accent-signal"
+                className="h-4 w-4 shrink-0 accent-seal"
               />
               Keep me signed in on this device
             </label>
@@ -192,11 +202,11 @@ export default function Login() {
               {busy ? 'Signing in...' : 'Sign in'}
             </button>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 pt-2 text-sm">
               <button type="button" onClick={() => switchMode('forgot')} className="link">
                 Forgot password?
               </button>
-              <span className="text-muted">
+              <span className="text-quiet">
                 No account?{' '}
                 <Link to="/register" className="link">
                   Register
@@ -205,9 +215,9 @@ export default function Login() {
             </div>
           </form>
         ) : (
-          <form className="mt-6 space-y-4" onSubmit={handleForgot} aria-busy={busy}>
+          <form className="mt-8 max-w-md space-y-6" onSubmit={handleForgot} aria-busy={busy}>
             <div>
-              <label htmlFor="forgot-email" className="label">
+              <label htmlFor="forgot-email" className="mono mb-2 block text-ink/80">
                 Email
               </label>
               <input
@@ -246,6 +256,6 @@ export default function Login() {
           </form>
         )}
       </div>
-    </div>
+    </section>
   );
 }

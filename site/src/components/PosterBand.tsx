@@ -4,8 +4,8 @@
  * With no club photography yet, the band is pure type at poster scale rather
  * than a stock photo or a placeholder box. It carries an optional `imageUrl`
  * slot: pass one and the band becomes a full-bleed photograph with the same
- * type overlaid (plus a scrim for legibility), so real photos upgrade this
- * without a rebuild.
+ * type overlaid, washed back to paper so the ink stays legible. Real photos
+ * upgrade this without a rebuild.
  */
 
 import type { ReactNode } from 'react';
@@ -53,13 +53,13 @@ export default function PosterBand({ imageUrl, imageAlt, children }: PosterBandP
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
-          {/* Scrim so poster type stays legible over any photograph. */}
-          <div aria-hidden="true" className="absolute inset-0 bg-ink/70" />
+          {/* Paper wash so poster type stays legible over any photograph. */}
+          <div aria-hidden="true" className="absolute inset-0 bg-paper/80" />
         </>
       ) : null}
 
       <div className="relative">
-        <div className="shell py-24 sm:py-36">{children}</div>
+        <div className="wrap py-24 sm:py-36">{children}</div>
 
         {/* Marquee — a slow strip of real club metadata. Pauses on hover and
             stops entirely under prefers-reduced-motion. */}
@@ -70,10 +70,10 @@ export default function PosterBand({ imageUrl, imageAlt, children }: PosterBandP
                 {MARQUEE_ITEMS.map((item) => (
                   <span
                     key={`${copy}-${item}`}
-                    className="flex items-center whitespace-nowrap font-mono text-[11px] uppercase tracking-wide text-muted"
+                    className="mono flex items-center whitespace-nowrap text-quiet"
                   >
                     <span className="px-6">{item}</span>
-                    <span aria-hidden="true" className="text-signal">
+                    <span aria-hidden="true" className="text-seal">
                       ·
                     </span>
                   </span>
@@ -91,8 +91,8 @@ export default function PosterBand({ imageUrl, imageAlt, children }: PosterBandP
 export function PosterLines({ lines }: { lines: string[] }) {
   return (
     <Reveal>
-      <p className="label">Statement</p>
-      <p className="mt-8 font-display text-[clamp(3rem,11vw,9rem)] font-bold uppercase leading-[0.88] tracking-tight text-paper">
+      <p className="mono text-quiet">Statement</p>
+      <p className="mt-8 font-display text-[clamp(3rem,11vw,9rem)] leading-[0.88] tracking-tight text-ink">
         {lines.map((line) => (
           <span key={line} className="block">
             {line}

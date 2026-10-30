@@ -52,7 +52,7 @@ function HighlightedLabel({ text, ranges }: { text: string; ranges: MatchRange[]
     if (start > cursor) parts.push(<span key={`plain-${i}`}>{text.slice(cursor, start)}</span>);
     if (end > start) {
       parts.push(
-        <span key={`hit-${i}`} className="text-signal">
+        <span key={`hit-${i}`} className="text-seal">
           {text.slice(start, end)}
         </span>,
       );
@@ -228,7 +228,7 @@ export default function CommandPalette() {
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) closePalette();
       }}
-      className={`fixed inset-0 z-[60] bg-ink/80 backdrop-blur transition-opacity duration-200 ease-expo ${
+      className={`fixed inset-0 z-[60] bg-ink/30 transition-opacity duration-200 ease-expo ${
         entered ? 'opacity-100' : 'opacity-0'
       }`}
     >
@@ -237,12 +237,12 @@ export default function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className={`mx-auto mt-[12vh] w-[calc(100%-2rem)] max-w-2xl rounded-sm border border-line bg-ink transition-[opacity,transform] duration-200 ease-expo ${
+        className={`mx-auto mt-[12vh] w-[calc(100%-2rem)] max-w-2xl border border-[color:var(--hairline)] bg-paper text-ink transition-[opacity,transform] duration-200 ease-expo ${
           entered ? 'translate-y-0 opacity-100' : 'translate-y-[6px] opacity-0'
         }`}
       >
-        <div className="flex items-center gap-3 border-b border-line px-4">
-          <span aria-hidden="true" className="shrink-0 font-mono text-sm text-signal">
+        <div className="flex items-center gap-3 border-b border-[color:var(--hairline)] px-4">
+          <span aria-hidden="true" className="shrink-0 font-mono text-sm text-faint">
             &gt;
           </span>
           <input
@@ -264,15 +264,15 @@ export default function CommandPalette() {
               setActive(0);
             }}
             onKeyDown={onInputKeyDown}
-            className="w-full border-0 bg-transparent py-4 font-display text-base text-paper outline-none placeholder:text-muted focus-visible:ring-0"
+            className="w-full border-0 bg-transparent py-4 font-sans text-base text-ink outline-none placeholder:text-quiet focus-visible:ring-0"
           />
-          <kbd className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted">
+          <kbd className="shrink-0 border border-[color:var(--hairline)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-quiet">
             ESC
           </kbd>
         </div>
 
         {secret && (
-          <div aria-live="polite" className="border-b border-line px-4 py-2.5">
+          <div aria-live="polite" className="border-b border-[color:var(--hairline)] px-4 py-2.5">
             {secret.tappable ? (
               <button
                 type="button"
@@ -280,12 +280,12 @@ export default function CommandPalette() {
                   dispatchShip();
                   closePalette();
                 }}
-                className="w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-left font-mono text-xs uppercase tracking-wide text-signal transition-colors hover:text-paper"
+                className="w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-left font-mono text-xs uppercase tracking-wide text-quiet transition-colors hover:text-ink"
               >
                 {secret.text}
               </button>
             ) : (
-              <p className="font-mono text-xs uppercase tracking-wide text-signal">{secret.text}</p>
+              <p className="font-mono text-xs uppercase tracking-wide text-quiet">{secret.text}</p>
             )}
           </div>
         )}
@@ -299,7 +299,7 @@ export default function CommandPalette() {
           >
             {groups.map((group) => (
               <li key={group.domain} role="presentation">
-                <p aria-hidden="true" className="label px-3 pb-1 pt-3">
+                <p aria-hidden="true" className="mono px-3 pb-1 pt-3 text-quiet">
                   {group.heading}
                 </p>
                 <ul role="group" aria-label={group.heading}>
@@ -315,17 +315,17 @@ export default function CommandPalette() {
                         aria-selected={isActive}
                         onMouseEnter={() => setActive(index)}
                         onClick={() => go(result.item.href)}
-                        className={`relative flex cursor-pointer items-baseline justify-between gap-4 rounded-sm px-3 py-2 transition-colors duration-200 ${
-                          isActive ? 'bg-paper/5' : 'bg-transparent'
+                        className={`relative flex cursor-pointer items-baseline justify-between gap-4 rounded-[2px] px-3 py-2 transition-colors duration-200 ${
+                          isActive ? 'bg-ink/5' : 'bg-transparent'
                         }`}
                       >
                         {isActive && (
-                          <span aria-hidden="true" className="absolute inset-y-1 left-0 w-[2px] bg-signal" />
+                          <span aria-hidden="true" className="absolute inset-y-1 left-0 w-[2px] bg-seal" />
                         )}
-                        <span className="min-w-0 truncate font-display text-[15px] text-paper">
+                        <span className="min-w-0 truncate font-sans text-[15px] text-ink">
                           <HighlightedLabel text={result.item.label} ranges={result.labelRanges} />
                         </span>
-                        <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted">
+                        <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-quiet">
                           {result.item.sublabel}
                         </span>
                       </li>
@@ -336,12 +336,12 @@ export default function CommandPalette() {
             ))}
           </ul>
         ) : (
-          <p className="px-4 py-8 font-mono text-sm text-muted">
+          <p className="px-4 py-8 font-mono text-sm text-quiet">
             {query.trim().length === 0 ? 'Loading index…' : `No results for "${query}"`}
           </p>
         )}
 
-        <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 font-mono text-[11px] text-muted">
+        <div className="flex items-center gap-4 border-t border-[color:var(--hairline)] px-4 py-2.5 font-mono text-[11px] text-quiet">
           <span>
             <span aria-hidden="true">↑↓</span> navigate
           </span>

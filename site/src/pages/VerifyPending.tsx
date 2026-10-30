@@ -39,29 +39,60 @@ export default function VerifyPending() {
   }
 
   return (
-    <div className="shell py-12 md:py-16">
-      <div className="rule max-w-md pt-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Check your inbox</h1>
-        <p className="mt-2 text-sm text-muted">
+    <section className="wrap py-14 md:py-20">
+      <div className="max-w-xl">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+          <p className="mono text-quiet">03 / Verify</p>
+          <p className="mono text-quiet">NSDC · Members</p>
+        </div>
+
+        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          Check your inbox
+        </h1>
+        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
           We sent a verification link to your email. Open it within an hour to activate your account,
           then sign in.
         </p>
-        <form className="mt-6 space-y-4" onSubmit={handleResend} aria-busy={pending}>
+
+        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+
+        <form className="mt-8 max-w-md space-y-6" onSubmit={handleResend} aria-busy={pending}>
           <div>
-            <label htmlFor="pending-email" className="label">Email</label>
-            <input id="pending-email" name="email" type="email" autoComplete="email" required disabled={pending}
-              value={email} onChange={(event) => setEmail(event.target.value)} className="field" placeholder="you@bl.students.amrita.edu" />
+            <label htmlFor="pending-email" className="mono mb-2 block text-ink/80">Email</label>
+            <input
+              id="pending-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              disabled={pending}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="field"
+              placeholder="you@bl.students.amrita.edu"
+            />
           </div>
-          {error && (<p role="alert" aria-live="assertive" className="error-text"><span aria-hidden="true">! </span>{error}</p>)}
-          {notice && (<p role="status" aria-live="polite" className="hint">{notice}</p>)}
+          {error && (
+            <p role="alert" aria-live="assertive" className="error-text">
+              <span aria-hidden="true">! </span>
+              {error}
+            </p>
+          )}
+          {notice && (
+            <p role="status" aria-live="polite" className="hint">
+              {notice}
+            </p>
+          )}
           <button type="submit" disabled={pending} className="btn-primary w-full">
             {pending ? 'Sending...' : 'Re-send verification link'}
           </button>
+
+          <p className="pt-2 text-sm text-quiet">
+            Verified already?{' '}
+            <Link to="/login" className="link">Sign in</Link>
+          </p>
         </form>
-        <p className="pt-4 text-sm text-muted">
-          Verified already?{' '}<Link to="/login" className="link">Sign in</Link>
-        </p>
       </div>
-    </div>
+    </section>
   );
 }

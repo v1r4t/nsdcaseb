@@ -41,57 +41,88 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="shell py-12 md:py-16">
-        <div className="rule max-w-md pt-8">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Reset link missing</h1>
-          <p className="mt-2 text-sm text-muted">Open the link from your reset email to set a new password.</p>
+      <section className="wrap py-14 md:py-20">
+        <div className="max-w-xl">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+            <p className="mono text-quiet">02 / Recovery</p>
+            <p className="mono text-quiet">NSDC · Members</p>
+          </div>
+          <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+            Reset link missing
+          </h1>
+          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+            Open the link from your reset email to set a new password.
+          </p>
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="shell py-12 md:py-16">
-      <div className="rule max-w-md pt-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Set a new password</h1>
+    <section className="wrap py-14 md:py-20">
+      <div className="max-w-xl">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+          <p className="mono text-quiet">02 / Recovery</p>
+          <p className="mono text-quiet">NSDC · Members</p>
+        </div>
+        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          Set a new password
+        </h1>
         {done ? (
-          <p className="mt-2 text-sm text-muted">Done — sign in with your new password.{' '}
-            <Link to="/login" className="link">Sign in</Link></p>
+          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+            Done — sign in with your new password.{' '}
+            <Link to="/login" className="link">Sign in</Link>
+          </p>
         ) : (
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit} aria-busy={pending}>
-            <div>
-              <label htmlFor="reset-password" className="label">New password</label>
-              <PasswordField
-                id="reset-password"
-                name="password"
-                label="new password"
-                value={password}
-                onChange={setPassword}
-                autoComplete="new-password"
-                disabled={pending}
-                describedBy="reset-password-hint"
-              />
-              <p id="reset-password-hint" className="hint">At least 10 characters, including a letter and a number.</p>
-            </div>
-            <div>
-              <label htmlFor="reset-confirm" className="label">Confirm password</label>
-              <PasswordField
-                id="reset-confirm"
-                name="confirm"
-                label="password confirmation"
-                value={confirm}
-                onChange={setConfirm}
-                autoComplete="new-password"
-                disabled={pending}
-              />
-            </div>
-            {error && (<p role="alert" aria-live="assertive" className="error-text"><span aria-hidden="true">! </span>{error}</p>)}
-            <button type="submit" disabled={pending} className="btn-primary w-full">
-              {pending ? 'Saving...' : 'Set new password'}
-            </button>
-          </form>
+          <>
+            <div className="rule mt-8 max-w-md" aria-hidden="true" />
+
+            <form className="mt-8 max-w-md space-y-6" onSubmit={handleSubmit} aria-busy={pending}>
+              <div>
+                <label htmlFor="reset-password" className="mono mb-2 block text-ink/80">
+                  New password
+                </label>
+                <PasswordField
+                  id="reset-password"
+                  name="password"
+                  label="new password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="new-password"
+                  disabled={pending}
+                  describedBy="reset-password-hint"
+                />
+                <p id="reset-password-hint" className="hint">
+                  At least 10 characters, including a letter and a number.
+                </p>
+              </div>
+              <div>
+                <label htmlFor="reset-confirm" className="mono mb-2 block text-ink/80">
+                  Confirm password
+                </label>
+                <PasswordField
+                  id="reset-confirm"
+                  name="confirm"
+                  label="password confirmation"
+                  value={confirm}
+                  onChange={setConfirm}
+                  autoComplete="new-password"
+                  disabled={pending}
+                />
+              </div>
+              {error && (
+                <p role="alert" aria-live="assertive" className="error-text">
+                  <span aria-hidden="true">! </span>
+                  {error}
+                </p>
+              )}
+              <button type="submit" disabled={pending} className="btn-primary w-full">
+                {pending ? 'Saving...' : 'Set new password'}
+              </button>
+            </form>
+          </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

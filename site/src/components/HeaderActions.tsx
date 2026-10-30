@@ -37,7 +37,7 @@ export default function HeaderActions() {
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent('nsdc:open-palette'))}
         aria-label={`Search ${isMac ? '⌘K' : 'Ctrl K'}`}
-        className="mono min-h-11 text-quiet transition-colors duration-200 hover:text-ink"
+        className="mono inline-flex min-h-11 min-w-11 items-center justify-center px-1 text-quiet transition-colors duration-200 hover:text-ink sm:px-0"
       >
         <span aria-hidden="true" className="min-[400px]:hidden">
           &#8981;
@@ -56,13 +56,13 @@ export default function HeaderActions() {
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="mono min-h-11 text-quiet transition-colors duration-200 hover:text-ink disabled:opacity-50"
+            className="mono inline-flex min-h-11 items-center text-quiet transition-colors duration-200 hover:text-ink disabled:opacity-50"
           >
             {signingOut ? 'Signing out' : 'Sign out'}
           </button>
         </>
       ) : (
-        <Link to="/login" className="mono min-h-11 text-quiet transition-colors duration-200 hover:text-ink">
+        <Link to="/login" className="mono inline-flex min-h-11 items-center text-quiet transition-colors duration-200 hover:text-ink">
           Sign in
         </Link>
       )}

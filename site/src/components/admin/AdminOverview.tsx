@@ -41,7 +41,7 @@ export default function AdminOverview({ notify }: PanelProps) {
 
   return (
     <section aria-label="Overview">
-      <h2 className="label">Overview</h2>
+      <h2 className="font-display text-2xl text-ink">Overview</h2>
       {stats ? (
         <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
           {[
@@ -52,14 +52,14 @@ export default function AdminOverview({ notify }: PanelProps) {
             ['Waitlisted', stats.registrations_by_status.waitlisted],
             ['Emails pending', stats.outbox.pending],
           ].map(([label, n]) => (
-            <div key={label as string} className="border-t border-line pt-3">
-              <dt className="font-mono text-[11px] uppercase tracking-wide text-muted">{label}</dt>
-              <dd className="mt-1 font-mono text-2xl font-medium leading-none text-paper">{n}</dd>
+            <div key={label as string} className="border-t hairline pt-3">
+              <dt className="mono text-quiet">{label}</dt>
+              <dd className="mt-1 font-mono text-2xl font-medium leading-none text-ink">{n}</dd>
             </div>
           ))}
         </dl>
       ) : (
-        <p className="mt-5 font-mono text-xs uppercase tracking-wide text-muted">Loading stats…</p>
+        <p className="mt-5 mono text-quiet">Loading stats…</p>
       )}
     </section>
   );

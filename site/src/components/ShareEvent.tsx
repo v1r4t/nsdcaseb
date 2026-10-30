@@ -44,9 +44,9 @@ export default function ShareEvent({ eventId, eventTitle }: ShareEventProps) {
   }
 
   return (
-    <section aria-label="Share this event" className="mt-10 border-t border-line pt-6">
-      <p className="label">Know someone who&rsquo;d love this?</p>
-      <p className="mt-2 max-w-xl text-sm leading-relaxed text-paper/70">
+    <section aria-label="Share this event" className="mt-8 border-t hairline pt-6">
+      <p className="mono text-quiet">Know someone who&rsquo;d love this?</p>
+      <p className="mt-2 max-w-xl text-sm leading-relaxed text-quiet">
         Send them the event page — they can register in a minute.
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -66,7 +66,7 @@ export default function ShareEvent({ eventId, eventTitle }: ShareEventProps) {
       <p
         role="status"
         aria-live="polite"
-        className="mt-3 min-h-5 font-mono text-[11px] uppercase tracking-wide text-signal"
+        className="mono mt-3 min-h-[1.25rem] text-seal"
       >
         {copied ? 'Link copied.' : (error ?? '')}
       </p>

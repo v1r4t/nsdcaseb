@@ -38,10 +38,10 @@ function nextEvent(events: EventSummary[]): EventSummary | null {
 }
 
 /**
- * NOW / 2026 — the live status strip. Every line is derived from real props or
+ * NOW / 2026 — the live status index. Every line is derived from real props or
  * a real fetch; a fact we do not have is omitted rather than guessed, so the
  * section shrinks instead of lying. When nothing at all is known it renders a
- * single honest line.
+ * single honest line. Hairlines and mono carry the structure; no cards.
  */
 export default function NowSection({ events, mediaCount = 0 }: NowSectionProps) {
   const [recruitmentOpen, setRecruitmentOpen] = useState<boolean | null>(null);
@@ -111,18 +111,21 @@ export default function NowSection({ events, mediaCount = 0 }: NowSectionProps) 
   return (
     <Reveal className="md:ml-[8.333%] md:max-w-[66.666%]">
       {lines.length === 0 ? (
-        <p className="flex items-baseline gap-4 border-t border-line py-4 font-mono text-xs uppercase tracking-wide text-muted">
-          <span aria-hidden="true" className="text-signal">
+        <p className="mono flex items-baseline gap-4 border-y py-4 text-quiet hairline">
+          <span aria-hidden="true" className="text-seal">
             →
           </span>
           Awaiting live status
         </p>
       ) : (
-        <ul aria-label="Live status">
+        <ul aria-label="Live status" className="border-t hairline">
           {lines.map((line) => {
             const content = (
               <>
-                <span aria-hidden="true" className="shrink-0 text-signal">
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 text-seal transition-transform duration-200 group-hover:translate-x-1"
+                >
                   →
                 </span>
                 <span className="min-w-0 flex-1">{line.body}</span>
@@ -130,19 +133,17 @@ export default function NowSection({ events, mediaCount = 0 }: NowSectionProps) 
               </>
             );
             return (
-              <li key={line.key} className="border-t border-line last:border-b">
+              <li key={line.key} className="border-b hairline">
                 {line.to ? (
                   <Link
                     to={line.to}
                     data-cursor={line.hint}
-                    className="flex items-baseline gap-4 py-4 font-mono text-xs uppercase tracking-wide text-muted transition-colors duration-200 hover:text-paper"
+                    className="mono group flex items-baseline gap-4 py-4 text-quiet transition-colors duration-200 hover:text-ink"
                   >
                     {content}
                   </Link>
                 ) : (
-                  <div className="flex items-baseline gap-4 py-4 font-mono text-xs uppercase tracking-wide text-muted">
-                    {content}
-                  </div>
+                  <div className="mono flex items-baseline gap-4 py-4 text-quiet">{content}</div>
                 )}
               </li>
             );

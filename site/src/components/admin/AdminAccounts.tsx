@@ -113,7 +113,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
 
   return (
     <section aria-label="Accounts and roles">
-      <h2 className="label">Accounts and roles</h2>
+      <h2 className="font-display text-2xl text-ink">Accounts and roles</h2>
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={() => void bulkVerify()} className="btn-ghost" disabled={busy}>
           Send verification to unverified
@@ -130,19 +130,19 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
         <div
           role="alertdialog"
           aria-label={`Delete account ${pendingDelete.email}`}
-          className="mt-4 space-y-3 border border-line bg-ink/40 p-4"
+          className="mt-4 space-y-3 border border-seal/40 bg-paper p-4"
         >
-          <p className="text-sm text-paper/90">
+          <p className="text-sm text-ink">
             Delete <span className="break-all font-medium">{pendingDelete.email}</span>?
           </p>
-          <p className="text-sm text-muted">
+          <p className="text-sm text-quiet">
             This permanently removes the account, its registrations and pending mail. Waitlisted people
             will be promoted.
           </p>
-          <p className="font-mono text-[11px] uppercase tracking-wide text-muted">
+          <p className="mono text-quiet">
             {pendingDelete.registrations_count} registration(s)
           </p>
-          <label className="block text-sm text-paper/90">
+          <label className="block text-sm text-ink">
             Type the email to confirm
             <input
               aria-label="Confirm email"
@@ -155,7 +155,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
             />
           </label>
           {deleteError && (
-            <p role="alert" className="text-sm text-paper/90">
+            <p role="alert" className="text-sm text-seal">
               {deleteError}
             </p>
           )}
@@ -163,7 +163,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
             <button
               type="button"
               onClick={() => void confirmDelete()}
-              className="btn-ghost"
+              className="btn-primary"
               disabled={busy || confirmEmail !== pendingDelete.email}
             >
               Delete account
@@ -177,8 +177,8 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
       {/* Mobile: stacked cards. sm+: scrollable table. */}
       <ul className="mt-5 space-y-3 sm:hidden">
         {users.map((u) => (
-          <li key={u.id} className="space-y-2 border border-line p-3">
-            <p className="break-all text-sm text-paper/90">{u.email}</p>
+          <li key={u.id} className="space-y-2 border hairline p-3">
+            <p className="break-all text-sm text-ink">{u.email}</p>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 aria-label={`Role for ${u.email}`}
@@ -209,16 +209,16 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
         ))}
       </ul>
       <div className="mt-5 hidden overflow-x-auto sm:block">
-        <table className="w-full min-w-[32rem] text-left text-sm text-paper/80">
-          <thead className="border-b border-line">
+        <table className="w-full min-w-[32rem] text-left text-sm text-ink/80">
+          <thead className="border-b hairline">
             <tr>
-              <th className="label py-2 pr-4 text-left">Email</th>
-              <th className="label py-2 pr-4 text-left">Role</th>
-              <th className="label py-2 pr-4 text-left">Verified</th>
-              <th className="label py-2 pr-4 text-left">Delete</th>
+              <th className="mono py-2 pr-4 text-left text-ink">Email</th>
+              <th className="mono py-2 pr-4 text-left text-ink">Role</th>
+              <th className="mono py-2 pr-4 text-left text-ink">Verified</th>
+              <th className="mono py-2 pr-4 text-left text-ink">Delete</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody className="divide-y divide-[color:var(--hairline)]">
             {users.map((u) => (
               <tr key={u.id}>
                 <td className="py-3 pr-4 break-all">{u.email}</td>
@@ -251,7 +251,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
                       Delete
                     </button>
                   ) : (
-                    <span className="font-mono text-xs text-muted">—</span>
+                    <span className="mono text-quiet">—</span>
                   )}
                 </td>
               </tr>
@@ -259,7 +259,7 @@ export default function AdminAccounts({ busy, setBusy, notify }: PanelProps) {
           </tbody>
         </table>
       </div>
-      {users.length === 0 && <p className="mt-5 text-sm text-muted">No accounts match.</p>}
+      {users.length === 0 && <p className="mt-5 text-sm text-quiet">No accounts match.</p>}
     </section>
   );
 }

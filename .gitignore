@@ -8,6 +8,8 @@ vite.config.d.ts
 dist-site/
 supabase/.temp/
 .superpowers/
+test-results/
+playwright-report/
 
 # Local Worker secrets
 .dev.vars

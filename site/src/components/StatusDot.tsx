@@ -21,27 +21,35 @@ export function statusFor(event: EventSummary): RowStatus {
 const LABEL: Record<RowStatus, string> = {
   open: 'OPEN',
   filling: 'FILLING FAST',
-  waitlisted: 'WAITLIST',
+  waitlisted: 'WAITLISTED',
   registered: 'REGISTERED',
   closed: 'CLOSED',
 };
 
-/** Status dot + text label. The label carries the meaning; the dot is decoration. */
+/** Ink label tone. FILLING FAST is the only state that earns seal text. */
+const TONE: Record<RowStatus, string> = {
+  open: 'text-ink',
+  filling: 'text-seal',
+  waitlisted: 'text-ink',
+  registered: 'text-ink',
+  closed: 'text-quiet',
+};
+
+/** Seal square + text label. The label carries the meaning; the mark is decoration. */
 export default function StatusDot({ event }: { event: EventSummary }) {
   const status = statusFor(event);
-  if (status === 'registered') {
-    return (
-      <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-paper">
-        <span aria-hidden="true" className="text-signal">✓</span> REGISTERED
-      </span>
-    );
-  }
-  const filled = status === 'open' || status === 'filling' || status === 'waitlisted';
-  const dotClass =
-    status === 'closed' ? 'text-muted' : status === 'filling' ? 'text-signal' : 'text-paper';
+  const hollow = status === 'closed';
+  const sealed = status === 'filling' || status === 'registered' || status === 'waitlisted';
+
   return (
-    <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-paper/80">
-      <span aria-hidden="true" className={dotClass}>{filled ? '●' : '○'}</span> {LABEL[status]}
+    <span className={`mono inline-flex items-center gap-2 whitespace-nowrap ${TONE[status]}`}>
+      <span
+        aria-hidden="true"
+        className={`inline-block h-1.5 w-1.5 shrink-0 ${
+          hollow ? 'border border-current' : sealed ? 'bg-seal' : 'bg-ink'
+        }`}
+      />
+      {LABEL[status]}
     </span>
   );
 }

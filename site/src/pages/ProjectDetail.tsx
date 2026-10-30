@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import Reveal from '../components/Reveal';
 import { ApiError, listProjects } from '../lib/projects';
-import type { Project } from '../lib/projects';
+import type { Project, ProjectStatus } from '../lib/projects';
 import { listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
+
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  active: 'Active build',
+  shipped: 'Shipped',
+  archived: 'Archived',
+};
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -55,97 +62,170 @@ export default function ProjectDetail() {
   }, [id]);
 
   return (
-    <div className="shell py-12 md:py-16">
-      <p>
+    <div className="wrap py-10 md:py-14">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <Link
           to="/projects"
-          className="font-mono text-[11px] uppercase tracking-wide text-muted transition-colors hover:text-paper"
+          className="mono text-quiet transition-colors duration-200 hover:text-ink"
         >
           ← Projects
         </Link>
-      </p>
+        <p aria-hidden="true" className="mono text-faint">
+          Case sheet
+        </p>
+      </div>
 
       {error && (
-        <p role="alert" aria-live="assertive" className="error-text mt-8 text-sm">
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="mt-8 border-t hairline pt-5 text-sm text-seal"
+        >
           {error}
         </p>
       )}
       {!error && !loaded && (
-        <p aria-live="polite" className="mt-8 font-mono text-xs uppercase tracking-wide text-muted">
+        <p aria-live="polite" className="mono mt-8 border-t hairline pt-5 text-quiet">
           Loading project…
         </p>
       )}
       {!error && loaded && !project && (
-        <p className="mt-10 border-t border-line py-8 text-sm text-muted">
-          This project does not exist.
-        </p>
+        <div className="mt-10 border-y hairline py-10">
+          <p className="font-display text-3xl leading-tight text-ink sm:text-4xl">
+            This project does not exist.
+          </p>
+          <Link
+            to="/projects"
+            className="mono mt-6 inline-block text-seal underline decoration-seal/40 underline-offset-4 transition-colors hover:decoration-seal"
+          >
+            Back to projects →
+          </Link>
+        </div>
       )}
       {!error && project && (
-        <article className="mt-8">
-          <p className="label">Project{project.featured ? ' / Featured' : ''}</p>
-          <h1 className="mt-3 font-display text-5xl font-semibold uppercase tracking-tight text-paper sm:text-6xl">
-            {project.title}
-          </h1>
-          {project.author && (
-            <p className="mt-4 font-mono text-[11px] tracking-wide text-muted">
-              {project.author}
-            </p>
-          )}
-          {project.cover_url && (
-            <img
-              src={project.cover_url}
-              alt={`${project.title} project cover`}
-              loading="lazy"
-              decoding="async"
-              width={1200}
-              height={675}
-              className="mt-8 aspect-video w-full max-w-3xl border border-line object-cover"
-            />
-          )}
-          {project.summary && (
-            <p className="mt-8 max-w-2xl text-lg leading-relaxed text-paper/85">
-              {project.summary}
-            </p>
-          )}
-          {project.description && project.description !== project.summary && (
-            <p className="mt-4 max-w-2xl whitespace-pre-wrap text-base leading-relaxed text-paper/70">
-              {project.description}
-            </p>
-          )}
-          {project.stack.length > 0 && (
-            <ul aria-label="Tech stack" className="mt-6 flex flex-wrap gap-2">
-              {project.stack.map((s) => (
-                <li
-                  key={s}
-                  className="border border-line px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-muted"
-                >
-                  {s}
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-6 font-mono text-[11px] uppercase tracking-wide">
-            {project.url && (
-              <a
-                href={project.url}
-                target="_blank"
-                rel="noopener"
-                aria-label={`Visit ${project.title} (opens in a new tab)`}
-                className="text-signal underline decoration-signal/40 underline-offset-4 transition-colors hover:decoration-signal"
-              >
-                Visit →
-              </a>
+        <article className="mt-10">
+          <Reveal>
+            <header className="grid gap-8 md:grid-cols-12 md:gap-8">
+              <div className="md:col-span-8 lg:col-span-9">
+                <p className="mono flex flex-wrap items-center gap-x-3 gap-y-1 text-quiet">
+                  <span>Project</span>
+                  {project.featured && (
+                    <span className="inline-flex items-center gap-2 text-seal">
+                      <span aria-hidden="true" className="inline-block h-1.5 w-1.5 bg-seal" />
+                      Featured
+                    </span>
+                  )}
+                </p>
+                <h1 className="mt-4 max-w-4xl text-balance font-display text-[clamp(2.75rem,7vw,5.5rem)] font-normal leading-[0.98] tracking-[-0.02em] text-ink">
+                  {project.title}
+                </h1>
+              </div>
+              <div className="md:col-span-4 md:col-start-9 md:self-end md:text-right lg:col-span-3 lg:col-start-10">
+                <p className="mono text-faint">Status</p>
+                <p className="mt-1 text-sm text-ink">{STATUS_LABEL[project.status]}</p>
+              </div>
+            </header>
+          </Reveal>
+
+          <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-y hairline py-5 md:grid-cols-4">
+            {project.author && (
+              <div>
+                <dt className="mono text-faint">Credit</dt>
+                <dd className="mt-1 text-sm text-ink">{project.author}</dd>
+              </div>
             )}
-            {event && (
-              <Link
-                to={`/registrations/${encodeURIComponent(event.id)}`}
-                aria-label={`From: ${event.title}`}
-                className="text-muted transition-colors duration-200 hover:text-paper"
-              >
-                From: {event.title} →
-              </Link>
-            )}
-          </p>
+            <div>
+              <dt className="mono text-faint">Stack</dt>
+              <dd className="mt-1 text-sm text-ink">
+                {project.stack.length > 0
+                  ? `${String(project.stack.length).padStart(2, '0')} tools`
+                  : 'Not listed'}
+              </dd>
+            </div>
+            <div>
+              <dt className="mono text-faint">Record</dt>
+              <dd className="mono-sm mt-1 break-all text-ink">{project.id}</dd>
+            </div>
+            <div>
+              <dt className="mono text-faint">Filed</dt>
+              <dd className="mt-1 text-sm text-ink">Projects / 26—27</dd>
+            </div>
+          </dl>
+
+          <div className="mt-10 grid gap-10 md:grid-cols-12 md:gap-8">
+            <div className="md:col-span-8 md:col-start-5 lg:col-span-7 lg:col-start-6">
+              <Reveal>
+                {project.cover_url && (
+                  <figure>
+                    <img
+                      src={project.cover_url}
+                      alt={`${project.title} project cover`}
+                      loading="lazy"
+                      decoding="async"
+                      width={1200}
+                      height={675}
+                      className="aspect-video w-full border hairline object-cover"
+                    />
+                  </figure>
+                )}
+                {project.summary && (
+                  <p
+                    className={[
+                      'max-w-2xl text-xl leading-[1.5] text-ink md:text-2xl md:leading-[1.4]',
+                      project.cover_url ? 'mt-8' : '',
+                    ].join(' ')}
+                  >
+                    {project.summary}
+                  </p>
+                )}
+                {project.description && project.description !== project.summary && (
+                  <p className="mt-5 max-w-2xl whitespace-pre-wrap text-[17px] leading-[1.7] text-ink/80">
+                    {project.description}
+                  </p>
+                )}
+              </Reveal>
+
+              <p className="mono mt-10 flex flex-wrap gap-x-8 gap-y-3 border-t hairline pt-5">
+                {project.url && (
+                  <a
+                    href={project.url}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={`Visit ${project.title} (opens in a new tab)`}
+                    className="text-seal underline decoration-seal/40 underline-offset-4 transition-colors duration-200 hover:decoration-seal"
+                  >
+                    Visit →
+                  </a>
+                )}
+                {event && (
+                  <Link
+                    to={`/registrations/${encodeURIComponent(event.id)}`}
+                    aria-label={`From: ${event.title}`}
+                    className="text-quiet transition-colors duration-200 hover:text-ink"
+                  >
+                    From: {event.title} →
+                  </Link>
+                )}
+              </p>
+            </div>
+
+            <aside className="md:col-span-4 md:col-start-1 md:row-start-1 lg:col-span-3">
+              <div className="border-t hairline pt-4">
+                <h2 className="mono text-faint">Tech stack</h2>
+                {project.stack.length > 0 ? (
+                  <ul aria-label="Tech stack" className="mt-3 flex flex-wrap gap-2">
+                    {project.stack.map((s) => (
+                      <li key={s} className="border hairline px-2.5 py-1 mono text-quiet">
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-quiet">No stack listed for this build.</p>
+                )}
+              </div>
+            </aside>
+          </div>
         </article>
       )}
     </div>

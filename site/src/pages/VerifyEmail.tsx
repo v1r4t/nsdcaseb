@@ -19,30 +19,47 @@ export default function VerifyEmail() {
   }, [token]);
 
   return (
-    <div className="shell py-12 md:py-16">
-      <div className="rule max-w-md pt-8">
+    <section className="wrap py-14 md:py-20">
+      <div className="max-w-xl">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
+          <p className="mono text-quiet">03 / Verify</p>
+          <p className="mono text-quiet">NSDC · Members</p>
+        </div>
+
         {status === 'verifying' && (
-          <p role="status" aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+          <p role="status" aria-live="polite" className="mono mt-8 text-quiet">
             Verifying your email...
           </p>
         )}
         {status === 'done' && (
           <>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Email verified</h1>
-            <p className="mt-2 text-sm text-muted">Your account is active. Sign in to continue.</p>
-            <p className="pt-4 text-sm"><Link to="/login" className="link">Sign in</Link></p>
+            <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+              Email verified
+            </h1>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+              Your account is active. Sign in to continue.
+            </p>
+            <div className="rule mt-8 max-w-md" aria-hidden="true" />
+            <p className="mt-8 max-w-md text-sm">
+              <Link to="/login" className="link">Sign in</Link>
+            </p>
           </>
         )}
         {(status === 'invalid' || status === 'missing') && (
           <>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-paper">Link invalid or expired</h1>
-            <p className="mt-2 text-sm text-muted">
+            <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+              Link invalid or expired
+            </h1>
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
               Verification links work once and expire after an hour. Request a fresh one below.
             </p>
-            <p className="pt-4 text-sm"><Link to="/verify-pending" className="link">Re-send verification link</Link></p>
+            <div className="rule mt-8 max-w-md" aria-hidden="true" />
+            <p className="mt-8 max-w-md text-sm">
+              <Link to="/verify-pending" className="link">Re-send verification link</Link>
+            </p>
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

@@ -29,12 +29,12 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   render(): ReactNode {
     if (!this.state.hasError) return this.props.children;
     return (
-      <section className="shell py-16 md:py-24" role="alert">
-        <p className="label">Error / Something broke</p>
-        <h1 className="mt-10 max-w-3xl font-display text-4xl font-semibold tracking-tight text-paper sm:text-5xl">
+      <section className="wrap py-16 md:py-24" role="alert">
+        <p className="mono text-seal">Error / Something broke</p>
+        <h1 className="mt-10 max-w-3xl font-display text-4xl font-normal tracking-tight text-ink sm:text-5xl">
           Something went wrong
         </h1>
-        <p className="mt-4 max-w-xl text-sm text-paper/80">
+        <p className="mt-4 max-w-xl text-sm text-ink/80">
           This page hit an unexpected error. Nothing was lost — try reloading.
         </p>
         <div className="mt-10">

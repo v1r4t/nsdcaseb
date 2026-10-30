@@ -419,8 +419,8 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
   return (
     <section aria-label="Gallery" className="space-y-8">
       <div>
-        <h2 className="label">Gallery</h2>
-        <p className="mt-2 text-sm text-muted">
+        <h2 className="mono text-quiet">Gallery</h2>
+        <p className="mt-2 text-sm text-quiet">
           Albums and gallery items for the public gallery. Album covers stay URL-based; gallery
           photos are uploaded from this browser as WebP variants, with sources over 10 MB
           compressed automatically before upload.
@@ -431,7 +431,7 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
           </p>
         )}
         {albums === null && (
-          <p aria-live="polite" className="mt-6 font-mono text-[11px] uppercase tracking-wide text-muted">
+          <p aria-live="polite" className="mt-6 mono text-quiet">
             Loading media…
           </p>
         )}
@@ -440,10 +440,10 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
       {albums !== null && (
         <>
           <div>
-            <h3 className="label">Albums</h3>
+            <h3 className="mono text-quiet">Albums</h3>
             <ul className="mt-4">
               {albums.map((album) => (
-                <li key={album.id} className="border-t border-line py-4 last:border-b">
+                <li key={album.id} className="border-t hairline py-4 last:border-b">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 gap-3">
                       {album.cover_url && (
@@ -454,23 +454,23 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                           decoding="async"
                           width={96}
                           height={54}
-                          className="h-14 w-24 shrink-0 border border-line object-cover"
+                          className="h-14 w-24 shrink-0 border hairline object-cover"
                         />
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm text-paper/80">
+                        <p className="text-sm text-ink/80">
                           {album.title}
-                          <span className="ml-2 font-mono text-[11px] uppercase tracking-wide text-muted">
+                          <span className="ml-2 mono text-quiet">
                             sort {album.sort_order}
                           </span>
                         </p>
-                        {album.description && <p className="mt-1 text-xs text-muted">{album.description}</p>}
-                        <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">
+                        {album.description && <p className="mt-1 text-xs text-quiet">{album.description}</p>}
+                        <p className="mt-1 mono text-quiet">
                           {album.items.length} item{album.items.length === 1 ? '' : 's'} ·{' '}
                           {album.event_id ? `event ${album.event_id}` : 'no event'}
                         </p>
                         {album.cover_url && (
-                          <p className="mt-1 truncate font-mono text-[11px] text-muted" title={album.cover_url}>
+                          <p className="mt-1 truncate font-mono text-[11px] text-quiet" title={album.cover_url}>
                             {album.cover_url}
                           </p>
                         )}
@@ -488,11 +488,11 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                 </li>
               ))}
             </ul>
-            {albums.length === 0 && <p className="mt-4 text-sm text-muted">No albums yet. Create one below.</p>}
+            {albums.length === 0 && <p className="mt-4 text-sm text-quiet">No albums yet. Create one below.</p>}
           </div>
 
-          <div className="border-t border-line pt-6">
-            <h3 className="label">{editingAlbumId ? 'Edit album' : 'Create album'}</h3>
+          <div className="border-t hairline pt-6">
+            <h3 className="mono text-quiet">{editingAlbumId ? 'Edit album' : 'Create album'}</h3>
             <form className="mt-4 space-y-3" onSubmit={submitAlbum}>
               <input
                 aria-label="Album title"
@@ -557,14 +557,14 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
             </form>
           </div>
 
-          <div className="border-t border-line pt-6">
-            <h3 className="label">Gallery items</h3>
+          <div className="border-t hairline pt-6">
+            <h3 className="mono text-quiet">Gallery items</h3>
             {albums.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">Create an album before adding gallery items.</p>
+              <p className="mt-4 text-sm text-quiet">Create an album before adding gallery items.</p>
             ) : (
               <>
                 <label className="mt-4 block max-w-sm">
-                  <span className="label">Album</span>
+                  <span className="mono text-quiet">Album</span>
                   <select
                     aria-label="Album to manage"
                     value={currentAlbum?.id ?? ''}
@@ -581,7 +581,7 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
 
                 <ul className="mt-4">
                   {(currentAlbum?.items ?? []).map((item) => (
-                    <li key={item.id} className="border-t border-line py-4 last:border-b">
+                    <li key={item.id} className="border-t hairline py-4 last:border-b">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex min-w-0 gap-3">
                           {item.type === 'image' ? (
@@ -592,25 +592,25 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                               decoding="async"
                               width={96}
                               height={54}
-                              className="h-14 w-24 shrink-0 border border-line object-cover"
+                              className="h-14 w-24 shrink-0 border hairline object-cover"
                             />
                           ) : (
-                            <span className="flex h-14 w-24 shrink-0 items-center justify-center border border-line px-2 text-center font-mono text-[10px] uppercase tracking-wide text-muted">
+                            <span className="flex h-14 w-24 shrink-0 items-center justify-center border hairline px-2 text-center font-mono text-[10px] uppercase tracking-wide text-quiet">
                               {hostLabel(item.url)}
                             </span>
                           )}
                           <div className="min-w-0">
-                            <p className="text-sm text-paper/80">
-                              <span className="font-mono text-[11px] uppercase tracking-wide text-muted">
+                            <p className="text-sm text-ink/80">
+                              <span className="mono text-quiet">
                                 {item.type}
                               </span>
                               {item.title && <span> · {item.title}</span>}
-                              <span className="ml-2 font-mono text-[11px] uppercase tracking-wide text-muted">
+                              <span className="ml-2 mono text-quiet">
                                 sort {item.sort_order}
                               </span>
                             </p>
-                            {item.caption && <p className="mt-1 text-xs text-muted">{item.caption}</p>}
-                            <p className="mt-1 truncate font-mono text-[11px] text-muted" title={item.url}>
+                            {item.caption && <p className="mt-1 text-xs text-quiet">{item.caption}</p>}
+                            <p className="mt-1 truncate font-mono text-[11px] text-quiet" title={item.url}>
                               {item.url}
                             </p>
                           </div>
@@ -628,14 +628,14 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                   ))}
                 </ul>
                 {(currentAlbum?.items.length ?? 0) === 0 && (
-                  <p className="mt-4 text-sm text-muted">No items in this album yet. Add one below.</p>
+                  <p className="mt-4 text-sm text-quiet">No items in this album yet. Add one below.</p>
                 )}
 
-                <div className="mt-6 border-t border-line pt-5">
-                  <h3 className="label">{editingItemId ? 'Edit item' : 'Add item'}</h3>
+                <div className="mt-6 border-t hairline pt-5">
+                  <h3 className="mono text-quiet">{editingItemId ? 'Edit item' : 'Add item'}</h3>
                   <form className="mt-4 space-y-3" onSubmit={submitItem}>
                     <label className="block max-w-sm space-y-1">
-                      <span className="label">Album</span>
+                      <span className="mono text-quiet">Album</span>
                       <select
                         aria-label="Item album"
                         value={itemForm.album_id || currentAlbum?.id || ''}
@@ -660,7 +660,7 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                           edited. Videos can no longer be added or re-pointed.
                         </p>
                         {editingItem && (
-                          <p className="mt-1 truncate font-mono text-[11px] text-muted" title={editingItem.url}>
+                          <p className="mt-1 truncate font-mono text-[11px] text-quiet" title={editingItem.url}>
                             {editingItem.url}
                           </p>
                         )}
@@ -686,7 +686,7 @@ export default function AdminMedia({ busy, setBusy, notify }: PanelProps) {
                             : 'One photo at a time. Photos over 10 MB are compressed in your browser.'}
                         </p>
                         {photo && (
-                          <p className="mt-1 font-mono text-[11px] text-muted">
+                          <p className="mt-1 font-mono text-[11px] text-quiet">
                             {photo.name} · {formatBytes(photo.size)}
                           </p>
                         )}

@@ -120,7 +120,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
 
   return (
     <section aria-label="Roster">
-      <h2 className="label">Registrations</h2>
+      <h2 className="font-display text-2xl text-ink">Registrations</h2>
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <select
           aria-label="Event"
@@ -171,22 +171,22 @@ export default function AdminRegistrations({ notify }: PanelProps) {
           {/* Mobile: stacked cards. sm+: scrollable table with a sticky header. */}
           <ul className="mt-5 space-y-3 sm:hidden">
             {visible.map((r) => (
-              <li key={r.id} className="border border-line p-3">
-                <p className="break-all text-sm text-paper/90">{r.email ?? 'Guest registration'}</p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-muted">
+              <li key={r.id} className="border hairline p-3">
+                <p className="break-all text-sm text-ink">{r.email ?? 'Guest registration'}</p>
+                <p className="mt-1 mono text-quiet">
                   {r.status}
                   {r.student_name ? ` · ${r.student_name}` : ''}
                   {r.reg_number ? ` · ${r.reg_number}` : ''}
                 </p>
-                <dl className="mt-2 space-y-1 text-sm text-paper/80">
+                <dl className="mt-2 space-y-1 text-sm text-ink/80">
                   {Object.entries(r.answers).map(([k, v]) => (
                     <div key={k}>
-                      <dt className="label">{labels.get(k) ?? k}</dt>
+                      <dt className="mono text-quiet">{labels.get(k) ?? k}</dt>
                       <dd className="break-words">{v}</dd>
                     </div>
                   ))}
                 </dl>
-                <p className="mt-2 font-mono text-xs text-muted">{fmtDateTime(r.created_at)}</p>
+                <p className="mt-2 mono text-quiet">{fmtDateTime(r.created_at)}</p>
                 {isLive(r.status) && (
                   <button
                     type="button"
@@ -202,36 +202,36 @@ export default function AdminRegistrations({ notify }: PanelProps) {
           </ul>
 
           <div className="mt-5 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[40rem] text-left text-sm text-paper/80">
-              <thead className="sticky top-0 border-b border-line bg-[inherit]">
+            <table className="w-full min-w-[40rem] text-left text-sm text-ink/80">
+              <thead className="sticky top-0 border-b hairline bg-paper">
                 <tr>
-                  <th scope="col" className="label py-2 pr-6 text-left">Email</th>
-                  <th scope="col" className="label py-2 pr-6 text-left">Status</th>
-                  <th scope="col" className="label py-2 pr-6 text-left">Answers</th>
-                  <th scope="col" className="label py-2 pr-6 text-left">Date</th>
-                  <th scope="col" className="label py-2 text-left">Actions</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left text-ink">Email</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left text-ink">Status</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left text-ink">Answers</th>
+                  <th scope="col" className="mono py-2 pr-6 text-left text-ink">Date</th>
+                  <th scope="col" className="mono py-2 text-left text-ink">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody className="divide-y divide-[color:var(--hairline)]">
                 {visible.map((r) => (
                   <tr key={r.id}>
                     <td className="py-3 pr-6 break-all">
                       {r.email ?? 'Guest registration'}
                       {r.student_name || r.reg_number ? (
-                        <span className="block font-mono text-xs text-muted">
+                        <span className="block mono text-quiet">
                           {[r.student_name, r.reg_number].filter(Boolean).join(' · ')}
                         </span>
                       ) : null}
                     </td>
-                    <td className="py-3 pr-6 font-mono text-xs uppercase tracking-wide">{r.status}</td>
+                    <td className="py-3 pr-6 mono">{r.status}</td>
                     <td className="py-3 pr-6">
                       {Object.entries(r.answers).map(([k, v]) => (
                         <span key={k} className="mr-3 inline-block">
-                          <span className="text-muted">{labels.get(k) ?? k}:</span> {v}
+                          <span className="text-quiet">{labels.get(k) ?? k}:</span> {v}
                         </span>
                       ))}
                     </td>
-                    <td className="whitespace-nowrap py-3 pr-6 font-mono text-xs text-muted">{fmtDateTime(r.created_at)}</td>
+                    <td className="whitespace-nowrap py-3 pr-6 mono text-quiet">{fmtDateTime(r.created_at)}</td>
                     <td className="py-3">
                       {isLive(r.status) && (
                         <button
@@ -250,7 +250,7 @@ export default function AdminRegistrations({ notify }: PanelProps) {
             </table>
           </div>
 
-          {visible.length === 0 && <p className="mt-5 text-sm text-muted">No registrations match.</p>}
+          {visible.length === 0 && <p className="mt-5 text-sm text-quiet">No registrations match.</p>}
         </>
       )}
     </section>

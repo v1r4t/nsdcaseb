@@ -320,30 +320,30 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
     <section aria-label="Events" className="space-y-8">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="label">Events</h2>
-          <label className="flex items-center gap-2 text-sm text-paper/80">
+          <h2 className="font-display text-2xl text-ink">Events</h2>
+          <label className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
               checked={showArchived}
               onChange={(e) => setShowArchived(e.target.checked)}
-              className="h-4 w-4 shrink-0 accent-signal"
+              className="h-4 w-4 shrink-0 accent-seal"
             />
             Show archived
           </label>
         </div>
         <ul className="mt-5">
           {events.map((e) => (
-            <li key={e.id} className="border-t border-line py-4 last:border-b">
+            <li key={e.id} className="border-t hairline py-4 last:border-b">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm text-paper/80">
+                  <p className="text-sm text-ink">
                     {e.title}
-                    <span className={`ml-3 font-mono text-[11px] uppercase tracking-wide ${e.registration_open ? 'text-signal' : 'text-muted'}`}>
+                    <span className={`mono ml-3 ${e.registration_open ? 'text-seal' : 'text-quiet'}`}>
                       {e.archived ? 'Archived' : e.registration_open ? 'Open' : 'Closed'}
                     </span>
-                    <span className="ml-3 font-mono text-[11px] uppercase tracking-wide text-muted">cap {e.capacity ?? '∞'}</span>
+                    <span className="mono ml-3 text-quiet">cap {e.capacity ?? '∞'}</span>
                   </p>
-                  <p className="mt-1 font-mono text-xs text-muted">
+                  <p className="mt-1 font-mono text-xs text-quiet">
                     {formatEventDateTime(e.starts_at)} · registered {registeredCount(e)}
                   </p>
                 </div>
@@ -358,7 +358,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                   )}
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className={e.archived ? 'btn-ghost' : 'btn-ghost text-seal'}
                     disabled={busy}
                     onClick={() => void setArchived(e, !e.archived)}
                   >
@@ -370,12 +370,12 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
           ))}
         </ul>
         {events.length === 0 && (
-          <p className="mt-5 text-sm text-muted">No events{showArchived ? '' : ' (archived hidden)'}.</p>
+          <p className="mt-5 text-sm text-quiet">No events{showArchived ? '' : ' (archived hidden)'}.</p>
         )}
       </div>
 
-      <div className="border-t border-line pt-6">
-        <h3 className="label">{editingId ? 'Edit event' : 'Create event'}</h3>
+      <div className="border-t hairline pt-6">
+        <h3 className="font-display text-lg font-normal tracking-tight text-ink">{editingId ? 'Edit event' : 'Create event'}</h3>
         <form className="mt-5 space-y-3" onSubmit={editingId ? submitEdit : submitCreate}>
           <input
             aria-label="Title"
@@ -393,28 +393,28 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             rows={3}
             className="field resize-y"
           />
-          <p className="label mt-2">Event schedule</p>
+          <p className="mono mt-2 text-quiet">Event schedule</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="label">Event starts</span>
+              <span className="mono text-quiet">Event starts</span>
               <input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} className="field" required />
               <span className="hint">When the event actually begins.</span>
             </label>
             <label className="space-y-1">
-              <span className="label">Event ends</span>
+              <span className="mono text-quiet">Event ends</span>
               <input type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} className="field" required />
               <span className="hint">When the event finishes.</span>
             </label>
           </div>
-          <p className="label mt-3">Registration window</p>
+          <p className="mono mt-3 text-quiet">Registration window</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="label">Registration opens</span>
+              <span className="mono text-quiet">Registration opens</span>
               <input type="datetime-local" value={form.reg_opens_at} onChange={(e) => setForm({ ...form, reg_opens_at: e.target.value })} className="field" required />
               <span className="hint">When people first can register.</span>
             </label>
             <label className="space-y-1">
-              <span className="label">Registration closes</span>
+              <span className="mono text-quiet">Registration closes</span>
               <input type="datetime-local" value={form.reg_closes_at} onChange={(e) => setForm({ ...form, reg_closes_at: e.target.value })} className="field" required />
               <span className="hint">Deadline after which the form closes.</span>
             </label>
@@ -427,7 +427,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             inputMode="numeric"
             className="field"
           />
-          <label className="flex items-center gap-2 text-sm text-paper/80">
+          <label className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
               checked={form.force_closed}
@@ -435,7 +435,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                 setForceClosedTouched(true);
                 setForm({ ...form, force_closed: e.target.checked });
               }}
-              className="h-4 w-4 shrink-0 accent-signal"
+              className="h-4 w-4 shrink-0 accent-seal"
             />
             Force closed now
           </label>
@@ -461,9 +461,9 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             )}
           </div>
 
-          <div className="border-t border-line pt-4">
+          <div className="border-t hairline pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="label">Registration questions ({questions.length}/20)</h4>
+              <h4 className="mono text-quiet">Registration questions ({questions.length}/20)</h4>
               <button
                 type="button"
                 className="btn-ghost"
@@ -475,7 +475,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             </div>
             <ul className="mt-3 space-y-3">
               {questions.map((q, i) => (
-                <li key={q.id} className="space-y-2 border border-line p-3">
+                <li key={q.id} className="space-y-2 border hairline p-3">
                   <input
                     aria-label={`Question ${i + 1} label`}
                     value={q.label}
@@ -485,16 +485,16 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                     className="field"
                   />
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-paper/80">
+                    <label className="flex items-center gap-2 text-sm text-ink">
                       <input
                         type="checkbox"
                         checked={q.required}
                         onChange={(e) => setQuestions(questions.map((x) => (x.id === q.id ? { ...x, required: e.target.checked } : x)))}
-                        className="h-4 w-4 shrink-0 accent-signal"
+                        className="h-4 w-4 shrink-0 accent-seal"
                       />
                       Required
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-paper/80">
+                    <label className="flex items-center gap-2 text-sm text-ink">
                       Max length
                       <input
                         aria-label={`Question ${i + 1} max length`}
@@ -507,7 +507,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
                     </label>
                     <button
                       type="button"
-                      className="btn-ghost ml-auto"
+                      className="btn-ghost ml-auto text-seal"
                       onClick={() => setQuestions(questions.filter((x) => x.id !== q.id))}
                     >
                       Remove

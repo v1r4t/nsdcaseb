@@ -48,7 +48,7 @@ export default function AdminContent({ notify }: PanelProps) {
 
   return (
     <section aria-label="Content">
-      <h2 className="label">Content</h2>
+      <h2 className="font-display text-xl font-normal tracking-tight text-ink">Content</h2>
       {/* Hero/site-wide copy editing intentionally removed. */}
       <BearerEditor
         bearers={bearers}
@@ -120,13 +120,13 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
     await run(() => updateBearer(id, { name: ed.name, role: ed.role, links }), `Saved ${ed.name || fallbackName}.`);
   }
   return (
-    <div className="mt-6 border-t border-line pt-5">
-      <h3 className="label">Office bearers</h3>
+    <div className="mt-6 border-t hairline pt-5">
+      <h3 className="font-display text-lg font-normal tracking-tight text-ink">Office bearers</h3>
       <ul className="mt-4">
         {bearers.map((x) => {
           const ed = edits[x.id] ?? { name: x.name, role: x.role, links: linksText(x.links) };
           return (
-            <li key={x.id} className="flex flex-wrap items-center gap-2 border-t border-line py-3">
+            <li key={x.id} className="flex flex-wrap items-center gap-2 border-t hairline py-3">
               <input aria-label="Bearer name" value={ed.name} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, name: e.target.value } })} className="field min-w-[9rem] flex-1" />
               <input aria-label="Bearer role" value={ed.role} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, role: e.target.value } })} className="field min-w-[9rem] flex-1" />
               <textarea
@@ -142,7 +142,7 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
               </button>
               <button
                 type="button"
-                className="btn-ghost shrink-0"
+                className="btn-ghost shrink-0 text-seal"
                 onClick={() => {
                   if (window.confirm(`Delete ${x.name}?`)) void run(() => deleteBearer(x.id), `Deleted ${x.name}.`);
                 }}
@@ -190,13 +190,13 @@ function AchievementEditor({ achievements, onDone }: { achievements: Achievement
     }
   }
   return (
-    <div className="mt-6 border-t border-line pt-5">
-      <h3 className="label">Achievements</h3>
+    <div className="mt-6 border-t hairline pt-5">
+      <h3 className="font-display text-lg font-normal tracking-tight text-ink">Achievements</h3>
       <ul className="mt-4">
         {achievements.map((a) => {
           const ed = edits[a.id] ?? { title: a.title, description: a.description };
           return (
-            <li key={a.id} className="flex flex-wrap items-center gap-2 border-t border-line py-3">
+            <li key={a.id} className="flex flex-wrap items-center gap-2 border-t hairline py-3">
               <input aria-label="Achievement title" value={ed.title} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, title: e.target.value } })} className="field min-w-[9rem] flex-1" />
               <input aria-label="Achievement description" value={ed.description} onChange={(e) => setEdits({ ...edits, [a.id]: { ...ed, description: e.target.value } })} className="field min-w-[9rem] flex-1" />
               <button type="button" className="btn-ghost shrink-0" onClick={() => void run(() => updateAchievement(a.id, { title: ed.title, description: ed.description }), 'Saved achievement.')}>
@@ -204,7 +204,7 @@ function AchievementEditor({ achievements, onDone }: { achievements: Achievement
               </button>
               <button
                 type="button"
-                className="btn-ghost shrink-0"
+                className="btn-ghost shrink-0 text-seal"
                 onClick={() => {
                   if (window.confirm(`Delete ${a.title}?`)) void run(() => deleteAchievement(a.id), 'Deleted achievement.');
                 }}
@@ -392,13 +392,13 @@ function TestimonialsEditor({ notify }: { notify: (m: string) => void }) {
   }
 
   return (
-    <div className="mt-6 border-t border-line pt-5">
-      <h3 className="label">Testimonials</h3>
+    <div className="mt-6 border-t hairline pt-5">
+      <h3 className="font-display text-lg font-normal tracking-tight text-ink">Testimonials</h3>
       <ul className="mt-4">
         {testimonials.map((t) => {
           const ed = edits[t.id] ?? editsFor(t);
           return (
-            <li key={t.id} className="flex flex-wrap items-start gap-2 border-t border-line py-3">
+            <li key={t.id} className="flex flex-wrap items-start gap-2 border-t hairline py-3">
               <textarea
                 aria-label="Testimonial quote"
                 value={ed.quote}
@@ -432,14 +432,14 @@ function TestimonialsEditor({ notify }: { notify: (m: string) => void }) {
               <button type="button" className="btn-ghost shrink-0" disabled={saving} onClick={() => void save(t)}>
                 Save
               </button>
-              <button type="button" className="btn-ghost shrink-0" disabled={saving} onClick={() => void remove(t)}>
+              <button type="button" className="btn-ghost shrink-0 text-seal" disabled={saving} onClick={() => void remove(t)}>
                 Delete
               </button>
             </li>
           );
         })}
       </ul>
-      {testimonials.length === 0 && <p className="mt-4 text-sm text-muted">No testimonials yet.</p>}
+      {testimonials.length === 0 && <p className="mt-4 text-sm text-quiet">No testimonials yet.</p>}
       <form className="mt-3 flex flex-wrap items-center gap-2" onSubmit={(e) => void create(e)}>
         <textarea
           aria-label="New testimonial quote"

@@ -105,7 +105,7 @@ change.
 ### “We started with a question”
 
 - Becomes an editorial sequence over `RoomScene`.
-- Mono label `01 / OUR STORY`; the three question lines in Bespoke Serif via
+- Mono label `02 / THE ORIGIN`; the three question lines in Bespoke Serif via
   kit `RisingText` (staggered, no pinning); the CMS `body` below in Switzer
   17px; the existing scroll-linked opacity bands kept, transparent over the
   room.

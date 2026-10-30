@@ -1,8 +1,10 @@
-# NSDC — Design System
+# NSDC — Design System (superseded)
 
-> Source of truth for the club site. Every build follows this file. Shared design
-> context exists so agents produce one consistent visual language instead of
-> improvising per page.
+> **Superseded 2026-10-31.** The club site now builds on the ink-on-paper kit in
+> [`README.md`](./README.md) and [`tokens.css`](./tokens.css). The tokens, type,
+> layout and motion sections below describe the retired dark system; keep them
+> for history only. The brand, copy and "do not look like" rules below remain
+> valid and still apply to every page.
 
 ## BRAND
 

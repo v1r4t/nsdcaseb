@@ -34,8 +34,8 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <div className="shell py-12 md:py-16">
-        <p aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+      <div className="wrap py-12 md:py-16">
+        <p aria-live="polite" className="mono text-quiet">
           Loading…
         </p>
       </div>
@@ -44,9 +44,9 @@ export default function Admin() {
 
   if (!user) {
     return (
-      <div className="shell py-12 md:py-16">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin</h1>
-        <p className="mt-3 text-sm text-muted">
+      <div className="wrap py-12 md:py-16">
+        <h1 className="font-display text-4xl font-normal tracking-tight text-ink">Admin</h1>
+        <p className="mt-3 text-sm text-quiet">
           Please <Link to="/login" className="link">sign in</Link> to continue.
         </p>
       </div>
@@ -55,40 +55,69 @@ export default function Admin() {
 
   if (user.role !== 'ob') {
     return (
-      <div className="shell py-12 md:py-16">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin</h1>
+      <div className="wrap py-12 md:py-16">
+        <h1 className="font-display text-4xl font-normal tracking-tight text-ink">Admin</h1>
         <p role="alert" className="error-text mt-3">Restricted — this area is for club admins only.</p>
       </div>
     );
   }
 
   return (
-    <div className="shell py-12 md:py-16">
+    <div className="wrap py-10 md:py-14">
       <div className="max-w-5xl">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-paper">Admin dashboard</h1>
-        <p role="status" aria-live="polite" className="mt-4 min-h-5 text-sm text-paper/80">{notice}</p>
+        <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-5">
+          <h1 className="font-display text-3xl font-normal tracking-tight text-ink md:text-4xl">
+            Admin dashboard
+          </h1>
+          <p
+            role="status"
+            aria-live="polite"
+            className="min-h-5 max-w-md font-mono text-xs text-quiet md:text-right"
+          >
+            {notice}
+          </p>
+        </header>
 
         {/* Tab bar only — no new routes. The /admin 404 disguise is untouched:
             AdminDoor still owns the single route and reveals this console in place. */}
-        <div role="tablist" aria-label="Admin sections" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`${tab === t.id ? 'btn-primary' : 'btn-ghost'} shrink-0`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Admin sections"
+          className="-mx-1 mt-6 flex gap-6 overflow-x-auto border-b hairline px-1"
+        >
+          {TABS.map((t) => {
+            const current = tab === t.id;
+
+            return (
+              <button
+                key={t.id}
+                id={`admin-tab-${t.id}`}
+                type="button"
+                role="tab"
+                aria-selected={current}
+                aria-controls="admin-panel"
+                onClick={() => setTab(t.id)}
+                className={`mono -mb-px inline-flex min-h-11 shrink-0 items-center border-b-2 px-0.5 transition-colors duration-200 ${
+                  current
+                    ? 'border-seal text-ink'
+                    : 'border-transparent text-quiet hover:text-ink focus-visible:text-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div role="tabpanel" className="rule mt-6 pt-6">
+        <div
+          id="admin-panel"
+          role="tabpanel"
+          aria-labelledby={`admin-tab-${tab}`}
+          className="pt-6"
+        >
           <Suspense
             fallback={
-              <p aria-live="polite" className="font-mono text-[11px] uppercase tracking-wide text-muted">
+              <p aria-live="polite" className="mono text-quiet">
                 Loading…
               </p>
             }
