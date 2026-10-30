@@ -1,385 +1,227 @@
-# Baseline — Phase 0 / 5A scaffolding
+# Baseline — ink-on-paper preview site
 
-Date: 2026-10-22. Measured with Node v24.14.0, npm 11.9.0, Vite 8.3.1,
-from a fresh `npm run build:site` (see staleness note below).
+Date: **2026-10-31**. Measured with Node v24.14.0, npm 11.9.0 and Vite 8.3.1
+from the repo root with:
 
-## site bundle (dist-site/, fresh build)
+```bash
+npm run build:site     # vite build -c site/vite.config.ts
+```
+
+All sizes below are from that fresh build of the current working tree
+(`dist-site/`). This supersedes every earlier baseline in this file: the
+preview site no longer uses the dark editorial system or the WebGL globe.
+
+## Current architecture (`site/`, preview.nsdcaseb.xyz)
+
+### Design language
+
+- **Ink on paper.** Three tones and nothing else: paper `#F2EEE3`, ink
+  `#111110`, seal `#B33C1B`. Secondary text is `faint #67635A` / `quiet
+  #5F5B53`; the ink footer uses `footer-muted #98968F` / `footer-accent
+  #DD7048`. Mid-tones are `color-mix` of these, never a fourth hue.
+  Hairline rules use `--hairline`; there are no shadows, and radius is limited
+  to 2px on interactive controls. Seal is an accent (≤10% of a viewport), not
+  body copy.
+- **One ground.** `body` paints paper; pages and sections are transparent.
+  `RoomScene` (landing) or `PageScene` (everything else) supplies the drawing.
+  `/admin*` gets plain paper with no motif. Light-only — no theme switch.
+
+### Type
+
+| Role | Family | Weights | Files (`public/fonts/`, served at `/fonts/`) |
+| --- | --- | --- | --- |
+| Display / serif | Bespoke Serif | 400 roman + 400 italic | `bespoke-serif-latin.woff2` 23,664 B; `bespoke-serif-italic-latin.woff2` 24,372 B |
+| Body / sans | Switzer | 400 / 500 / 600 | `switzer-latin.woff2` 16,728 B; `switzer-medium-latin.woff2` 19,564 B; `switzer-semibold-latin.woff2` 19,640 B |
+| Metadata / mono | Geist Mono | 300–700 variable | `geist-mono-latin.woff2` 23,128 B |
+
+`design/tokens.css` declares the faces with `font-display: swap` and maps
+`--font-display`, `--font-serif`, `--font-sans`, `--font-mono`.
+`site/index.html` preloads only Bespoke Serif regular and Switzer regular.
+Tailwind (`site/tailwind.config.js`) exposes `paper/ink/faint/seal/quiet/
+footer-muted/footer-accent`, the same font families, and the kit utilities
+`.mono`, `.mono-sm`, `.serif`, `.sans`, `.hairline`, `.wrap`, `.statement`,
+`.statement-sm`.
+
+### Scenes and motion
+
+- **Landing `/` — the room dolly.** `RoomScene` is a Canvas 2D corridor:
+  hairline rails, ribs generated from the camera, objects at fixed depths, one
+  far door, a light vignette. Scroll drives `cameraAtProgress`; the loop is
+  capped at 30 fps, parks itself (cancels rAF) once the camera settles, and
+  pauses on `document.hidden`. Under `prefers-reduced-motion` it draws one
+  static frame and never starts the loop. `RoomInstrument` prints
+  `ROOM NN / Z x.x M / N RIBS` in the margin, is `aria-hidden`, throttles
+  updates to 80 ms, and freezes at the initial reading under reduced motion.
+  Both are lazy-loaded and only mounted on `/` (`RoomLayer` in
+  `site/src/components/SceneLayer.tsx`).
+- **Other public routes — `PageScene` motifs.** `motifFor(pathname)` picks one
+  drawing: `seats` (`/registrations`), `form` (`/registrations/:id`),
+  `dossier` (`/recruit`), `plot-field` (`/projects`), `case-sheet`
+  (`/projects/:id`), `contact-sheet` (`/archive`), `door` (login / register /
+  reset / verify-pending), `door-ajar` (every other path, including the 404 and
+  `/verify-email`). The motif renders inside one fixed `<svg>` frame
+  (`0 0 1440 900`, `slice`) that also paints the paper ground. `PageScene`
+  stays **eager**: an esbuild probe of the motif subtree measures **10.8 kB
+  raw / 3.4 kB gzip** minified (React external), and every non-landing route
+  needs it. It is not a significant entry cost.
+- **Cursor.** The kit's ink dot + lagging ring + seal tail. It is lazy-loaded
+  and *device-gated*: `CursorLayer` reads `useDeviceTier()` (which reads
+  `matchMedia` in its initial state) and returns `null` for coarse pointers or
+  `prefers-reduced-motion: reduce`, so those devices never fetch the chunk and
+  keep the native cursor. On a fine pointer the ring uses GSAP `quickTo`, the
+  tail is Canvas 2D, and the component returns `null` when inactive, exactly as
+  before the split.
+- **Chrome and overlays.** Kit `Header` (dossier line, logo, nav, clock, mobile
+  menu) and `Footer`; `PreloaderGate` (kit preloader, once per browser
+  session); `AnnouncementBanner`; plus `CommandPalette`, `EasterEggs`,
+  `HashScroll` and the route `ErrorBoundary`. `PreloaderGate` is deliberately
+  **eager** because it is the above-fold first paint.
+
+### Bundle layout
+
+- **Entry (always loaded):** app shell, chrome, preloader, command palette,
+  `Landing`, the eagerly imported auth/utility routes (`Login`, `Register`,
+  `VerifyPending`, `VerifyEmail`, `ResetPassword`, `Registrations`,
+  `AdminDoor`, `NotFound`) and the eager `PageScene` motif modules.
+- **Landing-only lazy chunks:** `RoomScene`, `RoomInstrument` and the shared
+  `room` geometry/projection module.
+- **Device-only lazy chunk:** `Cursor`.
+- **Route lazy chunks:** `EventDetail`, `ProjectDetail`, `Archive`, `Projects`,
+  `Recruit`; the admin door then splits into `Admin`, `AdminEmail`,
+  `AdminEvents`, `AdminMedia`, `AdminRegistrations`, `AdminRecruitment`,
+  `AdminProjects`, `AdminContent`, `AdminAccounts`, `AdminOverview`.
+- Scene `Suspense` fallbacks are `null` — `body` already paints paper, so there
+  is no blank frame. The route fallback keeps its reserved
+  `min-h-[100svh] py-12` box (the footer-shift/CLS fix).
+- `three` is **not** part of the preview build. It remains a root dependency
+  only for the apex teaser app built by `npm run build`.
+
+## Bundle measurement — 2026-10-31
+
+Gzip figures in the build tables are Vite's own report; the standalone probe
+sizes below used `esbuild --minify` + zlib level 9.
+
+### Entry JavaScript before / after this change
+
+| | Entry JS raw | Entry JS gzip |
+| --- | --- | --- |
+| Before (pre-split build, eager scenes + cursor) | 617.72 kB | 206.42 kB |
+| **After (split scenes + cursor)** | **601.97 kB** | **201.34 kB** |
+| Delta | **−15.75 kB (−2.5%)** | **−5.08 kB (−2.5%)** |
+
+The change: `RoomScene` + `RoomInstrument` moved behind `React.lazy`, and
+`Cursor` moved behind a device-gated `React.lazy`. `PreloaderGate` and
+`PageScene` remain eager.
+
+CSS is **44.83 kB raw / 9.65 kB gzip** in the final build. This task is
+JS-only; `site/src/index.css` was edited concurrently by another agent, so the
+45.35 → 44.83 kB difference belongs to that CSS cleanup, not to this split.
+
+### Current entry assets
 
 | Asset | Raw | Gzip |
 | --- | --- | --- |
-| `assets/index-35_sueNk.js` (main) | 356,165 B (347.8 KB) | 107,157 B (104.6 KB) |
-| `assets/GlobeNarrative-DqNWW5kG.js` (lazy) | 543,402 B (530.7 KB) | 135,487 B (132.3 KB) |
-| `assets/EventDetail-BVs2F4L1.js` (lazy) | 15,285 B | 3,995 B |
-| `assets/AdminEvents-DzVNUd-v.js` (lazy) | 10,405 B | 2,962 B |
-| `assets/Media-D6KfkgcX.js` (lazy) | 8,152 B | 2,850 B |
-| `assets/AdminEmail-UyWaprGI.js` (lazy) | 5,808 B | 1,951 B |
-| `assets/AdminRegistrations-DSyXV-b5.js` (lazy) | 4,659 B | 1,718 B |
-| `assets/AdminOverview-BgaHjjZL.js` (lazy) | 4,593 B | 1,777 B |
-| `assets/AdminContent-D9odaNZn.js` (lazy) | 4,342 B | 1,120 B |
-| `assets/Projects-1uvsl6xJ.js` (lazy) | 4,065 B | 1,622 B |
-| `assets/AdminAccounts-JOtuZNxr.js` (lazy) | 3,870 B | 1,230 B |
-| `assets/Admin-u6aeKeKC.js` (lazy) | 3,392 B | 1,152 B |
-| `assets/index-CaASgeV_.css` | 33,399 B (32.6 KB) | 7,371 B |
-| `index.html` | 2.86 KB (vite report) | 0.98 KB |
+| `assets/index-p7rRXd4V.js` (entry) | 601.97 kB | 201.34 kB |
+| `assets/index-C0h0vEZK.css` | 44.83 kB | 9.65 kB |
+| `index.html` | 3.08 kB | 1.03 kB |
 
-Lazy chunks (route/component split): GlobeNarrative, EventDetail, Media,
-Projects, Admin + AdminAccounts/AdminContent/AdminEmail/AdminEvents/
-AdminOverview/AdminRegistrations. Entry `dist-site/index.html` loads only the
-main chunk + CSS; the rest load on demand.
+### Chunks added by this split
 
-## three.js / WebGL probe (string search over dist-site/assets/*.js)
+| Chunk | Role | Raw | Gzip |
+| --- | --- | --- | --- |
+| `RoomScene-DeraLp-u.js` | landing canvas | 5.26 kB | 2.35 kB |
+| `RoomInstrument-DLfaTi5g.js` | landing readout | 1.45 kB | 0.80 kB |
+| `room-Cj39FGGE.js` | shared room geometry/projection | 1.50 kB | 0.65 kB |
+| `Cursor-ClMQQEMs.js` | fine-pointer cursor | 8.56 kB | 3.32 kB |
 
-- `WebGLRenderer` / `BufferGeometry`: **absent from main chunk**,
-  present only in `GlobeNarrative-DqNWW5kG.js`.
-- Code-split already in place: `site/src/components/LazyGlobe.tsx` lazy-loads
-  `GlobeNarrative`, which pulls `three` via `lib/narrative-globe.ts`.
-  (The comment there says "~871KB"; current minified chunk is ~531KB raw /
-  ~132KB gzip. The earlier ~871KB figure matches the *stale* dist-site below,
-  where three was still in the main chunk.)
+These four sum to 16.77 kB raw / 7.12 kB gzip, all loaded on demand (the room
+group only on `/`, the cursor only on non-touch, non-reduced-motion devices).
 
-## Staleness note
+### Current lazy route/admin chunks
 
-The `dist-site/` tree present before this run was stale: main
-`index-DiA-y40i.js` was 891,625 B raw / 240,839 B gzip **with three.js inside
-it**, and the admin/Media chunk set was older/fewer. It did not match current
-source. The table above is the fresh-build baseline; `dist-site/` is
-gitignored, so the rebuild dirties nothing tracked.
+| Chunk | Raw | Gzip |
+| --- | --- | --- |
+| `ProjectDetail-C9A-BxiY.js` | 5.77 kB | 1.98 kB |
+| `Admin-WhPMNrZE.js` | 4.39 kB | 1.47 kB |
+| `AdminAccounts--09Arzd0.js` | 5.78 kB | 1.77 kB |
+| `AdminRegistrations-DIuOgtDM.js` | 5.68 kB | 2.03 kB |
+| `AdminOverview-Dy5XZ7ve.js` | 6.50 kB | 2.47 kB |
+| `Projects-DQfF_Pe_.js` | 7.96 kB | 2.55 kB |
+| `AdminRecruitment-M8RNApYy.js` | 8.65 kB | 2.72 kB |
+| `AdminProjects-RFUUGFfM.js` | 8.75 kB | 2.95 kB |
+| `AdminContent-BmKj-esk.js` | 9.60 kB | 2.50 kB |
+| `Archive-Cl3G4zbM.js` | 10.40 kB | 3.44 kB |
+| `AdminEvents-BVSxoC41.js` | 11.34 kB | 3.33 kB |
+| `AdminMedia-Cfgt7kuU.js` | 13.80 kB | 4.14 kB |
+| `EventDetail-BLAoncB5.js` | 18.77 kB | 4.86 kB |
+| `Recruit-WUj-dPKf.js` | 19.25 kB | 5.32 kB |
+| `AdminEmail-CgW4WW9f.js` | 415.94 kB | 131.65 kB |
 
-## Test / gate status at baseline
+## Remaining large chunks and why
 
-- `npm test` (`vitest run`, jsdom): **42/42 pass** across 3 files
-  (`site/src/lib/search.test.ts`: 23, `site/src/lib/events.test.ts`: 12,
-  `site/src/components/StatusDot.test.ts`: 7).
-- `npx tsc -b` (root): pass. `npm run typecheck:site`: pass at time of
-  writing (a concurrent agent fixed two `AdminEvents.tsx` errors mid-run;
-  see concerns).
-- `npm run build` (root): pass. `npm run build:site`: pass with one
-  pre-existing CSS warning (`@import './tokens.css'` after `@tailwind`
-  in `site/src/index.css`, out of scope for this phase).
-- CI: `.github/workflows/ci.yml` `quality` job runs install → typecheck root →
-  typecheck site → build root → build site → unit tests. `e2e` job is a
-  skeleton skipped via `hashFiles('e2e/**/*')` until e2e tests exist.
+- **Entry — 601.97 kB raw / 201.34 kB gzip.** The largest single contributor is
+  GSAP 3.15 plus the plugins registered by `design/lib/gsap.ts` (`ScrollTrigger`,
+  `SplitText`, `Flip`, `Observer`, `Draggable`, `MotionPathPlugin`,
+  `CustomEase`). A standalone minified esbuild probe of that module is
+  **198.4 kB raw / 77.2 kB gzip**. `Landing` imports the kit `Reveal`
+  (`design/motion/Reveal.tsx`) eagerly, so GSAP stays in the entry even though
+  `Cursor` now lazy-loads — splitting the cursor alone cannot remove GSAP. The
+  rest is React 19 + React Router DOM, the eager route components and the
+  `PageScene` motifs. Further wins require lazy-loading the landing motion
+  layer (or registering only the plugins actually used), which is a separate,
+  higher-risk change.
+- **`AdminEmail` — 415.94 kB raw / 131.65 kB gzip.** TipTap + ProseMirror rich
+  text editor (verified by string search: both names are in this chunk only).
+  It is lazy and only fetched when an admin opens the Email tab.
+- Build warning: Vite reports **"Some chunks are larger than 500 kB"** for the
+  entry and `AdminEmail`. This is expected at the current split; the >500 kB
+  threshold is not a regression from this change (the entry was 617.72 kB
+  before).
 
-## Lighthouse — TODO (not run in this environment)
+## Retired architecture (do not use as a baseline)
 
-No headless Chrome / deployed URL available here; record real numbers before
-claiming any perf win. Exact commands:
+- `GlobeNarrative`, `LazyGlobe` and `lib/narrative-globe.ts` are gone from the
+  preview app. A string search over every `dist-site/assets/*.js` finds no
+  `WebGLRenderer` or `BufferGeometry`, and there is no `three` chunk. The old
+  "main 356 kB + GlobeNarrative 531 kB / three.js" table from 2026-10-22
+  describes a deleted architecture and must not be compared with the numbers
+  above.
+- The old dark-editorial fonts, dark page ground, `/media` page (now a
+  redirect to `/archive`) and the 2026-10-23 / 2026-10-25 Lighthouse or CLS
+  tables all predate the ink-on-paper redesign. They remain useful history for
+  the pre-redesign site only; re-measure before citing performance numbers.
+  In particular, the earlier `617.72 kB / 206.42 kB` entry is the **before**
+  row above, not a globe build.
+
+## Verification on 2026-10-31
+
+- `npm run typecheck:site` — **pass** (`tsc -p site`).
+- `npm test` — **140/140 pass across 10 files** (Vitest, jsdom).
+- `npm run build:site` — **pass**; 20 JS chunks + one CSS chunk. The only
+  warning is the >500 kB chunk notice described above.
+- E2E was **not run** for this change (19 Playwright specs exist; they require
+  `wrangler dev` and seeded local D1 state). No dev server was started.
+- Lighthouse was **not run**; no headless Chrome was used for this bundle-only
+  change.
+
+## Reproduce
 
 ```bash
-# Serve the fresh site build locally (port 4174; no wrangler dev — conflicts
-# with parallel agents):
-npx vite preview -c site/vite.config.ts --port 4174
+# Bundle + typecheck + unit tests (no server):
+npm run build:site
+npm run typecheck:site
+npm test
 
-# Desktop + mobile audits:
+# Optional performance pass against the built site (start preview yourself):
+npx vite preview -c site/vite.config.ts --port 4174
 npx -y lighthouse http://localhost:4174/ --preset=desktop \
   --output=json --output-path=./lighthouse-desktop.json \
-  --chrome-flags="--no-sandbox --headless"
+  --chrome-flags="--no-sandbox --headless=new"
 npx -y lighthouse http://localhost:4174/ \
   --output=json --output-path=./lighthouse-mobile.json \
-  --chrome-flags="--no-sandbox --headless"
-
-# After a staging deploy, repeat against the worker URL and also audit a
-# lazy route, e.g. /registrations/<id> and /media.
+  --chrome-flags="--no-sandbox --headless=new"
 ```
 
-Capture on first run: LCP, TBT, CLS, SI, and the transferred size of the main
-chunk + the GlobeNarrative chunk on a cold load.
-
-## Lighthouse — 2026-10-23 (served staging stack)
-
-Date: 2026-10-23. Measured with `lighthouse@13.5.0` against the live local
-staging stack (`npx wrangler dev -c wrangler.staging.jsonc` on 127.0.0.1:8787,
-read-only — no rebuild, no restart). Desktop = `--preset=desktop`, mobile =
-default Moto-G-class emulation, `--chrome-flags="--no-sandbox --headless"`.
-Detail route uses real id `evt-bug-to-breach` from `/api/events`. This is the
-first real Lighthouse run (the 2026-10-22 baseline above was TODO), so there
-is no earlier "before" row — treat this table as the before for the
-skeleton/dead-code work below.
-
-| Route | Mode | Perf | A11y | BP | SEO | LCP (ms) | CLS | TBT (ms) | FCP (ms) | Transfer |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `/` | desktop | 1.00 | 0.86 | 0.92 | 1.00 | 816 | 0.001 | 0 | 467 | 354 KiB |
-| `/registrations` | desktop | 0.91 | 0.95 | 0.96 | 1.00 | 542 | **0.188** | 0 | 398 | 215 KiB |
-| `/registrations/evt-bug-to-breach` | desktop | 1.00 | 1.00 | 0.96 | 1.00 | 666 | 0.009 | 0 | 442 | 220 KiB |
-| `/media` | desktop | 1.00 | 1.00 | 0.92 | 1.00 | 667 | 0.006 | 0 | 443 | 218 KiB |
-| `/` | mobile | 0.86 | — | — | — | 3711 | 0.003 | 139 | 2118 | 354 KiB |
-| `/registrations` | mobile | 0.80 | 0.95 | 0.96 | 1.00 | 2645 | **0.310** | 9 | 1696 | 215 KiB |
-| `/registrations/evt-bug-to-breach` | mobile | 0.93 | — | — | — | 2689 | 0.097 | 15 | 1799 | 220 KiB |
-| `/media` | mobile | 0.93 | — | — | — | 2702 | 0.094 | 15 | 1805 | 218 KiB |
-
-(A11y/BP/SEO on the three mobile detail rows were read but not recorded;
-perf-relevant columns are complete.)
-
-Diagnosis: `layout-shifts` on mobile `/registrations` attributes ~all of the
-0.31 CLS to `<footer class="border-t border-line">` (score 0.310) — the list
-popping in under the one-line "Loading events…" pushes the footer down. The
-fix (same commit window): `site/src/pages/Registrations.tsx` loading state
-now reserves the list area (`mt-12` section + `min-h-[480px]` skeleton with
-the same hairline/py-5 row rhythm, `aria-hidden`, `animate-pulse`; the
-"Loading events…" text keeps its `aria-live="polite"` home). Measured CLS
-above is pre-fix (server serves the pre-existing build — read-only, not
-rebuilt); re-run after the next `deploy:staging` to confirm ~0.
-
-Dead-code removals (same window, `tsc -p site` clean, `npm test` 47/47 green):
-`updateSection` (`site/src/lib/admin.ts`, zero repo-wide refs — section copy
-has no admin UI and is updated via direct `PUT /api/content/sections/:key`),
-`mediaErrorMessage` (`site/src/lib/media.ts`, zero repo-wide refs). Kept:
-`gsap` (still imported by the production root app `src/components/Hero.tsx`,
-built by `npm run build` and served from `wrangler.jsonc`), all
-variant/COPY_TODO comments (image pipeline is deferred — do not touch),
-`getSite`/`getTestimonials` (used internally by the `load*` wrappers),
-`EMPTY_SITE_STATE` (used in `site.ts` normalizers).
-
-## E2E (Playwright) — Phase 5B/5C
-
-- Runner: `@playwright/test ^1.64.1` (devDep), config `e2e/playwright.config.ts`,
-  script `npm run test:e2e` (`playwright test -c e2e/playwright.config.ts`).
-  No `@axe-core/playwright` — no axe specs were added, so it stays out.
-- Specs (7 files, role/label selectors only, no CSS internals):
-  `admin-door` (locked 404 -> zero-button unlocks Admin in place, URL stays
-  /admin, reload re-locks), `not-found` (/nope plain 404, zero inert),
-  `auth` (register -> logout -> login with a unique address per run),
-  `guest-registration` (logged-out name + reg_number -> confirmed/waitlisted),
-  `required-questions` (empty required answer cannot leave step 2; filled
-  answer completes), `capacity-waitlist` (capacity-1: first confirmed, second
-  waitlisted, first cancels -> second promoted; two isolated contexts),
-  `mobile-layout` (390px: no horizontal overflow, titles span the row),
-  `http-status` (/nope + /admin -> 404, / + /media -> 200, HTML shell),
-  axe (5 scans, zero critical/serious), hash-navigation, history.
-- Hermetic seeding: specs needing D1 data use fixtures in `e2e/fixtures.ts`
-  (`plainOpenEvent` / `qEvent` / `tinyEvent`) that discover a matching open
-  event via `/api/events` and `test.skip()` with a pointer to the seed when
-  none exists — the suite passes on an empty dev DB (seeded specs skip).
-  `e2e/seed.sql` creates three deterministic local-only events
-  (`e2e-open-plain`, `e2e-open-questions`, `e2e-tiny-cap1`, windows
-  2020 -> 2035); never apply to staging/prod.
-- Run locally (do NOT start wrangler dev while a sibling owns :8787):
-  ```bash
-  npm run build:site
-  npx wrangler d1 migrations apply nsdc-auth --local -c wrangler.staging.jsonc
-  npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc
-  npx wrangler dev -c wrangler.staging.jsonc --port 8787 --var E2E_DISABLE_RATE_LIMIT:1
-  # in another shell:
-  npm run test:e2e            # or: BASE_URL=http://127.0.0.1:8787 npm run test:e2e
-  npx playwright test -c e2e/playwright.config.ts --list   # enumerate only
-  npx tsc --noEmit -p e2e/tsconfig.json                   # typecheck e2e
-  ```
-- Re-runs on the SAME local state need cleanup first — local KV rate-limit
-  buckets persist (`register:ip` allows 5/hr, event-register 10/15min per
-  event) and seed-event registrations fill capacity (e2e-tiny-cap1 has 1 seat):
-  ```powershell
-  # clear rate-limit buckets
-  npx wrangler kv key list --binding RATELIMIT_KV --local --prefix "rl:" -c wrangler.staging.jsonc
-  npx wrangler kv key delete --binding RATELIMIT_KV --local "<name>" -c wrangler.staging.jsonc
-  # clear e2e test data (seed rows stay; e2e users use college-domain addresses)
-  npx wrangler d1 execute nsdc-auth --local --command "DELETE FROM registrations WHERE event_id LIKE 'e2e%'; DELETE FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%';" -c wrangler.staging.jsonc
-  ```
-  CI never needs this (every run starts from cold local state).
-- Member e2e flows verify via local D1, not email: `registerViaApi` registers,
-  flips `email_verified` with `wrangler d1 execute --local`, then logs in for
-  real — so registration gating, verify-pending redirect, and login all run
-  through production code paths. Requires cwd = repo root and the 5/hr local
-  register budget shared across re-runs (see cleanup above). Registration
-  requires `@bl.students.amrita.edu` addresses (server-side college gate).
-- CI: `quality` job unchanged (typecheck root/site, build root/site, 42 unit
-  tests). `e2e` job (needs quality): npm ci -> cache `~/.cache/ms-playwright`
-  -> `playwright install --with-deps chromium` -> build site -> local D1
-  migrations -> `e2e/seed.sql` -> `wrangler dev --port 8787` (readiness loop)
-  -> `npm run test:e2e`; worker log dumped on failure. On a cold browser
-  cache the install step downloads browsers (~1-2 min) — expected, not a
-  failure.
-- 2026-10-23 (plan #64/#69/#51/#52): `deploy-staging` job added — manual ONLY
-  (`workflow_dispatch`, `needs: e2e`, `if: github.event_name ==
-  workflow_dispatch`); steps are the repo's own commands: `npm run build:site`
-  -> `npm run migrate:staging` (`wrangler d1 migrations apply nsdc-auth
-  --remote -c wrangler.staging.jsonc`) -> `npx wrangler deploy -c
-  wrangler.staging.jsonc` (worker `nsdcaseb-staging`, host
-  `preview.nsdcaseb.xyz`). Production (apex teaser) untouched — no job, no
-  step deploys it.
-- Browser matrix (same date): `e2e/playwright.config.ts` selects projects from
-  `BROWSERS` — default `chromium` locally, `all` (chromium + firefox + webkit)
-  when `BROWSERS=all` or `CI` is set. CI installs all three (`playwright
-  install --with-deps chromium firefox webkit`) and runs with `BROWSERS: all`.
-  Local firefox/webkit download attempted 2026-10-23 but timed out mid-fetch
-  (~124 MB firefox at 40% after 10 min) — environment bandwidth, not a config
-  error; CI installs them instead. New specs verified on chromium locally.
-- Axe gate (same date): `@axe-core/playwright` devDep; `e2e/axe.spec.ts`
-  scans `/`, `/registrations`, `/media`, `/admin` (locked 404) + first
-  `/projects/:id` (skips when no projects). Threshold: zero
-  critical/serious violations EXCEPT five pre-existing product-code rules
-  excluded via `disableRules` (site/* frozen this plan): `color-contrast`,
-  `label-content-name-mismatch`, `aria-prohibited-attr`, `definition-list`,
-  `dlitem` (observed counts documented in the spec header). Any NEW
-  critical/serious rule still fails the build.
-- New navigation specs (same date): `e2e/hash-navigation.spec.ts` (`/#about`,
-  `/#people`, `/registrations#archive` land + reveal target sections),
-  `e2e/history.spec.ts` (back/forward `/` <-> `/registrations` keeps URL +
-  content in sync). All role/label selectors, no CSS internals.
-
-## Concerns / follow-ups
-
-1. `typecheck:site` was red at the start of this run (`AdminEvents.tsx`:
-   `Property 'archived' does not exist on type 'EventDetail'` + unused `verb`).
-   A concurrent agent fixed it mid-run (now `e.archived` / inlined confirm
-   text). Coordinate before touching admin event types.
-2. Untestable-as-is pure logic (module-private, no refactor allowed this
-   phase): `statusOf` + `readableDate` (`EventRows.tsx`), `formatDate` +
-   `formatTimeRange` (`EventDetail.tsx`), `formatEventDate` +
-   `eventStatusWord` (`search.ts`, covered indirectly via `ensureRemoteIndex`
-   sublabel assertions). Follow-up: extract to exported `site/src/lib/`
-   helpers and unit-test directly.
-3. `statusFor` ignores `mine.status === 'cancelled'` (falls through to
-   open/closed); pinned as current behavior — confirm it is intended.
-4. Pre-existing build warning: `@import` order in `site/src/index.css`
-   (tokens.css after @tailwind). Harmless today; fix when CSS is next touched.
-5. `@testing-library/react` / `@testing-library/jest-dom` deliberately NOT
-   installed (deps kept minimal — pure-logic tests only). Add when component
-   render tests land.
-
-## Recruitment e2e — 2026-10-24
-
-- New specs (3 tests; suite now 20 tests / 13 spec files):
-  - `e2e/recruitment.spec.ts` (2): `/recruit` open state renders the heading +
-    form; client validation rejects a bad college email and short phone
-    (`aria-invalid` + inline copy, no request); a real submit yields
-    "Application received" + a UUID reference; status lookup shows
-    "Under review"; a second submit on a fresh page gets HTTP 409
-    `already_applied` and the page renders "already applied" copy.
-  - `e2e/recruitment-admin.spec.ts` (1): registers an `ob` through the real
-    API, verifies via local D1 (`verifyUserEmail`), promotes with a local D1
-    `UPDATE users SET role='ob'`, logs in through the API, unlocks `/admin`,
-    finds the pending application in the Recruitment tab, accepts the confirm
-    dialog and clicks Select, asserts the row leaves `pending` and appears
-    under `selected`, checks `GET /api/recruit/status` (200, `selected`,
-    non-null `decided_at`) and the public page ("Selected"), then verifies
-    `GET /api/admin/recruitment.csv?status=selected` (content type,
-    attachment filename, header row, applicant row).
-- Fixture helpers added (additive only; `registerViaApi` unchanged):
-  `setUserRole`, `registerObViaApi`, `deleteRecruitmentApplication`,
-  `deleteUserByEmail`. They write via `wrangler d1 execute --local` to the
-  same staging DB the dev server uses, validate emails before interpolation,
-  and retry three times for SQLITE_BUSY.
-- Isolation: one application per spec with unique emails; both specs clean up
-  in `finally` (application + decision email; admin spec also removes its
-  throwaway `ob` user, sessions, tokens and audit rows). Local DB was verified
-  back to its pre-run recruitment row count after the focused run.
-- Verified: `npx tsc --noEmit -p e2e/tsconfig.json` clean;
-  `npx playwright test -c e2e/playwright.config.ts recruitment` → 3 passed;
-  full `npm run test:e2e` → **20 passed** (chromium, 2 workers, 31.2 s).
-- Rate-limit note from verification: the first full run was 17 passed / 3
-  failed — `capacity-waitlist` (second `registerViaApi`), `recruitment-admin`,
-  and `required-questions`, all HTTP 429 `rate_limited` from
-  `POST /api/auth/register`. The 5/hr/IP register budget had already absorbed
-  3 hits from the focused runs earlier in the same hour, and the suite needs 5
-  (auth, capacity ×2, required-questions, recruitment-admin). No spec was
-  weakened. After clearing `rl:*` KV buckets and re-applying `e2e/seed.sql`
-  (which also frees `e2e-tiny-cap1`), the full suite passed 20/20.
-- Cleanup used (local only):
-  ```powershell
-  # all rate-limit buckets
-  $keys = npx wrangler kv key list --binding RATELIMIT_KV --local --prefix "rl:" -c wrangler.staging.jsonc | ConvertFrom-Json
-  $keys | ForEach-Object { npx wrangler kv key delete --binding RATELIMIT_KV --local $_.name -c wrangler.staging.jsonc }
-  # deterministic event/registration state
-  npx wrangler d1 execute nsdc-auth --local --file=e2e/seed.sql -c wrangler.staging.jsonc
-  # accounts left by account-creating specs
-  npx wrangler d1 execute nsdc-auth --local --command "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%'); DELETE FROM email_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%'); DELETE FROM users WHERE email LIKE 'auth-%' OR email LIKE 'questions-%' OR email LIKE 'cap-first-%' OR email LIKE 'cap-second-%' OR email LIKE 'recruit-ob-%';" -c wrangler.staging.jsonc
-  Remove-Item -Recurse -Force test-results -ErrorAction SilentlyContinue
-  ```
-- Not covered by e2e: the closed state. `site_settings.recruitment_open` is
-  global, so toggling it mid-run would race the admin spec's submit; the
-  runbook documents the close/open procedure instead.
-
-## Lighthouse — 2026-10-25 (staging, after archive + recruitment)
-
-Date: 2026-10-25. `lighthouse@13.5.0` against the live staging worker
-`https://preview.nsdcaseb.xyz` (deployed build `index-BNx86Vo-.js` /
-`index-I2W2dCpf.css` — note the served build contains the `/registrations`
-skeleton, i.e. this is *after* the 2026-10-23 fix). Desktop = `--preset=desktop`,
-mobile = default Moto-G emulation, both `--chrome-flags="--headless=new
---no-sandbox"`, `--only-categories=performance,accessibility,best-practices,seo`.
-One run per row, no throttling changes. Detail route uses real project id
-`proj-jadal`.
-
-| Route | Mode | Perf | A11y | BP | SEO | LCP (ms) | CLS | TBT (ms) | FCP (ms) | Transfer |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `/` | desktop | 0.99 | 1.00 | 0.96 | 1.00 | 650 | 0.001 | 0 | 599 | 379 KiB |
-| `/registrations` | desktop | 0.99 | 1.00 | 0.96 | 0.92 | 705 | 0.015 | 0 | 591 | 233 KiB |
-| `/recruit` | desktop | **0.82** | 1.00 | 0.96 | 0.92 | 734 | **0.361** | 0 | 622 | 237 KiB |
-| `/archive` | desktop | 0.99 | 1.00 | 0.96 | 0.92 | 727 | 0.001 | 0 | 605 | 240 KiB |
-| `/projects/proj-jadal` | desktop | 1.00 | 1.00 | 0.96 | 0.92 | 726 | 0.000 | 0 | 617 | 236 KiB |
-| `/` | mobile | 0.96 | 1.00 | 0.96 | 1.00 | 2274 | 0.003 | 108 | 1974 | 379 KiB |
-| `/registrations` | mobile | 0.95 | 1.00 | 0.96 | 0.92 | 2539 | **0.000** | 14 | 2089 | 233 KiB |
-| `/recruit` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2697 | 0.000 | 0 | 2097 | 237 KiB |
-| `/archive` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2543 | 0.087 | 25 | 1943 | 240 KiB |
-| `/projects/proj-jadal` | mobile | 0.94 | 1.00 | 0.96 | 0.92 | 2603 | 0.065 | 0 | 2003 | 236 KiB |
-
-A11y is 1.00 on every route (was 0.86 on `/` desktop in the 2026-10-23 table).
-BP 0.96 everywhere: sole failing audit is `errors-in-console` — the expected
-`401` from `GET /api/auth/me` for a signed-out visitor. SEO 0.92 on every
-non-home route: the static shell hardcodes
-`<link rel="canonical" href="https://preview.nsdcaseb.xyz/">`, so those pages
-canonicalise to the homepage. Pre-existing shell metadata, not caused by the
-archive/recruitment work — but see the cutover note below.
-
-### CLS verdict
-
-- **`/registrations` mobile: 0.000 (baseline 0.310) — fixed.** The deployed
-  CSS contains the reserved-space skeleton rule (`min-height:480px`), the
-  `layout-shifts` audit returns no items, and the footer no longer moves.
-  Desktop `/registrations` is 0.015 (footer still shifts a little while the
-  list replaces the skeleton, below the 0.1 "good" threshold). Verdict: the
-  2026-10-23 skeleton fix is confirmed on staging; no further change needed.
-- **`/recruit` desktop: 0.361 — new, reproducible regression (found this run).**
-  `layout-shifts` attributes 0.3606 to `footer.border-t`. Root cause is not the
-  recru form itself: the route is lazy, and `App.tsx`'s Suspense fallback is a
-  single `Loading…` line, so the document is exactly viewport-height and the
-  footer sits at y=706 in a 940px viewport. `Recruit` then mounts (header
-  first, then the form once `/api/site` resolves) and the footer jumps to
-  y=1886. Mobile shows 0 only because the fallback already overflows the
-  viewport there, so the footer is never visible.
-- **Fix applied (reserved space only; not deployed — staging still serves the
-  build measured above):**
-  - `site/src/App.tsx`: the Suspense fallback now reserves a viewport
-    (`shell min-h-[100svh] py-12`) instead of a one-line paragraph.
-  - `site/src/pages/Recruit.tsx`: the page root also reserves
-    `min-h-[100svh]` for the window between mount and `/api/site`.
-  - Typecheck clean (`tsc -p site`), unit tests 72/72, axe 5/5 locally.
-- **Post-fix numbers (local `wrangler dev -c wrangler.staging.jsonc` on the
-  fixed build, same Lighthouse flags):** `/recruit` desktop perf **1.00**,
-  CLS **0.0006**, LCP 567 ms, footer starts at y=1005 (below the 940px fold);
-  `/recruit` mobile perf 0.95, CLS 0.0032, LCP 2690 ms. Collateral (same
-  fallback fix): `/archive` mobile CLS 0.087 -> 0.0032, `/projects/proj-jadal`
-  mobile 0.065 -> 0.0136. `/registrations` unchanged at 0.000.
-  Expect these numbers on staging after the next `deploy:staging`.
-
-### axe — 2026-10-25 (read-only against staging)
-
-`BASE_URL=https://preview.nsdcaseb.xyz npx playwright test -c
-e2e/playwright.config.ts axe --project=chromium` → **5/5 passed** (`/`,
-`/registrations`, `/media`, `/admin` locked 404, first `/projects/:id`), zero
-critical/serious. No `disableRules` exemptions are in the spec today, so this
-is a strict scan (the five exclusions mentioned in the Phase 5B/5C note above
-are no longer configured). Same 5 tests pass against the locally fixed build.
-
-### Secrets — 2026-10-25 (names only)
-
-`npx wrangler secret list -c wrangler.staging.jsonc` (read-only):
-`ADMIN_ENTRY_CODE`, `RESEND_API_KEY`, `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`. The Supabase pair was added and verified
-end-to-end the same day (bucket `event-posters`, public object upload +
-variant URLs return 200). Locally, `wrangler dev` reads the same pair from
-`.dev.vars` (gitignored).
-
-### Cutover follow-ups surfaced by this run
-
-- `site/index.html` hardcodes `https://preview.nsdcaseb.xyz/` in `canonical`,
-  `og:url`, `og:image`, `twitter:image` and the Organization JSON-LD. On the
-  apex every non-home page would canonicalise and share as the staging origin.
-  Must be made origin-relative/configurable before the flip
-  (`docs/production-cutover.md` pre-flight step 0). This is also the whole
-  SEO 0.92 gap.
-- `/api/notify` (teaser launch list) does not exist on the site worker
-  (verified `404 not_found` on staging). Decide whether to keep it.
-- Mobile `/archive` (0.087) and `/projects/:id` (0.065) remain below 0.1 but
-  are the same footer-shift pattern; the fallback fix should bring them to
-  ~0.00 after deploy.
+Record raw/gzip for the entry, CSS, `RoomScene`, `RoomInstrument`, `room` and
+`Cursor`; for route work also cold-load one lazy route (`/registrations`,
+`/archive`, `/recruit`) and the admin door.

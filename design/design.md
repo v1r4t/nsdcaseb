@@ -1,10 +1,7 @@
-# NSDC — Design System (superseded)
+# NSDC — Design Reference
 
-> **Superseded 2026-10-31.** The club site now builds on the ink-on-paper kit in
-> [`README.md`](./README.md) and [`tokens.css`](./tokens.css). The tokens, type,
-> layout and motion sections below describe the retired dark system; keep them
-> for history only. The brand, copy and "do not look like" rules below remain
-> valid and still apply to every page.
+The brand, the voice and the rules that do not change. The implementation
+details live in the design system itself, not here.
 
 ## BRAND
 
@@ -25,71 +22,24 @@ Experimental · Editorial · Technical · Youthful · Confident · Human
 - Generic cyberpunk (neon-blue-on-black gradient soup)
 - Excessive rounded cards (rounded containers only for genuinely interactive things: buttons, inputs, dialogs, registration controls)
 
-## TOKENS
+## CURRENT SYSTEM
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--bg` | `#080808` | page background |
-| `--text` | `#F5F5F2` | primary text |
-| `--muted` | `#777777` | secondary text, metadata |
-| `--border` | `#242424` | 1px hairlines |
-| `--accent` | `#FF5A36` | signal orange — CTAs, active states, tiny indicators, hover details |
+Ink on paper. Three tones and nothing else — **paper** `#F2EEE3`, **ink**
+`#111110`, **seal** `#B33C1B`; every mid-tone is one of these thinned, never a
+fourth hue. Type is **Bespoke Serif** for display, **Switzer** for text,
+**Geist Mono** for data (indices, clocks, statuses, counts). Motion uses one
+easing curve, `cubic-bezier(0.16, 1, 0.3, 1)`. The landing is a drawn room
+(`RoomScene` + `RoomInstrument`); every other route sits on a static drawn sheet
+(`PageScene` motif). No shadows, no dark theme.
 
-**Accent discipline:** the accent occupies ≤10% of any viewport. If orange appears
-everywhere, it has been overused. Never as a large fill, never in body copy.
+Source of truth:
 
-## TYPOGRAPHY
+- [`README.md`](./README.md) — components, mounts, the four porting contracts
+- [`tokens.css`](./tokens.css) — palette, fonts, base type, reduced-motion guard
+- [`tailwind-v3.cjs`](./tailwind-v3.cjs) — Tailwind preset, colours and utilities
 
-- **Display:** Space Grotesk — headlines, statements, nav, major UI
-- **Metadata:** Geist Mono — numbers, coordinates, timestamps, `SYSTEM.STATUS` labels, section indices (`01 / ABOUT`)
-
-Both from Google Fonts (self-hosted via the site `<link>`). Two families, no more.
-
-Hierarchy:
-- Statements: display, tight tracking (`-0.03em` at large sizes), near-viewport width, left-aligned or deliberately broken — **never centred as a stack of centred lines**
-- Section labels: mono, uppercase, `0.2em` tracking, 11–12px, muted
-- Body: Space Grotesk, 16–18px, `#F5F5F2` at 70% opacity
-
-## LAYOUT
-
-- 12-column grid, ~1440px max content width, generous gutters
-- **Controlled asymmetry is the signature.** Deliberately break alignment; do not
-  default to centred stacks or evenly spaced card rows.
-- Hairlines (1px `--border`) instead of boxes. Whitespace instead of containers.
-- Mobile is designed separately, not a shrunk desktop.
-
-## MOTION
-
-| Tier | Duration | Use |
-| --- | --- | --- |
-| micro | 150–250ms | buttons, icons, hover |
-| ui | 350–500ms | menus, dialogs, image transitions |
-| cinematic | 700–1200ms | hero, page-level reveals |
-
-- Consistent easing: `cubic-bezier(0.16, 1, 0.3, 1)` for entrances
-- Transform/opacity only. Never `transition: all`.
-- Animate intentionally, not decoratively.
-- `prefers-reduced-motion: reduce` → all motion collapses to instant/opacity-only
-
-## NAVIGATION
-
-- Full-screen MENU overlay replacing a classic navbar. Large type, index numbers
-  (`01 ABOUT`, `02 EVENTS`, `03 MEDIA`, `04 PEOPLE`, `05 ARCHIVE`), hover reveals
-  a one-line description.
-- Header is minimal: NSDC mark left, `26—27` centre, `MENU` right.
-
-## FOOTER
-
-Tiny. Identity and institution left (NSDC / Amrita Vishwa Vidyapeetham /
-Bengaluru / `© 2026` / `BUILT BY STUDENTS.`), contact email and social links
-right on desktop. One left-aligned column on mobile. No columns of page links,
-no newsletter pitch.
-
-## DATA LANGUAGE
-
-The site speaks data: section indices (`01 / ABOUT`), coordinates
-(`12.894702° N, 77.675574° E`), timestamps, statuses (`SYSTEM.STATUS · ONLINE`),
-counts (`084 MEMBERS`). This creates identity without extra graphics.
+The retired dark-editorial mockups are kept for reference in
+[`docs/archive/`](../docs/archive/README.md) and are not part of the built site.
 
 ## COPY
 
@@ -97,18 +47,9 @@ Real NSDC content only — real events, projects, people, numbers. No fictional
 history, no invented achievements, no futurist filler. Banned phrases are listed
 under DO NOT LOOK LIKE. When a fact is missing, the site shows less, not fiction.
 
-## COMPONENTS
-
-- Buttons: sharp (2px radius), accent fill for primary, hairline ghost for secondary
-- Forms: dark fields, 1px borders, accent focus ring, mono labels
-- Event rows: date + title + type + status dot (`● OPEN`, `● FILLING FAST`,
-  `● WAITLIST`, `○ CLOSED`) — no gradients, no cards
-- Media: asymmetric grid, varied image sizes, hover growth, immersive lightbox
-- Numbers: mono, large, animate 000 → value **once** on first view
-
 ## ACCESSIBILITY
 
 - Single `h1`; `h2` per section; semantic lists for timelines/people
-- Contrast: never rely on orange alone for state — pair with text
-- Visible focus rings (accent), keyboard-operable lightbox and menu
+- Never rely on seal alone for state — pair it with text or shape
+- Visible focus rings, keyboard-operable lightbox and menu
 - `prefers-reduced-motion` honoured everywhere

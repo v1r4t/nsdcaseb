@@ -3,11 +3,9 @@ import type { AnchorHTMLAttributes } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Header } from '../../design/chrome/Header';
 import { Footer } from '../../design/chrome/Footer';
-import { RoomScene } from '../../design/room/RoomScene';
-import { RoomInstrument } from '../../design/room/RoomInstrument';
 import { PageScene } from '../../design/motifs/PageScene';
 import { motifFor } from '../../design/motifs/motifs';
-import { Cursor } from '../../design/motion/Cursor';
+import { CursorLayer, RoomLayer } from './components/SceneLayer';
 import HeaderActions from './components/HeaderActions';
 import PreloaderGate from './components/PreloaderGate';
 import AnnouncementBanner from './components/AnnouncementBanner';
@@ -65,10 +63,7 @@ function Shell() {
   return (
     <>
       {pathname === '/' ? (
-        <>
-          <RoomScene />
-          <RoomInstrument />
-        </>
+        <RoomLayer />
       ) : admin ? null : (
         <PageScene motif={motif} />
       )}
@@ -116,7 +111,7 @@ function Shell() {
       <HashScroll />
       <CommandPalette />
       <EasterEggs />
-      <Cursor />
+      <CursorLayer />
       <PreloaderGate />
     </>
   );

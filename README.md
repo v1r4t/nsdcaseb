@@ -19,7 +19,7 @@ apex intentionally still serves the teaser.
 
 - Vite 6 + React 19 + TypeScript (strict)
 - Tailwind CSS 3, ink-on-paper design system (`design/README.md`)
-- Three.js globe, GSAP teaser intro, lazy-loaded
+- Three.js teaser globe; GSAP-driven room scene and motion on the preview site
 - Cloudflare Workers + D1 (SQLite) + KV
 - Supabase Storage for event posters and gallery photos
 - Resend for outbound email (queued through an outbox + cron sweep)
@@ -34,7 +34,8 @@ src/                  teaser app (apex until cutover)
 site/                 full club site app (builds to dist-site/)
   src/pages/          Landing, Registrations, EventDetail, Recruit, Archive,
                       Projects, ProjectDetail, Media→Archive, Login, Register, Admin
-  src/components/     header, menu, palette, globe, archive carousel, admin panels
+  src/components/     header, palette, room/story sections, archive carousel,
+                      admin panels
   src/lib/            typed API clients, auth, search, image variants, eggs
   index.html
 worker/               Cloudflare Workers
@@ -234,8 +235,12 @@ accessibility baselines live in [`docs/baseline.md`](docs/baseline.md).
   [`CONTENT-LICENSE.md`](CONTENT-LICENSE.md).
 - **Third-party software**: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
   GSAP is under its own standard licence, not MIT.
-- **Fonts**: Space Grotesk and Geist Mono are SIL OFL 1.1; the required notices
-  are in [`public/fonts/OFL.txt`](public/fonts/OFL.txt).
+- **Fonts**: Bespoke Serif and Switzer (Indian Type Foundry / Fontshare) are
+  under the ITF Free Font License; Geist Mono (Vercel) is SIL OFL 1.1. The
+  notices are in
+  [`public/fonts/FONTSHARE-LICENSE.txt`](public/fonts/FONTSHARE-LICENSE.txt) and
+  [`public/fonts/OFL.txt`](public/fonts/OFL.txt). The ITF licence permits
+  self-hosting but not modifying or redistributing the font files.
 
 Publishing photos or testimonials requires permission from the people shown or
 quoted; keep an internal record of approvals.

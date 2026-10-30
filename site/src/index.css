@@ -24,20 +24,6 @@
 }
 
 @layer components {
-  /* Editorial section label: mono, uppercase, tracked, quiet. */
-  .label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.45;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: var(--color-quiet);
-  }
-
-  .shell {
-    @apply mx-auto w-full max-w-shell px-6 md:px-10;
-  }
-
   /* Hairline rules instead of card containers. */
   .rule {
     @apply border-t hairline;
@@ -145,17 +131,6 @@
 
   .error-text {
     @apply mt-1.5 text-xs text-seal;
-  }
-
-  /* Edge metadata — rotated mono, runs up the page margin. */
-  .edge-meta {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-  }
-
-  /* Registration marks — print crop marks at a section's corners. */
-  .reg-mark {
-    @apply pointer-events-none absolute h-3 w-3 border-ink/15;
   }
 }
 

@@ -19,10 +19,6 @@ export default {
         quiet: '#5f5b53',
         'footer-muted': '#98968f',
         'footer-accent': '#dd7048',
-        // Migration aliases: keep untouched files legible until the sweep lands.
-        muted: '#5f5b53',
-        line: 'var(--hairline)',
-        signal: '#b33c1b',
       },
       fontFamily: {
         display: ['"Bespoke Serif"', '"Iowan Old Style"', 'Georgia', 'serif'],
@@ -37,9 +33,6 @@ export default {
       transitionTimingFunction: {
         ink: 'cubic-bezier(0.16, 1, 0.3, 1)',
         expo: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      },
-      maxWidth: {
-        shell: '1440px',
       },
     },
   },

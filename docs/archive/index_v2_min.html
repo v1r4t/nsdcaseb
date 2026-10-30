@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NSDC · Amrita Bengaluru</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080c;--ink:#e9edf5;--mut:#8a93a6;--line:#1c2230;--surface:#0b0e15;
+  --accent:#6ee7ff;--ok:#86efac;--warn:#fbbf24;
+  --d:'Chakra Petch',system-ui,sans-serif;--m:'JetBrains Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+html{scroll-behavior:smooth;scroll-padding-top:78px;scroll-padding-top:calc(78px + env(safe-area-inset-top,0px))}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font:400 17px/1.65 var(--d);overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 520px at 78% -8%,rgba(110,231,255,.045),transparent 70%);
+  background-repeat:no-repeat;
+}
+::selection{background:var(--accent);color:#06070b}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+#bar{position:fixed;top:0;left:0;height:1px;width:100%;transform-origin:0 50%;transform:scaleX(0);z-index:90;background:var(--accent);opacity:.85}
+.w{width:100%;max-width:1200px;margin:0 auto;padding:0 24px;position:relative}
+main{position:relative;z-index:2}
+#top-bar{position:fixed;top:0;left:0;right:0;z-index:80;padding-top:env(safe-area-inset-top,0px);background:rgba(7,8,12,.88);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.logo{font-weight:700;font-size:21px;letter-spacing:.06em;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:10px}
+.logo i{width:8px;height:8px;background:var(--accent);opacity:.9}
+.clock{font:400 12px var(--m);color:var(--mut);letter-spacing:.04em}
+
+.btn,button.btn{
+  font:600 12px var(--m);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);
+  background:transparent;border:1px solid var(--line);border-radius:2px;
+  padding:10px 16px;min-height:42px;cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:border-color .2s,color .2s,background .2s;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#06070b;font-weight:700}
+.btn.pri:hover{background:#8beeff;border-color:#8beeff;color:#06070b}
+
+.hero{min-height:100svh;display:flex;align-items:center;padding:118px 0 64px}
+.hero .w{display:grid;grid-template-columns:1.5fr 1fr;gap:40px;align-items:center}
+.tag{font:600 11px var(--m);letter-spacing:.16em;color:var(--accent);text-transform:uppercase;margin:0 0 18px}
+h1{font:700 clamp(40px,7vw,100px)/.98 var(--d);letter-spacing:-.02em;margin:0 0 24px}
+h1 span{display:block}
+.sub{max-width:48ch;color:#c3ccdd;margin:0 0 28px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:2px;padding:22px}
+.con{font:400 13px/1.95 var(--m);color:var(--mut);position:relative}
+.con b{color:var(--ink);font-weight:600}
+.con .on{color:var(--ok)}
+.con a{display:flex;justify-content:space-between;color:var(--ink);text-decoration:none;padding:4px 0;border-top:1px solid var(--line);transition:color .2s}
+.con a:first-of-type{margin-top:10px}
+.con a:hover{color:var(--accent)}
+.con a span{color:var(--mut)}
+
+.sec{padding:86px 0}
+.sh{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:34px;border-bottom:1px solid var(--line);padding-bottom:16px}
+h2{font:700 clamp(28px,4.2vw,50px)/1.05 var(--d);margin:0;max-width:22ch;letter-spacing:-.015em}
+h3{font:600 19px/1.3 var(--d);margin:0}
+.meta{font:400 11px var(--m);letter-spacing:.12em;color:var(--mut);margin:0;text-transform:uppercase}
+
+.rv{opacity:0;transform:translateY(18px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.rv.in{opacity:1;transform:none}
+
+.mq{overflow:hidden;position:relative;z-index:2;padding:26px 0;border-block:1px solid var(--line)}
+.mq div{display:flex;width:max-content;animation:mq 64s linear infinite}
+.mq.r div{animation-direction:reverse;animation-duration:82s}
+.mq span{font:700 clamp(52px,10vw,132px)/1 var(--d);padding:0 .3em;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgba(233,237,245,.16)}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+.about{display:grid;grid-template-columns:1.2fr 1fr;gap:36px}
+.stm{font:600 clamp(22px,2.6vw,34px)/1.3 var(--d);margin:0}
+.about p{color:#c3ccdd;margin:0 0 16px}
+.pil{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:8px}
+.pil>div{border-top:1px solid var(--line);padding-top:14px}
+.pil b{font:600 11px var(--m);color:var(--accent);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.12em}
+.pil p{margin:0;font-size:15px}
+
+.org{display:grid;grid-template-columns:1fr 1.1fr;gap:36px}
+.q{font:600 clamp(22px,2.4vw,31px)/1.3 var(--d);margin:0 0 24px}
+.fc{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fc div{border-left:1px solid var(--line);padding-left:12px}
+.fc span{display:block;font:400 11px var(--m);color:var(--mut);text-transform:uppercase;letter-spacing:.1em}
+.fc b{font-weight:600;font-size:14px}
+.tl{position:relative;padding-left:26px;border-left:1px solid var(--line);margin-left:4px}
+.tl>div{position:relative;margin-bottom:24px}
+.tl>div::before{content:"";position:absolute;left:-32px;top:8px;width:9px;height:9px;background:var(--bg);border:1px solid var(--accent)}
+.tl time{font:600 12px var(--m);color:var(--accent)}
+.tl p{margin:3px 0 0;color:#c3ccdd}
+
+.rows{display:grid}
+.row{display:grid;grid-template-columns:110px 1.5fr 1.2fr 130px;gap:16px;align-items:center;padding:16px 2px;border-bottom:1px solid var(--line);transition:background .2s}
+.row:first-child{border-top:1px solid var(--line)}
+.row:hover{background:rgba(255,255,255,.025)}
+.row b{font:600 12px var(--m);color:var(--mut);letter-spacing:.04em}
+.row strong{font-weight:600;font-size:17px}
+.row span.d{color:var(--mut);font:400 12px var(--m)}
+.pill{font:600 11px var(--m);letter-spacing:.06em;display:inline-flex;align-items:center;gap:8px;justify-self:end}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.o{color:var(--ok)}.pill.a{color:var(--accent)}.pill.w{color:var(--warn)}.pill.c{color:var(--mut)}
+
+.now{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:20px}
+.now ul{list-style:none;margin:0;padding:0}
+.now li{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font:400 13px var(--m)}
+.now li:last-child{border-bottom:0}
+.now li span{color:var(--mut)}
+.now li b{color:var(--ink);font-weight:600;text-align:right}
+#spk{width:100%;height:150px;display:block}
+.now p{margin:0 0 16px;color:#c3ccdd}
+.card ul{list-style:none;margin:0;padding:0}
+.card li{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font:400 13px var(--m)}
+.card li:last-child{border-bottom:0}
+.card li span{color:var(--mut)}
+.card li b{color:var(--ink);font-weight:600;text-align:right}
+.ac{display:flex;gap:10px;flex-wrap:wrap}
+
+.ro{display:grid}
+.ro>div{display:grid;grid-template-columns:50px 1.6fr 1.2fr 70px;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);transition:background .2s}
+.ro>div:hover{background:rgba(255,255,255,.025)}
+.ro .i{font:400 12px var(--m);color:var(--mut)}
+.ro .t{color:var(--mut);font:400 12px var(--m)}
+.ro .y{font:400 12px var(--m);text-align:right;color:var(--mut)}
+.ro .hd{font:600 11px var(--m);color:var(--mut);text-transform:uppercase;letter-spacing:.12em}
+.ro .seat{border:1px dashed rgba(134,239,172,.45);color:var(--ok)}
+.ro .seat .t,.ro .seat .i{color:var(--ok)}
+
+.gt{font:600 11px var(--m);color:var(--mut);text-transform:uppercase;letter-spacing:.14em;display:flex;align-items:center;gap:14px;margin:36px 0 16px}
+.gt:first-child{margin-top:0}
+.gt::after{content:"";flex:1;height:1px;background:var(--line)}
+.crew{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.crew.s{grid-template-columns:repeat(5,1fr)}
+.crew.o{grid-template-columns:repeat(2,1fr)}
+.pc{display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;color:var(--ink);text-decoration:none;transition:border-color .2s}
+.pc:hover{border-color:rgba(110,231,255,.45)}
+.pc.big{grid-column:span 2}
+.pc h3{font-size:19px}
+.pc.big h3{font-size:clamp(23px,2.8vw,32px)}
+.pc .sn{font:600 10px var(--m);color:var(--accent);font-style:normal;letter-spacing:.12em;display:block;margin-bottom:4px;text-transform:uppercase}
+.pc .rl{font:400 12px var(--m);color:var(--mut)}
+.av{position:relative;flex:none;width:62px;height:62px;display:grid;place-items:center;font:700 20px var(--d);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:#101623;border:0;box-shadow:inset 0 0 0 1px #2e3a4f}
+.av span{position:relative;color:var(--ink)}
+.pc.big .av{width:96px;height:96px;font-size:30px}
+.crew.s .pc{flex-direction:column;text-align:center;gap:12px}
+.pc.seat{border-style:dashed;border-color:rgba(134,239,172,.4)}
+.pc.seat h3{color:var(--ok)}
+.pc.seat .av span{color:var(--ok)}
+.pc .go{margin-left:auto;font:600 12px var(--m);color:var(--mut)}
+@media(max-width:900px){.crew,.crew.o{grid-template-columns:1fr}.crew.s{grid-template-columns:1fr 1fr}.pc.big{grid-column:auto}.pc.big .av{width:78px;height:78px}}
+
+.stk{display:flex;flex-wrap:wrap;gap:8px}
+.stk span{font:600 12px var(--m);letter-spacing:.04em;padding:8px 12px;border:1px solid var(--line);background:transparent;transition:border-color .2s,color .2s}
+.stk span:hover{border-color:rgba(110,231,255,.4);color:var(--ink)}
+.note{margin:16px 0 0;font:400 12px var(--m);color:var(--mut)}
+
+.nt{display:grid;grid-template-columns:70px 1fr auto;gap:16px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--line)}
+.nt:first-child{border-top:1px solid var(--line)}
+.nt time{font:600 12px var(--m);color:var(--mut)}
+.nt span{font:400 12px var(--m);color:var(--mut)}
+
+details{border-bottom:1px solid var(--line)}
+details:first-of-type{border-top:1px solid var(--line)}
+summary{display:flex;gap:18px;align-items:center;padding:17px 2px;cursor:pointer;list-style:none;font-weight:600;font-size:18px}
+summary::-webkit-details-marker{display:none}
+summary i{font:400 12px var(--m);color:var(--mut);font-style:normal}
+summary::after{content:"+";margin-left:auto;font:400 24px var(--m);color:var(--mut);transition:transform .3s var(--ease),color .2s}
+details[open] summary::after{transform:rotate(45deg);color:var(--accent)}
+details p{margin:0;padding:0 2px 20px 48px;color:#c3ccdd;max-width:70ch}
+code{font:400 13px var(--m);color:var(--accent)}
+
+.ct{display:grid;grid-template-columns:1.3fr 1fr;gap:36px;align-items:start}
+.mail{font:700 clamp(24px,4vw,50px)/1.1 var(--d);color:var(--ink);text-decoration:none;word-break:break-all;border-bottom:1px solid var(--line);padding-bottom:6px;transition:color .2s,border-color .2s;display:inline-block}
+.mail:hover{color:var(--accent);border-color:var(--accent)}
+.soc{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 16px}
+.ct p{color:var(--mut)}
+
+.gal{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:190px;gap:12px}
+.sh1{position:relative;margin:0;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.sh1:nth-child(1){grid-column:span 2;grid-row:span 2}.sh1:nth-child(4){grid-column:span 2}
+.sh1 img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.72) brightness(.92);transition:transform .7s var(--ease),filter .4s}
+.sh1:hover img{transform:scale(1.03);filter:saturate(1) brightness(1)}
+.sh1 figcaption{position:absolute;left:0;bottom:0;right:0;padding:7px 11px;font:600 11px var(--m);background:rgba(7,8,12,.82);color:#c3ccdd}
+
+.lg{display:grid;gap:12px}
+.lg>div{display:grid;grid-template-columns:110px 1fr 200px;gap:24px;padding:20px;align-items:center}
+.lg time{font:600 13px var(--m);color:var(--mut)}
+.lg p{margin:6px 0 0;color:#c3ccdd;font-size:14px}
+.lg .pf b{display:block;font:700 46px/1 var(--d);color:var(--ink)}
+.lg .pf span{font:400 11px var(--m);color:var(--mut)}
+
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:34px 0;font:400 12px/1.9 var(--m);color:var(--mut)}
+footer .w{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+footer a{color:var(--ink);display:block;text-decoration:none}
+footer a:hover{color:var(--accent)}
+footer strong{color:var(--ink);font-size:17px}
+
+#menu{position:fixed;inset:0;z-index:100;background:#07080c;opacity:0;visibility:hidden;transform:translateY(-12px);transition:opacity .35s ease,transform .45s var(--ease),visibility 0s .45s;overflow-y:auto;padding-top:env(safe-area-inset-top,0px)}
+#menu.open{opacity:1;visibility:visible;transform:none;transition:opacity .35s ease,transform .45s var(--ease),visibility 0s}
+#menu .w{display:grid;grid-template-columns:repeat(2,1fr);gap:0 36px;padding-top:78px;padding-bottom:40px}
+#menu a{font:700 clamp(24px,3.6vw,42px)/1.2 var(--d);color:var(--ink);text-decoration:none;padding:9px 0;border-bottom:1px solid var(--line);opacity:0;transform:translateY(10px);transition:opacity .3s calc(var(--i)*24ms),transform .35s var(--ease) calc(var(--i)*24ms),color .2s}
+#menu.open a{opacity:1;transform:none}
+#menu a:hover{color:var(--accent)}
+#menu a span{font:400 12px var(--m);color:var(--mut);margin-right:14px}
+#xm{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:24px}
+
+@media(max-width:900px){
+  .hero .w,.about,.org,.now,.ct{grid-template-columns:1fr}
+  .pil{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr;gap:6px;padding:14px 2px}
+  .pill{justify-self:start}
+  .gal{grid-template-columns:1fr 1fr}
+  .sh1:nth-child(1){grid-column:span 2}
+  .lg>div{grid-template-columns:1fr}
+  .clock{display:none}
+  #menu .w{grid-template-columns:1fr}
+  .nt{grid-template-columns:56px 1fr}
+  .nt span{grid-column:2}
+  .ro>div{grid-template-columns:36px 1fr 60px}
+  .ro .t{grid-column:2/4;grid-row:2}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
+  .rv{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div id="bar" aria-hidden="true"></div>
+<div id="top-bar"><div class="w nav">
+<a class="logo" href="#top"><i></i>NSDC</a><span class="clock" id="clk" aria-hidden="true">BENGALURU</span>
+<button class="btn" id="om" aria-expanded="false" aria-controls="menu" aria-haspopup="dialog">Menu</button></div></div>
+
+<main id="top">
+<section class="hero"><div class="w">
+<div><p class="tag">Student data &amp; AI community · Est. 2024</p>
+<h1 aria-label="Rooted at Amrita, Bengaluru."><span>Rooted at</span><span>Amrita, Bengaluru.</span></h1>
+<p class="sub">A student data and AI community — talks, builds and research from campus, kept on the record.</p>
+<div class="ac"><a class="btn pri" href="#now">Apply now</a><a class="btn" href="#projects">See the work</a></div></div>
+<div class="card con tilt" id="cons"><div>chapter&nbsp; <b>NSDC · Amrita</b></div><div>focus&nbsp;&nbsp;&nbsp; <b>Data / AI / LLM</b></div><div>status&nbsp;&nbsp; <b class="on">● ONLINE</b></div><div>coords&nbsp;&nbsp; <b>12.894702° N, 77.675574° E</b></div><div style="margin-top:10px;color:var(--mut)">$ jump --to</div></div>
+</div></section>
+
+<div class="mq" aria-hidden="true"><div id="m1"></div></div>
+
+<div id="app"></div>
+
+<div class="mq r" aria-hidden="true"><div id="m2"></div></div>
+</main>
+
+<footer><div class="w"><div><strong>NSDC</strong><br>Amrita Vishwa Vidyapeetham / Bengaluru<br>© 2026 · Built by students.</div>
+<div><a href="mailto:nsdcaseb@gmail.com">nsdcaseb@gmail.com</a><a href="https://www.instagram.com/nsdc_avvb/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/company/nsdc-avv-b" target="_blank" rel="noopener">LinkedIn</a></div></div></footer>
+
+<div id="menu" role="dialog" aria-modal="true" aria-label="Site menu"><button class="btn" id="xm">Close ✕</button><div class="w" id="ml"></div></div>
+
+<script>
+const $=(s,e=document)=>e.querySelector(s),RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+/* ---------- content ---------- */
+const S=(k,t)=>`<span class="pill ${k}"><i></i>${t}</span>`,
+R=(a,b,c,k,t)=>`<div class="row rv"><b>${a}</b><strong>${b}</strong><span class="d">${c}</span>${S(k,t)}</div>`,
+P=[['2026 · ML','Campus air-quality forecaster','LSTM · 12 stations · 3 contributors','a','Active'],['2026 · LLM','Course-material retrieval assistant','RAG · pgvector · 4 contributors','o','Shipped'],['2026 · Geo','Jadal · canal water allocation model','Python · GeoPandas · 3 contributors','o','Shipped'],['2026 · Eval','Model evaluation harness','pytest · 40 tasks · 2 contributors','a','Active'],['2026 · Infra','Event registration and waitlist service','Workers · D1 · 2 contributors','o','Shipped'],['2025 · Data','Attendance analytics pipeline','DuckDB · Parquet · 3 contributors','c','Archived'],['2025 · NLP','Multilingual campus FAQ bot','IndicBERT · FastAPI · 4 contributors','c','Archived'],['2026 · Speech','Lecture transcript search','Whisper · Meilisearch · 2 contributors','a','Active']],
+E=[['Nov 07','Fine-tuning small models on one GPU','Dr. Peeta Basa Pati · Seminar Hall 2 · 17:30','o','Open'],['Nov 14','Reading group — Attention, from scratch','Student-led · Library room 1 · 16:00','o','Open'],['Nov 21','Project night — eval harness, sprint 02','Core team · Lab 3 · 17:00','w','Waitlist'],['Nov 28','Data engineering on a student budget','Guest · Seminar Hall 2 · 17:30','o','Open'],['Dec 05','DuckDB and Postgres: when to use which','Student-led · Lab 3 · 16:00','w','Waitlist'],['Dec 12','Semester demo night','All teams · Auditorium · 18:00','c','Closed']],
+PE=[['Balcha Venkata Parswanadh','President','2024'],['Aluvala Sai Vinya','Vice President','2024'],['Dhruva Vura','Vice President','2025'],['Konduru Shanmuga Priya','Treasurer','2025'],['Bovilla Babitha','Head of Executives','2025'],['Dr. Peeta Basa Pati','Faculty mentor','—'],['Manaswini Poluri','Founding core','2024'],['Anirudh S','Founding core','2024'],['Sajjad Shaik','Founding core','2024'],['Spoorthi M','Founding core','2024']];
+const stack=['Python','PyTorch','scikit-learn','pandas','NumPy','Polars','DuckDB','PostgreSQL','SQLite','FastAPI','Jupyter','uv','pytest','Ruff','Git','GitHub Actions','Docker','Cloudflare Workers','TypeScript','React','Tailwind','Vite','Hugging Face','Ollama','vLLM','MLflow','Matplotlib','Plotly','Streamlit','LaTeX','Linux','SQL'],
+N=[['2017','Designing Data-Intensive Applications','Kleppmann · O’Reilly'],['2009','The Elements of Statistical Learning','Hastie et al. · Springer'],['2017','Attention Is All You Need','Vaswani et al. · NeurIPS'],['2019','DuckDB: an Embeddable Analytical Database','Raasveldt &amp; Mühleisen · SIGMOD'],['2020','Mathematics for Machine Learning','Deisenroth et al. · CUP']],
+F=[['How do I join?','Applications open at the start of each semester. When recruitment is open, the form is linked from the Now section; it asks for your year, branch, and two short answers.'],['Who is eligible?','1st to 3rd-year students at Amrita Bengaluru, any branch. Use your <code>@bl.students.amrita.edu</code> email — applications from other domains are rejected.'],['How much time does it take?','One 90-minute session most Saturdays, plus your share of a project. Hackathon weeks run longer.'],['What happens after I apply?','The core team reviews every application and emails a decision. Status is pending, selected or not selected — you are told either way, and you can apply again next cycle.']],
+I='https://zgsecmkbfaqrzfuzfzdj.supabase.co/storage/v1/object/public/event-posters/gallery/',
+GA=[['sample-media-item-2','Workshop cohort in the classroom','Sample · Workshop'],['10b93a34-1a25-409d-8a05-a789a315290d','Students at the CASIO trophy talk','Archive · 01'],['a8b4fe3e-9aef-4b63-beeb-b5e9cc0827ec','Bootcamp session in progress','Archive · 02'],['sample-media-item-3','Bootcamp cohort group photo','Sample · Bootcamp']],
+AC=[['2025 · 12','Invited into the AI House Bangalore ecosystem','Attended the launch by HiDevs — space, mentorship and industry connections opening the door to collaborations.','01','campus chapter invited · 3 mentors'],['2025 · 07','Multi-module data science bootcamp','A structured programme delivered in modules and completed by participants through mid-2026.','05','modules · full semester'],['2024 · 08','Chapter founded at Amrita Bengaluru','Established as an institutional chapter of the National Student Data Corps.','04','founders · Aug 2024']];
+const sec=(id,n,t,m,b)=>`<section class="sec" id="${id}"><div class="w"><div class="sh rv"><h2>${t}</h2><p class="meta">${n} · ${m}</p></div>${b}</div></section>`;
+const nav=[['about','About'],['origin','The origin'],['projects','Projects'],['events','Events'],['now','Now'],['people','People'],['stack','Stack'],['notes','Field notes'],['faq','FAQ'],['contact','Contact'],['archive','Archive'],['achievements','Achievements']];
+$('#app').innerHTML=
+sec('about','01','We bring students together to learn, build and compete.','Amrita Vishwa Vidyapeetham',`<div class="about"><h3 class="stm rv">Across data, AI and emerging technology — from first principles to shipped systems.</h3><div class="rv"><p>The National Student Data Corps at Amrita School of Engineering, Bengaluru is a student chapter of the NEBDHub’s NSDC initiative — a community programme that gives students resources and opportunities to learn data science in a community of support.</p><p>Our mission is to foster innovation, collaboration and professional growth while addressing real-world challenges: workshops, hackathons and industry sessions that connect students with practitioners.</p></div><div class="pil"><div class="rv"><b>Sessions</b><p>Weekly, 90 minutes, student-led. Papers, tooling, and build reviews.</p></div><div class="rv"><b>Builds</b><p>Small teams ship one real system per semester, in public.</p></div><div class="rv"><b>Research</b><p>A reading group for evals, retrieval and applied ML on campus data.</p></div></div></div>`)+
+sec('origin','02','It began with four students and a room to work in.','Founded August 2024',`<div class="org"><div class="rv"><p class="q">“A place on campus to actually work with data, rather than only study it.”</p><div class="fc"><div><span>Founded</span><b>August 2024</b></div><div><span>Founding cohort</span><b>4 students</b></div><div><span>Mentor</span><b>Dr. Peeta Basa Pati</b></div><div><span>Affiliation</span><b>NEBDHub · Columbia</b></div></div></div><div class="tl rv"><div><time>2024 · 08</time><p>Chapter founded at Amrita Bengaluru as an institutional chapter of the National Student Data Corps.</p></div><div><time>2024 · 10</time><p>First industry talk; the room fills and the format sticks.</p></div><div><time>2025 · 03</time><p>Multi-module data science bootcamp runs for members across a semester.</p></div><div><time>2025 · 12</time><p>Invited into the AI House Bangalore ecosystem by HiDevs.</p></div></div></div>`)+
+sec('projects','03','Selected work.','8 entries · 2024—26',`<div class="rows">${P.map(p=>R(...p)).join('')}</div>`)+
+sec('events','04','Upcoming dates.','Nov — Dec 2026 · IST',`<div class="rows">${E.map(p=>R(...p)).join('')}</div>`)+
+sec('now','05','What is happening now.','System status · Online',`<div class="now"><div class="card rv"><ul><li><span>Active teams</span><b>3</b></li><li><span>Current sprint</span><b>Eval harness</b></li><li><span>Next session</span><b>Nov 07</b></li><li><span>Open seats</span><b>2</b></li><li><span>Recruitment</span><b style="color:var(--ok)">● Open</b></li></ul></div><div class="card rv"><canvas id="spk" role="img" aria-label="Simulated chapter activity line chart"></canvas><p class="note">Chapter activity · simulated</p></div><div class="card rv"><h3>Join the corps.</h3><p style="margin-top:10px">Open to 1st, 2nd and 3rd-year students of all branches at Amrita Bengaluru. Every application is reviewed, and you are told either way.</p><div class="ac"><a class="btn pri" href="#contact">Apply now</a><a class="btn" href="#contact">Check status</a></div></div></div>`)+
+sec('people','06','The people holding it together.','10 named · 2 open seats',(()=>{const ini=n=>{const a=n.replace(/^Dr\. /,'').split(' ');return(a[0][0]+(a.length>1?a[a.length-1][0]:'')).toUpperCase()},
+pc=(p,i,c='')=>`<div class="card pc ${c}"><div class="av" aria-hidden="true"><span>${ini(p[0])}</span></div><div><em class="sn">${p[2]==='—'?'Faculty':'Since '+p[2]}</em><h3>${p[0]}</h3><span class="rl">${p[1]}</span></div></div>`,
+seat=t=>`<a class="card pc seat" href="#contact"><div class="av" aria-hidden="true"><span>+</span></div><div><em class="sn" style="color:var(--ok)">Open seat</em><h3>${t}</h3><span class="rl">Apply for this seat</span></div><span class="go" aria-hidden="true">→</span></a>`;
+return`<div class="rv"><p class="gt">Office bearers</p><div class="crew">${PE.slice(0,5).map((p,i)=>pc(p,i,i?'':'big')).join('')}</div><p class="gt">Faculty mentor &amp; founding core</p><div class="crew s">${PE.slice(5).map((p,i)=>pc(p,i+5)).join('')}</div><p class="gt">Open seats</p><div class="crew o">${seat('ML / projects')}${seat('Data engineering')}</div></div>`})())+
+sec('stack','07','What we run.','32 tools · no prerequisites',`<div class="stk rv" aria-label="Tools used by the chapter">${stack.map(s=>`<span>${s}</span>`).join('')}</div><p class="note">Tools in use, not a checklist. Nothing here is required to join.</p>`)+
+sec('notes','08','On the desk.','Reading list · 5',`<div class="rv">${N.map(n=>`<div class="nt"><time>${n[0]}</time><h3>${n[1]}</h3><span>${n[2]}</span></div>`).join('')}</div>`)+
+sec('faq','09','Before you apply.','Four answers',`<div class="rv">${F.map((f,i)=>`<details><summary><i>0${i+1}</i>${f[0]}</summary><p>${f[1]}</p></details>`).join('')}</div>`)+
+sec('contact','10','Write to us.','Bengaluru · IST',`<div class="ct"><div class="rv"><a class="mail" href="mailto:nsdcaseb@gmail.com">nsdcaseb@gmail.com</a><div class="soc"><a class="btn" href="https://www.instagram.com/nsdc_avvb/" target="_blank" rel="noopener">Instagram</a><a class="btn" href="https://www.linkedin.com/company/nsdc-avv-b" target="_blank" rel="noopener">LinkedIn</a><a class="btn" href="https://discord.gg/XeGgzAu93Z" target="_blank" rel="noopener">Discord</a></div><p>For applications, collaborations and speaker offers.</p></div><div class="card rv" style="display:block"><ul><li><span>Meetings</span><b>Weekly · Sat 16:00 IST</b></li><li><span>Campus</span><b>Amrita Bengaluru</b></li><li><span>Room</span><b>Posted in Discord</b></li><li><span>Recruitment</span><b>Semester cycle</b></li><li><span>Time zone</span><b>IST · UTC+05:30</b></li></ul></div></div>`)+
+sec('archive','11','From the room.','Filed frames',`<div class="gal rv">${GA.map(g=>`<figure class="sh1"><img src="${I}${g[0]}/photo-thumb.webp" alt="${g[1]}" loading="lazy" onerror="this.remove()"><figcaption>${g[2]}</figcaption></figure>`).join('')}</div>`)+
+sec('achievements','12','Logged, not claimed.','2024 — 2026',`<div class="lg">${AC.map(a=>`<div class="card rv"><time>${a[0]}</time><div><h3>${a[1]}</h3><p>${a[2]}</p></div><div class="pf"><b>${a[3]}</b><span>${a[4]}</span></div></div>`).join('')}</div>`);
+$('#cons').insertAdjacentHTML('beforeend',nav.slice(0,8).map((n,i)=>`<a href="#${n[0]}"><b>${String(i+1).padStart(2,0)} ${n[1]}</b><span>→</span></a>`).join(''));
+$('#ml').innerHTML=nav.map((n,i)=>`<a href="#${n[0]}" style="--i:${i}"><span>${String(i+1).padStart(2,0)}</span>${n[1]}</a>`).join('');
+const mk='<span>Build</span><span>Learn</span><span>Ship</span><span>Bengaluru</span><span>Data</span><span>AI</span>';
+$('#m1').innerHTML=mk+mk+mk+mk;$('#m2').innerHTML='<span>National Student Data Corps</span><span>26—27</span><span>NSDC</span><span>Amrita</span>'.repeat(4);
+
+/* ---------- reveals ---------- */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.rv').forEach(e=>io.observe(e));
+if(RM)document.querySelectorAll('.rv').forEach(e=>e.classList.add('in'));
+
+/* ---------- menu ---------- */
+const mn=$('#menu'),om=$('#om'),xm=$('#xm');
+function tog(o){mn.classList.toggle('open',o);om.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':'';(o?xm:om).focus({preventScroll:true})}
+om.onclick=()=>tog(true);xm.onclick=()=>tog(false);mn.querySelectorAll('a').forEach(a=>a.onclick=()=>tog(false));
+addEventListener('keydown',e=>{if(e.key==='Escape'&&mn.classList.contains('open'))tog(false)});
+
+/* ---------- clock + progress ---------- */
+const clk=$('#clk'),bar=$('#bar');let sy=0;
+const tick=()=>clk.textContent='BENGALURU · '+new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Kolkata'})+' IST';tick();setInterval(tick,1000);
+addEventListener('scroll',()=>{sy=scrollY;bar.style.transform='scaleX('+(sy/Math.max(1,document.documentElement.scrollHeight-innerHeight))+')'},{passive:true});
+
+/* ---------- sparkline ---------- */
+(function(){const cv=$('#spk');if(!cv)return;const x=cv.getContext('2d'),D=[];let v=60,W,H,on=false;
+const rs=()=>{const q=Math.min(devicePixelRatio||1,2);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*q;cv.height=H*q;x.setTransform(q,0,0,q,0,0);dr()};
+function dr(){x.clearRect(0,0,W,H);x.strokeStyle='rgba(138,147,166,.16)';x.lineWidth=1;for(let i=0;i<4;i++){x.beginPath();x.moveTo(0,i*H/3+.5);x.lineTo(W,i*H/3+.5);x.stroke()}
+if(D.length<2)return;const X=i=>i/59*W,Y=d=>H-6-d/110*(H-12);
+x.beginPath();D.forEach((d,i)=>i?x.lineTo(X(i),Y(d)):x.moveTo(X(i),Y(d)));x.lineTo(X(D.length-1),H);x.lineTo(0,H);x.closePath();x.fillStyle='rgba(110,231,255,.06)';x.fill();
+x.beginPath();D.forEach((d,i)=>i?x.lineTo(X(i),Y(d)):x.moveTo(X(i),Y(d)));x.strokeStyle='#6ee7ff';x.lineWidth=1.4;x.stroke();
+x.beginPath();x.arc(X(D.length-1),Y(D[D.length-1]),2.6,0,7);x.fillStyle='#6ee7ff';x.fill()}
+const st=()=>{v+=(Math.random()-.5)*12+(60-v)*.08;v=Math.max(10,Math.min(105,v));D.push(v);if(D.length>60)D.shift();dr()};
+for(let i=0;i<60;i++)st();rs();addEventListener('resize',rs);
+new IntersectionObserver(([e])=>on=e.isIntersecting).observe(cv);
+if(!RM)setInterval(()=>{if(on&&!document.hidden)st()},600)})();
+</script>
+</body>
+</html>

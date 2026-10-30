@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>NSDC — social card (1200 × 630)</title>
+    <!--
+      Source composition for public/og-default.png.
+      Render with: node scripts/og-image.cjs
+
+      The fonts and the brand mask are referenced relative to this file so the
+      page also opens directly in a browser. scripts/og-image.cjs inlines them
+      as data: URIs before rendering, so the screenshot never races the network.
+    -->
+    <style>
+      @font-face {
+        font-family: "Bespoke Serif";
+        font-style: normal;
+        font-weight: 400;
+        font-display: block;
+        src: url("../public/fonts/bespoke-serif-latin.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Bespoke Serif";
+        font-style: italic;
+        font-weight: 400;
+        font-display: block;
+        src: url("../public/fonts/bespoke-serif-italic-latin.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Switzer";
+        font-style: normal;
+        font-weight: 400;
+        font-display: block;
+        src: url("../public/fonts/switzer-latin.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Switzer";
+        font-style: normal;
+        font-weight: 500;
+        font-display: block;
+        src: url("../public/fonts/switzer-medium-latin.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Switzer";
+        font-style: normal;
+        font-weight: 600;
+        font-display: block;
+        src: url("../public/fonts/switzer-semibold-latin.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Geist Mono";
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: block;
+        src: url("../public/fonts/geist-mono-latin.woff2") format("woff2");
+      }
+
+      :root {
+        --paper: #f2eee3;
+        --ink: #111110;
+        --faint: #67635a;
+        --seal: #b33c1b;
+        --hairline: rgba(103, 99, 90, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Switzer", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: geometricPrecision;
+      }
+
+      .card {
+        width: 1200px;
+        height: 630px;
+        padding: 54px 64px 50px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ---- dossier line ------------------------------------------------ */
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: "Geist Mono", monospace;
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.16em;
+        line-height: 1;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .dossier {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+
+      .seal-square {
+        width: 7px;
+        height: 7px;
+        background: var(--seal);
+        flex: none;
+      }
+
+      .top .est {
+        letter-spacing: 0.14em;
+      }
+
+      .hairline {
+        height: 1px;
+        background: var(--hairline);
+        margin-top: 19px;
+        flex: none;
+      }
+
+      /* ---- hero lockup ------------------------------------------------- */
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-bottom: 4px;
+      }
+
+      .lockup {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+      }
+
+      .mark {
+        width: 130px;
+        height: 139px;
+        flex: none;
+        background: var(--ink);
+        -webkit-mask-image: url("../public/brand/nsdc-symbol.png");
+        mask-image: url("../public/brand/nsdc-symbol.png");
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-position: center;
+        mask-position: center;
+      }
+
+      .wordmark {
+        font-family: "Bespoke Serif", serif;
+        font-weight: 400;
+        font-size: 190px;
+        line-height: 0.78;
+        letter-spacing: -0.035em;
+        white-space: nowrap;
+      }
+
+      .tick {
+        width: 42px;
+        height: 3px;
+        background: var(--seal);
+        margin-top: 34px;
+        margin-bottom: 19px;
+      }
+
+      .name {
+        font-family: "Bespoke Serif", serif;
+        font-weight: 400;
+        font-size: 58px;
+        line-height: 1.02;
+        letter-spacing: -0.015em;
+        white-space: nowrap;
+      }
+
+      .name em {
+        font-style: italic;
+      }
+
+      .statement {
+        margin-top: 18px;
+        font-family: "Switzer", sans-serif;
+        font-weight: 400;
+        font-size: 27px;
+        line-height: 1.45;
+        letter-spacing: 0.002em;
+        color: var(--faint);
+      }
+
+      /* ---- footer ------------------------------------------------------ */
+
+      .bottom {
+        flex: none;
+        border-top: 1px solid var(--hairline);
+        padding-top: 19px;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 40px;
+      }
+
+      .place {
+        font-family: "Switzer", sans-serif;
+        font-weight: 500;
+        font-size: 21px;
+        line-height: 1.2;
+        letter-spacing: 0.002em;
+        white-space: nowrap;
+      }
+
+      .coords {
+        font-family: "Geist Mono", monospace;
+        font-weight: 400;
+        font-size: 12.5px;
+        line-height: 1.2;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--faint);
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" data-card>
+      <header class="top">
+        <span class="dossier">
+          <span class="seal-square" aria-hidden="true"></span>
+          NSDC · Amrita Bengaluru · IST
+        </span>
+        <span class="est">Est. 2024</span>
+      </header>
+
+      <div class="hairline" aria-hidden="true"></div>
+
+      <main>
+        <div class="lockup">
+          <span class="mark" role="img" aria-label="NSDC mark"></span>
+          <span class="wordmark" data-wordmark>NSDC</span>
+        </div>
+
+        <div class="tick" aria-hidden="true"></div>
+
+        <p class="name" data-name>National Student <em>Data</em> Corps</p>
+
+        <p class="statement" data-statement>
+          A student technology community working<br />
+          across data, AI and emerging technology.
+        </p>
+      </main>
+
+      <footer class="bottom">
+        <p class="place" data-place>
+          Amrita Vishwa Vidyapeetham, Bengaluru
+        </p>
+        <p class="coords" data-coords>12.894702° N, 77.675574° E</p>
+      </footer>
+    </div>
+  </body>
+</html>

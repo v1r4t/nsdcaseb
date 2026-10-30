@@ -41,9 +41,14 @@ not permit redistributing or reselling GSAP as a competing product. See
 | @types/react-dom | 19.3.0 | MIT |
 | @types/three | 0.186.0 | MIT |
 | supabase (CLI) | 2.121.0 | MIT |
+| wrangler | 4.156.0 | MIT OR Apache-2.0 |
 
 Full licence texts are shipped inside each package under `node_modules/<name>/`.
 When redistributing a production bundle, retain this file alongside it.
+
+`wrangler` is the exception: its npm package ships no licence file, but its
+`package.json` declares `MIT OR Apache-2.0` and the upstream licence texts are
+in <https://github.com/cloudflare/workers-sdk>.
 
 ## Fonts
 
@@ -51,10 +56,19 @@ Self-hosted in `public/fonts/`:
 
 | Font | Copyright | Licence |
 | --- | --- | --- |
-| Space Grotesk | 2018 The Space Grotesk Project Authors | SIL Open Font License 1.1 |
-| Geist Mono | 2024 Vercel, Inc. | SIL Open Font License 1.1 |
+| Bespoke Serif | 2017–2021 Indian Type Foundry. All rights reserved. | ITF Free Font License (FFL) 2.0 |
+| Switzer | 2015–2021 Indian Type Foundry. All rights reserved. | ITF Free Font License (FFL) 2.0 |
+| Geist Mono | 2024 The Geist Project Authors (Vercel, Inc.) | SIL Open Font License 1.1 |
 
-The required licence text and copyright notices are in `public/fonts/OFL.txt`.
+Bespoke Serif and Switzer are Fontshare fonts from the Indian Type Foundry.
+They are **not** SIL OFL: they are closed-source fonts under the ITF Free Font
+License, which permits self-hosting but not modifying, subsetting or
+redistributing the font files. The licence text and copyright notices are in
+[`public/fonts/FONTSHARE-LICENSE.txt`](public/fonts/FONTSHARE-LICENSE.txt)
+(source: <https://www.fontshare.com/licenses/itf-ffl>).
+
+Geist Mono's required licence text and copyright notice are in
+[`public/fonts/OFL.txt`](public/fonts/OFL.txt).
 
 ## Services
 
