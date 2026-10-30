@@ -157,10 +157,11 @@ Files: `site/src/pages/Admin.tsx`
 
 ## Task 19: Integration and verification (coordinator)
 
-- [ ] Full class sweep for leftovers: `rg 'bg-ink|text-paper|text-muted|border-line|signal|font-display' site/src`
-- [ ] `npm run typecheck:site`
-- [ ] `npm run build:site`
-- [ ] `npm test`
-- [ ] `npm run test:e2e` against wrangler dev
-- [ ] Manual route pass (all routes, 320px, reduced motion, keyboard, contrast)
-- [ ] Remove unused components/fonts; update README stack line; retire `design/design.md`
+- [x] Full class sweep for leftovers (remaining `bg-ink`/`text-paper` are intentional ink slabs and image overlays).
+- [x] `npm run typecheck:site`
+- [x] `npm run build:site`
+- [x] `npm test` — 140/140
+- [x] `npm run test:e2e` against wrangler dev — 27/27 (includes axe, 390px, history, admin, auth, archive, recruitment)
+- [x] Manual route pass (landing, events, archive, projects, recruit, auth, 404; 320/390px; reduced motion; keyboard)
+- [x] Contrast: ink/paper 16.3:1, quiet/paper 5.83:1, seal/paper 5.06:1, footer-muted/ink 6.38:1
+- [x] Removed unused chrome/components/fonts; README updated; `design/design.md` marked superseded
