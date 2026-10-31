@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
-import StoryFigure from './StoryFigure';
+import StoryFigure, { STORY_FRAME_COUNT } from './StoryFigure';
 import Swoop from './Swoop';
 
 /**
  * StoryStages — the three-chapter story, with the bearer at its centre.
  *
- * Desktop pins a 100vh stage for three viewports of scroll: the figure holds
- * the middle and turns one clockwise revolution on its vertical axis across
- * the three chapters, while the active chapter enters from the left (01), the
- * right (02) and the left again (03) with a short fade, slide and scale. Over
- * the last tenth of the section the figure turns away and fades, so the page is
- * clean by the time About arrives. The section releases exactly when stage 03
- * is settled, so About follows with no extra pinned scroll.
+ * Desktop pins a 100vh stage for three viewports of scroll: the sculpted bearer
+ * holds the middle and turns one clockwise revolution across the three
+ * chapters, its 36 pre-rendered halftone frames scrubbed by scroll, while the
+ * active chapter enters from the left (01), the right (02) and the left again
+ * (03) with a short fade, slide and scale. Over the last tenth of the section
+ * the bearer turns away and fades, so the page is clean by the time About
+ * arrives. The section releases exactly when stage 03 is settled, so About
+ * follows with no extra pinned scroll.
  *
  * Below 768px — and whenever motion is reduced — the figure is a still image
  * above the same copy, which renders as a static stack with lighter
@@ -127,8 +128,8 @@ function PinnedStory() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const bearerRef = useRef<HTMLDivElement | null>(null);
-  const figureRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
+  const [frame, setFrame] = useState(0);
   const [entered, setEntered] = useState(false);
 
   // Let the first frame paint at the margin so 01 can slide in on arrival.
@@ -152,14 +153,12 @@ function PinnedStory() {
       const next = progress < 1 / 3 ? 0 : progress < 2 / 3 ? 1 : 2;
       setActive((current) => (current === next ? current : next));
 
-      const figure = figureRef.current;
-      if (figure) {
-        // One clockwise revolution across 01 -> 02 -> 03, on the vertical
-        // axis: the bearer turns like a paper plate rather than tumbling
-        // through the room. Edge-on at a quarter and three-quarters through,
-        // so each chapter is read face-on.
-        figure.style.transform = `perspective(1200px) rotateY(${progress * 360}deg)`;
-      }
+      // One clockwise revolution across 01 -> 02 -> 03: scrub the turntable.
+      const nextFrame = Math.min(
+        STORY_FRAME_COUNT - 1,
+        Math.round(progress * (STORY_FRAME_COUNT - 1)),
+      );
+      setFrame((current) => (current === nextFrame ? current : nextFrame));
 
       const bearer = bearerRef.current;
       if (bearer) {
@@ -204,9 +203,11 @@ function PinnedStory() {
                 willChange: 'transform, opacity',
               }}
             >
-              <div ref={figureRef} className="w-full" style={{ willChange: 'transform' }}>
-                <StoryFigure className="block h-auto w-full select-none" />
-              </div>
+              <StoryFigure
+                className="block h-auto w-full select-none"
+                frame={frame}
+                scrub
+              />
             </div>
 
             {STAGES.map((stage, i) => {

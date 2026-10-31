@@ -74,7 +74,7 @@ test.describe('story stages under normal motion', () => {
     await expectStoryStages(page);
   });
 
-  test('turns the bearer and clears the plate before About', async ({ page }) => {
+  test('turns the bearer and clears it before About', async ({ page }) => {
     await page.goto('/');
     const story = landingSection(page, 'Our story');
     await story.scrollIntoViewIfNeeded();
@@ -92,15 +92,19 @@ test.describe('story stages under normal motion', () => {
       await page.waitForTimeout(650);
     };
 
-    const rotating = story.locator('[data-story-figure]').locator('..');
-    const bearer = story.locator('[data-story-figure]').locator('..').locator('..');
+    const figure = story.locator('[data-story-figure]');
+    const bearer = figure.locator('..');
+    const frameOf = async () => Number(await figure.getAttribute('data-frame'));
 
     await turn(0.05);
-    expect(await rotating.getAttribute('style')).toMatch(/rotateY\((1[0-9]|2[0-9])(\.\d+)?deg\)/);
+    // The turntable only starts scrubbing once every frame is cached.
+    await expect.poll(frameOf, { timeout: 5000 }).toBeGreaterThan(0);
     expect(await bearer.evaluate((el) => Number((el as HTMLElement).style.opacity || 1))).toBe(1);
 
     await turn(0.55);
-    expect(await rotating.getAttribute('style')).toMatch(/rotateY\((19[0-9]|20[0-9])(\.\d+)?deg\)/);
+    const mid = await frameOf();
+    expect(mid).toBeGreaterThan(13);
+    expect(mid).toBeLessThan(23);
 
     // The bearer leaves before the story unpins, so About arrives clean.
     await turn(0.98);
