@@ -52,12 +52,6 @@ async function expectStoryStages(page: Page): Promise<void> {
   // The retired globe painted through a <canvas>; StoryStages is paper only.
   await expect(story.locator('canvas')).toHaveCount(0);
 
-  // The bearer is decorative: a single halftone figure that turns on desktop.
-  // It does not belong in the accessibility tree.
-  const figure = story.locator('[data-story-figure]');
-  await expect(figure).toHaveCount(1);
-  await expect(figure).toHaveAttribute('aria-hidden', 'true');
-
   for (const stage of STORY_STAGES) {
     const mark = story.getByText(stage, { exact: true });
     await expect(mark, `stage "${stage}" should render exactly once`).toHaveCount(1);
@@ -72,44 +66,6 @@ test.describe('story stages under normal motion', () => {
   test('keeps 01/02/03 in the paper story', async ({ page }) => {
     await page.goto('/');
     await expectStoryStages(page);
-  });
-
-  test('turns the bearer and clears it before About', async ({ page }) => {
-    await page.goto('/');
-    const story = landingSection(page, 'Our story');
-    await story.scrollIntoViewIfNeeded();
-
-    const geometry = await story.evaluate((el) => {
-      const node = el as HTMLElement;
-      const stage = node.firstElementChild as HTMLElement;
-      return { top: node.offsetTop, span: node.offsetHeight - stage.offsetHeight };
-    });
-    const turn = async (frac: number) => {
-      await page.evaluate(
-        ({ top, span, frac: f }) => window.scrollTo(0, top + span * f),
-        { ...geometry, frac },
-      );
-      await page.waitForTimeout(650);
-    };
-
-    const figure = story.locator('[data-story-figure]');
-    const bearer = figure.locator('..');
-    const frameOf = async () => Number(await figure.getAttribute('data-frame'));
-
-    await turn(0.05);
-    // The turntable only starts scrubbing once every frame is cached.
-    await expect.poll(frameOf, { timeout: 5000 }).toBeGreaterThan(0);
-    expect(await bearer.evaluate((el) => Number((el as HTMLElement).style.opacity || 1))).toBe(1);
-
-    await turn(0.55);
-    const mid = await frameOf();
-    expect(mid).toBeGreaterThan(13);
-    expect(mid).toBeLessThan(23);
-
-    // The bearer leaves before the story unpins, so About arrives clean.
-    await turn(0.98);
-    const leaving = await bearer.evaluate((el) => Number((el as HTMLElement).style.opacity));
-    expect(leaving).toBeLessThan(0.25);
   });
 });
 

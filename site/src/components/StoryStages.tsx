@@ -1,23 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
-import StoryFigure, { STORY_FRAME_COUNT } from './StoryFigure';
 import Swoop from './Swoop';
 
 /**
- * StoryStages — the three-chapter story, with the bearer at its centre.
+ * StoryStages — the three-chapter story.
  *
- * Desktop pins a 100vh stage for three viewports of scroll: the sculpted bearer
- * holds the middle and turns one clockwise revolution across the three
- * chapters, its 36 pre-rendered halftone frames scrubbed by scroll, while the
- * active chapter enters from the left (01), the right (02) and the left again
- * (03) with a short fade, slide and scale. Over the last tenth of the section
- * the bearer turns away and fades, so the page is clean by the time About
- * arrives. The section releases exactly when stage 03 is settled, so About
- * follows with no extra pinned scroll.
+ * Desktop pins a 100vh stage for three viewports of scroll: the active chapter
+ * enters from the left (01), the right (02) and the left again (03) with a
+ * short fade, slide and scale. The section releases exactly when stage 03 is
+ * settled, so About follows with no extra pinned scroll.
  *
- * Below 768px — and whenever motion is reduced — the figure is a still image
- * above the same copy, which renders as a static stack with lighter
- * directional swoops.
+ * Below 768px — and whenever motion is reduced — the same copy renders as a
+ * static stack with lighter directional swoops.
+ *
+ * The centre of the stage is intentionally empty for now: a new centrepiece is
+ * still to be designed.
  */
 
 type Stage = {
@@ -127,9 +124,7 @@ function StoryHeader({ counter }: { counter?: string }) {
 function PinnedStory() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const bearerRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
-  const [frame, setFrame] = useState(0);
   const [entered, setEntered] = useState(false);
 
   // Let the first frame paint at the margin so 01 can slide in on arrival.
@@ -152,21 +147,6 @@ function PinnedStory() {
       const progress = clamp01(-rect.top / total);
       const next = progress < 1 / 3 ? 0 : progress < 2 / 3 ? 1 : 2;
       setActive((current) => (current === next ? current : next));
-
-      // One clockwise revolution across 01 -> 02 -> 03: scrub the turntable.
-      const nextFrame = Math.min(
-        STORY_FRAME_COUNT - 1,
-        Math.round(progress * (STORY_FRAME_COUNT - 1)),
-      );
-      setFrame((current) => (current === nextFrame ? current : nextFrame));
-
-      const bearer = bearerRef.current;
-      if (bearer) {
-        // Over the last tenth the bearer turns away, so About arrives clean.
-        const leave = clamp01((progress - 0.9) / 0.1);
-        bearer.style.transform = `translate(-50%, -50%) scale(${1 - leave * 0.14})`;
-        bearer.style.opacity = String(1 - leave);
-      }
     };
 
     const schedule = (): void => {
@@ -192,24 +172,6 @@ function PinnedStory() {
           <StoryHeader counter={counter} />
 
           <div className="relative flex-1">
-            {/* The bearer holds the centre while the chapters pass it. */}
-            <div
-              ref={bearerRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-1/2 w-[clamp(10rem,22vw,20rem)]"
-              style={{
-                transform: 'translate(-50%, -50%)',
-                transformOrigin: '50% 50%',
-                willChange: 'transform, opacity',
-              }}
-            >
-              <StoryFigure
-                className="block h-auto w-full select-none"
-                frame={frame}
-                scrub
-              />
-            </div>
-
             {STAGES.map((stage, i) => {
               const shown = entered && i === active;
               const fromLeft = i !== 1;
@@ -229,7 +191,7 @@ function PinnedStory() {
                   style={style}
                 >
                   <div
-                    className={`max-w-[clamp(16rem,22vw,20rem)] border-t hairline pt-5 ${
+                    className={`max-w-[34rem] border-t hairline pt-5 ${
                       stage.right ? 'ml-auto text-right' : ''
                     }`}
                   >
@@ -265,12 +227,7 @@ function StaticStory() {
       <div className="wrap pb-12 pt-6 md:pb-20 md:pt-10">
         <StoryHeader />
 
-        {/* Still figure on phones and under reduced motion: no turn, no vanish. */}
-        <div className="mt-8 flex justify-center">
-          <StoryFigure className="h-auto w-[clamp(8rem,40vw,12rem)] select-none" />
-        </div>
-
-        <div className="mt-10 space-y-10 sm:space-y-12">
+        <div className="mt-8 space-y-10 sm:space-y-12">
           {STAGES.map((stage, i) => (
             <Swoop
               key={stage.index}
