@@ -115,25 +115,39 @@ const PAIRS: Array<{
 /** The word's own weight, in artwork units. */
 const WORD_WIDTH = 5.1;
 
-const DRAW_MS = 800;
-const DRAW_STAGGER = 120;
-/** The last letter lands at 1160; nothing moves before the word is whole. */
-const MORPH_AT = 1500;
-const MORPH_MS = 900;
-const MORPH_STAGGER = 110;
+const DRAW_MS = 260;
+const DRAW_STAGGER = 40;
+/** The last letter lands at 380; nothing moves before the word is whole. */
+const MORPH_AT = 400;
+const MORPH_MS = 300;
+const MORPH_STAGGER = 36;
 /**
  * The strokes dissolve as the artwork arrives, in one cross-fade of the same
  * ink - so the mark appears once, and never on top of a tangle.
  */
-const RESOLVE_AT = 2560;
-const RESOLVE_MS = 420;
-const LIFT_AT = 3400;
-const LIFT_MS = 700;
+const RESOLVE_AT = 720;
+const RESOLVE_MS = 180;
+/** Total first-session overlay: 960ms in, 400ms lift = 1.36s. */
+const LIFT_AT = 960;
+const LIFT_MS = 400;
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
+/**
+ * Data saver, or a visitor who asked for less motion, gets the page straight
+ * away - no brand animation, no 1.4s gate.
+ */
+function shouldSkipPreloader(): boolean {
+  if (prefersReducedMotion()) return true;
+  if (typeof navigator === "undefined") return false;
+  const connection = (
+    navigator as Navigator & { connection?: { saveData?: unknown } }
+  ).connection;
+  return connection?.saveData === true;
+}
+
 export function Preloader() {
-  const [gone, setGone] = useState(() => prefersReducedMotion());
+  const [gone, setGone] = useState(() => shouldSkipPreloader());
   const [status, setStatus] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const emblem = useRef<SVGPathElement>(null);
@@ -141,7 +155,7 @@ export function Preloader() {
   const strokes = useRef<Array<SVGPathElement | null>>([]);
 
   useEffect(() => {
-    if (prefersReducedMotion()) {
+    if (shouldSkipPreloader()) {
       setGone(true);
       return;
     }
@@ -204,7 +218,7 @@ export function Preloader() {
     raf = window.requestAnimationFrame(step);
 
     // A stalled frame must never trap the page behind paper.
-    const safety = window.setTimeout(() => setGone(true), LIFT_AT + LIFT_MS + 1600);
+    const safety = window.setTimeout(() => setGone(true), LIFT_AT + LIFT_MS + 600);
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
       window.clearTimeout(safety);

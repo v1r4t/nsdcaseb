@@ -418,6 +418,8 @@ export async function deleteEmailAsset(url: string): Promise<void> {
       Authorization: `Bearer ${key}`,
       apikey: key,
     },
+    // Cleanup must never hold a test open if Supabase is slow/unreachable.
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`deleteEmailAsset failed: HTTP ${res.status}`);
 }

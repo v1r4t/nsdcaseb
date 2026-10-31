@@ -99,10 +99,32 @@ function linksText(links: { label: string; url: string }[]): string {
   return links.map((link) => `${link.label} ${link.url}`).join('\n');
 }
 
+/**
+ * Portrait URL: blank clears it, otherwise an absolute http(s) URL. Mirrors
+ * the worker's `validPhotoUrl` in worker/admin.ts.
+ */
+function parsePhotoUrl(raw: string): { ok: true; value: string | null } | { ok: false } {
+  const trimmed = raw.trim();
+  if (trimmed === '') return { ok: true, value: null };
+  if (trimmed.length > 2048) return { ok: false };
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { ok: false };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return { ok: false };
+  return { ok: true, value: parsed.toString() };
+}
+
 function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m: string) => Promise<void> }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
-  const [edits, setEdits] = useState<Record<string, { name: string; role: string; links: string }>>({});
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [edits, setEdits] = useState<
+    Record<string, { name: string; role: string; photoUrl: string; links: string }>
+  >({});
+  const [invalid, setInvalid] = useState<{ id: string; field: 'links' | 'photo' } | null>(null);
   async function run(fn: () => Promise<unknown>, msg: string): Promise<void> {
     try {
       await fn();
@@ -111,33 +133,94 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
       await onDone(errText(err));
     }
   }
-  async function save(id: string, ed: { name: string; role: string; links: string }, fallbackName: string): Promise<void> {
+  async function save(
+    id: string,
+    ed: { name: string; role: string; photoUrl: string; links: string },
+    fallbackName: string,
+    storedPhoto: string,
+  ): Promise<void> {
     const links = parseLinksText(ed.links);
     if (links === null) {
+      setInvalid({ id, field: 'links' });
       await onDone('Links must be one "Label https://…" per line.');
       return;
     }
-    await run(() => updateBearer(id, { name: ed.name, role: ed.role, links }), `Saved ${ed.name || fallbackName}.`);
+    // A legacy relative photo_url must not block a rename: only validate and
+    // send the field when the operator actually changed it.
+    let nextPhoto: string | null | undefined;
+    if (ed.photoUrl !== storedPhoto) {
+      const photo = parsePhotoUrl(ed.photoUrl);
+      if (!photo.ok) {
+        setInvalid({ id, field: 'photo' });
+        await onDone('Portrait URL must be an absolute http(s) URL.');
+        return;
+      }
+      nextPhoto = photo.value;
+    }
+    setInvalid(null);
+    await run(
+      () =>
+        updateBearer(id, {
+          name: ed.name,
+          role: ed.role,
+          links,
+          ...(nextPhoto !== undefined ? { photo_url: nextPhoto } : {}),
+        }),
+      `Saved ${ed.name || fallbackName}.`,
+    );
   }
   return (
     <div className="mt-6 border-t hairline pt-5">
       <h3 className="font-display text-lg font-normal tracking-tight text-ink">Office bearers</h3>
       <ul className="mt-4">
         {bearers.map((x) => {
-          const ed = edits[x.id] ?? { name: x.name, role: x.role, links: linksText(x.links) };
+          const storedPhoto = x.photo_url ?? '';
+          const ed = edits[x.id] ?? {
+            name: x.name,
+            role: x.role,
+            photoUrl: storedPhoto,
+            links: linksText(x.links),
+          };
+          const setField = (patch: Partial<typeof ed>): void => {
+            setEdits({ ...edits, [x.id]: { ...ed, ...patch } });
+            if (invalid?.id === x.id) setInvalid(null);
+          };
           return (
-            <li key={x.id} className="flex flex-wrap items-center gap-2 border-t hairline py-3">
-              <input aria-label="Bearer name" value={ed.name} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, name: e.target.value } })} className="field min-w-[9rem] flex-1" />
-              <input aria-label="Bearer role" value={ed.role} onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, role: e.target.value } })} className="field min-w-[9rem] flex-1" />
+            <li key={x.id} className="flex flex-wrap items-end gap-2 border-t hairline py-3">
+              <input
+                aria-label={`Bearer name for ${x.name}`}
+                value={ed.name}
+                onChange={(e) => setField({ name: e.target.value })}
+                className="field min-w-[9rem] flex-1"
+              />
+              <input
+                aria-label={`Bearer role for ${x.name}`}
+                value={ed.role}
+                onChange={(e) => setField({ role: e.target.value })}
+                className="field min-w-[9rem] flex-1"
+              />
+              <label className="min-w-[9rem] flex-1">
+                <span className="mono text-quiet">Portrait URL</span>
+                <input
+                  aria-label={`Bearer portrait URL for ${x.name}`}
+                  aria-invalid={invalid?.id === x.id && invalid.field === 'photo' ? true : undefined}
+                  value={ed.photoUrl}
+                  onChange={(e) => setField({ photoUrl: e.target.value })}
+                  placeholder="https://… (optional)"
+                  inputMode="url"
+                  className="field mt-1"
+                />
+              </label>
               <textarea
-                aria-label="Bearer links, one Label and URL per line"
+                aria-label={`Bearer links for ${x.name}, one Label and URL per line`}
+                aria-invalid={invalid?.id === x.id && invalid.field === 'links' ? true : undefined}
                 value={ed.links}
-                onChange={(e) => setEdits({ ...edits, [x.id]: { ...ed, links: e.target.value } })}
+                onChange={(e) => setField({ links: e.target.value })}
                 placeholder="Label https://… (one per line)"
                 rows={2}
                 className="field min-w-[9rem] flex-1"
               />
-              <button type="button" className="btn-ghost shrink-0" onClick={() => void save(x.id, ed, x.name)}>
+              <button type="button" className="btn-ghost shrink-0" onClick={() => void save(x.id, ed, x.name, storedPhoto)}>
                 Save
               </button>
               <button
@@ -154,14 +237,20 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
         })}
       </ul>
       <form
-        className="mt-3 flex flex-wrap items-center gap-2"
+        className="mt-3 flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
+          const photo = parsePhotoUrl(photoUrl);
+          if (!photo.ok) {
+            void onDone('Portrait URL must be an absolute http(s) URL.');
+            return;
+          }
           void run(
             async () => {
-              await createBearer({ name, role });
+              await createBearer({ name, role, photo_url: photo.value });
               setName('');
               setRole('');
+              setPhotoUrl('');
             },
             `Added ${name}.`,
           );
@@ -169,6 +258,17 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
       >
         <input aria-label="New bearer name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="field min-w-[9rem] flex-1" />
         <input aria-label="New bearer role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Role" className="field min-w-[9rem] flex-1" />
+        <label className="min-w-[9rem] flex-1">
+          <span className="mono text-quiet">Portrait URL</span>
+          <input
+            aria-label="New bearer portrait URL"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            placeholder="https://… (optional)"
+            inputMode="url"
+            className="field mt-1"
+          />
+        </label>
         <button type="submit" className="btn-primary shrink-0" disabled={!name.trim() || !role.trim()}>
           Add
         </button>

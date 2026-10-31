@@ -10,13 +10,44 @@ import type { Page } from '@playwright/test';
 //
 // Threshold: violations.filter(v => v.impact === 'critical' || v.impact === 'serious') must be empty.
 
+/**
+ * Let the page finish loading, then walk it top → bottom once so every
+ * scroll-triggered entrance has fired, and return to the top. `Reveal` and
+ * `Swoop` start below the fold at opacity 0; axe would otherwise scan the
+ * pre-entrance tree (and skip colour-contrast on the hidden copy). The final
+ * pause covers the longest entrance (Swoop 820 ms; Reveal 900 ms plus a
+ * 300 ms People stagger) if the caller runs with motion enabled.
+ */
+async function settleForScan(page: Page): Promise<void> {
+  // Client fetches (content/events/projects/media/lists) settle first so axe
+  // scans the loaded state, not a skeleton. Best-effort: a failed fetch still
+  // renders an honest empty state.
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null);
+
+  await page.evaluate(async () => {
+    const nextFrame = (): Promise<void> =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+    const step = Math.max(240, Math.floor(window.innerHeight * 0.75));
+    const height = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    );
+    for (let y = 0; y <= height; y += step) {
+      window.scrollTo(0, y);
+      await nextFrame();
+    }
+    window.scrollTo(0, 0);
+    await nextFrame();
+  });
+
+  await page.waitForTimeout(1500);
+}
+
 async function expectNoBlockers(page: Page, url: string) {
   await page.goto(url);
-  // Let client fetches (events/projects/media lists) settle so axe scans the
-  // loaded state, not the skeleton.
-  await page
-    .waitForResponse((r) => r.url().includes('/api/') && r.ok(), { timeout: 15000 })
-    .catch(() => null);
+  await settleForScan(page);
   const results = await new AxeBuilder({ page }).analyze();
   const blockers = results.violations.filter(
     (v) => v.impact === 'critical' || v.impact === 'serious',
@@ -44,6 +75,7 @@ test('axe: /admin locked 404 state has no critical/serious findings', async ({ p
   // the state every visitor sees.
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await settleForScan(page);
   const results = await new AxeBuilder({ page }).analyze();
   const blockers = results.violations.filter(
     (v) => v.impact === 'critical' || v.impact === 'serious',

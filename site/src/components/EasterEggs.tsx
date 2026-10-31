@@ -4,7 +4,7 @@
  * component's render output:
  *
  * - Egg 3 keyboard detector (`build` → `learn` → `ship`) + `nsdc:ship`
- *   payoff listener (toast + sweep + marquee `SHIP` → `SHIPPED`).
+ *   payoff listener (toast + sweep).
  * - Egg 4 Konami detector (↑↑↓↓←→←→ B A) + `nsdc:konami` payoff listener
  *   (glyph-rain overlay + toast; toast only under reduced motion).
  * - Egg 5 tab-away title (`Still building — NSDC`, restores on return).
@@ -31,7 +31,6 @@ import {
 } from '../lib/easter-eggs';
 
 const AWAY_TITLE = 'Still building — NSDC';
-const MARQUEE_RESTORE_MS = 8000;
 const KONAMI_DISMISS_MS = 4000;
 /** Overlay holds ~5.5s, then unmounts and releases every timer. */
 const KONAMI_OVERLAY_MS = 5500;
@@ -46,26 +45,6 @@ function prefersReducedMotion(): boolean {
     typeof window.matchMedia === 'function' &&
     window.matchMedia(REDUCED_MOTION_QUERY).matches
   );
-}
-
-/**
- * Swap the landing marquee's `SHIP` item to `SHIPPED` for ~8s. Done via DOM
- * so PosterBand stays untouched and the egg remains centrally owned.
- * Returns a restore function.
- */
-function swapMarqueeShip(): () => void {
-  const changed: Array<{ el: Element; text: string }> = [];
-  document.querySelectorAll('.marquee-track span').forEach((el) => {
-    if (el.children.length === 0 && el.textContent === 'SHIP') {
-      changed.push({ el, text: 'SHIP' });
-      el.textContent = 'SHIPPED';
-    }
-  });
-  return () => {
-    changed.forEach(({ el, text }) => {
-      if (el.isConnected) el.textContent = text;
-    });
-  };
 }
 
 /**
@@ -153,18 +132,9 @@ export default function EasterEggs() {
   const [konamiVisible, setKonamiVisible] = useState(false);
   const [konamiToastKey, setKonamiToastKey] = useState(0);
   const [konamiToastVisible, setKonamiToastVisible] = useState(false);
-  const marqueeRestoreRef = useRef<(() => void) | null>(null);
-  const marqueeTimerRef = useRef(0);
 
-  const clearMarqueeTimer = useCallback(() => {
-    if (marqueeTimerRef.current !== 0) {
-      window.clearTimeout(marqueeTimerRef.current);
-      marqueeTimerRef.current = 0;
-    }
-  }, []);
-
-  // The single ship payoff: once per session, toast always, sweep + marquee
-  // only with full motion.
+  // The single ship payoff: once per session, toast always, sweep only with
+  // full motion.
   const fireShip = useCallback(() => {
     if (hasShipped()) return;
     markShipped();
@@ -173,15 +143,7 @@ export default function EasterEggs() {
     if (prefersReducedMotion()) return;
     setSweepKey((key) => key + 1);
     setSweepVisible(true);
-    marqueeRestoreRef.current?.();
-    clearMarqueeTimer();
-    marqueeRestoreRef.current = swapMarqueeShip();
-    marqueeTimerRef.current = window.setTimeout(() => {
-      marqueeRestoreRef.current?.();
-      marqueeRestoreRef.current = null;
-      marqueeTimerRef.current = 0;
-    }, MARQUEE_RESTORE_MS);
-  }, [clearMarqueeTimer]);
+  }, []);
 
   // The single Konami payoff: once per session, toast always, glyph-rain
   // overlay only with full motion. Nothing here steals focus or blocks nav.
@@ -233,15 +195,6 @@ export default function EasterEggs() {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
-
-  useEffect(
-    () => () => {
-      clearMarqueeTimer();
-      marqueeRestoreRef.current?.();
-      marqueeRestoreRef.current = null;
-    },
-    [clearMarqueeTimer],
-  );
 
   // Konami toast auto-dismiss mirrors SignalToast's ~4s lifetime.
   useEffect(() => {

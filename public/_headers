@@ -1,0 +1,21 @@
+# Custom response headers for Workers static assets.
+#
+# This file is copied from public/ into dist-site/ by `npm run build:site` and
+# is consumed by Cloudflare Workers static assets (not served as a file). The
+# rules apply to asset responses, including responses returned by
+# `env.ASSETS.fetch()` from worker/staging.ts and worker/index.ts.
+#
+# HTML is deliberately absent: it keeps the Workers default
+# `Cache-Control: public, max-age=0, must-revalidate` so a new deploy is picked
+# up on the next navigation. Never add a long-lived rule for `/` or `/*.html`.
+#
+# Vite fingerprints every file in /assets (name-<hash>.js|css), so a one-year
+# immutable cache is safe: a new build produces a new filename. Font filenames
+# are stable (not hashed), so replacing a face must also rename the file (or
+# add a version query) or clients will keep the old bytes for a year.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -10,13 +10,15 @@ import type { ArchiveSlide } from '../lib/media';
 import { Reveal } from '../../../design/motion/Reveal';
 import { SectionIndex } from '../../../design/primitives/SectionIndex';
 import StorySequence from '../components/StorySequence';
-import DossierStages from '../components/DossierStages';
+import CinematicOrigin from '../components/CinematicOrigin';
+import GlobeStory from '../components/GlobeStory';
 import PeopleList from '../components/PeopleList';
 import NowSection from '../components/NowSection';
-import ProjectStrip from '../components/ProjectStrip';
-import EventRows from '../components/EventRows';
-import ArchiveTeaser from '../components/ArchiveTeaser';
-import PosterBand, { PosterLines } from '../components/PosterBand';
+import LandingProjects from '../components/LandingProjects';
+import LandingEvents from '../components/LandingEvents';
+import LandingArchive from '../components/LandingArchive';
+import Swoop from '../components/Swoop';
+import ZoomIn from '../components/ZoomIn';
 
 /** D1 copy is plain text — never HTML. Split on blank lines into paragraphs. */
 function paragraphs(body: string): string[] {
@@ -54,7 +56,7 @@ export default function Landing() {
   useDocumentMeta({
     title: 'NSDC — National Student Data Corps',
     description:
-      'NSDC — National Student Data Corps. A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru. We bring students together to learn, build, experiment and compete across data, AI and emerging technology.',
+      'What happens when students stop waiting for the future and start building it? NSDC at Amrita Bengaluru — events, projects and research in the open.',
   });
   const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
   // null = in flight or failed; sections degrade to honest empty states.
@@ -120,48 +122,48 @@ export default function Landing() {
 
   return (
     <div>
-      {/* THE NETWORK — three-part dossier over the room (no globe, no pinning) ---- */}
-      <DossierStages />
+      {/* THE NETWORK — the story over the room ---------------------------- */}
+      <GlobeStory />
 
       {/* 1. WHAT WE DO ---------------------------------------------------- */}
-      <section id="about" aria-label="What we do" data-folio="01 / About" className="border-t hairline">
-        <div className="wrap grid grid-cols-12 gap-x-6 gap-y-10 py-20 sm:py-28">
-          <div className="col-span-12 md:col-span-7">
-            <SectionHead index="01" name="About" />
-            <Reveal as="h1" className="mt-8 statement-sm text-ink">
-              We bring students together to learn, build, experiment and compete across data, AI
-              and emerging technology.
-            </Reveal>
-            <SectionIndex value="01" className="mt-10 hidden md:block" />
-          </div>
-          <div className="col-span-12 md:col-span-5 md:col-start-8 md:pt-14">
-            {aboutBlocks.length === 0 ? (
-              <p className="text-[17px] leading-[1.65] text-quiet">
-                This section has not been written yet.
-              </p>
-            ) : (
-              <div className="space-y-5">
-                {aboutBlocks.map((block) => (
-                  <p
-                    key={block.slice(0, 48)}
-                    className="max-w-[52ch] text-[17px] leading-[1.65] text-ink/80"
-                  >
-                    {block}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
+      <section id="about" aria-label="About" data-folio="01 / About" className="border-t hairline">
+        <div className="wrap pt-20 sm:pt-28">
+          <SectionHead index="01" name="About" />
         </div>
-      </section>
 
-      {/* POSTER — the typographic moment (unnumbered interlude) ---------------- */}
-      <PosterBand>
-        <PosterLines lines={['Build.', 'Learn.', 'Ship.']} />
-        <p className="mt-10 max-w-md mono text-quiet">
-          A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru.
-        </p>
-      </PosterBand>
+        {/* The question leads: the page's only h1. ZoomIn is the entrance;
+            the restored CinematicOrigin sequence slides the lines on scroll. */}
+        <ZoomIn>
+          <CinematicOrigin />
+        </ZoomIn>
+
+        {/* The CMS mission prose, two columns, after the question. */}
+        <Swoop from="up" className="wrap pb-20 sm:pb-28">
+          <div className="grid grid-cols-12 gap-x-6 gap-y-8">
+            <div className="col-span-12 md:col-span-3">
+              <SectionIndex value="01" className="hidden md:block" />
+            </div>
+            <div className="col-span-12 md:col-span-9">
+              {aboutBlocks.length === 0 ? (
+                <p className="text-[17px] leading-[1.65] text-quiet">
+                  This section has not been written yet.
+                </p>
+              ) : (
+                <div className="md:columns-2 md:gap-x-10">
+                  {aboutBlocks.map((block) => (
+                    <p
+                      key={block.slice(0, 48)}
+                      className="mb-5 break-inside-avoid text-[17px] leading-[1.65] text-ink/80"
+                    >
+                      {block}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Swoop>
+      </section>
 
       {/* 2. THE ORIGIN ----------------------------------------------------- */}
       <section id="origin" aria-label="The origin" data-folio="02 / The Origin" className="border-t hairline">
@@ -176,7 +178,7 @@ export default function Landing() {
             Selected work.
           </Reveal>
           <div className="mt-10">
-            <ProjectStrip />
+            <LandingProjects />
           </div>
         </div>
       </section>
@@ -189,7 +191,7 @@ export default function Landing() {
             Upcoming dates.
           </Reveal>
           <div className="mt-8 md:ml-[8.333%] md:max-w-[83.333%]">
-            <EventRows events={events} />
+            <LandingEvents />
           </div>
         </div>
       </section>
@@ -267,7 +269,7 @@ export default function Landing() {
             From the room.
           </Reveal>
           <div className="mt-10">
-            <ArchiveTeaser slides={photos} />
+            <LandingArchive />
           </div>
         </div>
       </section>

@@ -128,6 +128,29 @@ function validLinks(value: unknown): { label: string; url: string }[] | null {
   return out;
 }
 
+/**
+ * Optional bearer `photo_url`: null / blank clears it, otherwise an absolute
+ * http(s) URL. Mirrors the client-side check in AdminContent.
+ *
+ * Exported for its table test in `worker/admin.test.ts`; the handler still
+ * calls it for every create/patch, so exporting does not weaken the API.
+ */
+export function validPhotoUrl(value: unknown): { ok: true; value: string | null } | { ok: false } {
+  if (value === null || value === undefined) return { ok: true, value: null };
+  if (typeof value !== 'string') return { ok: false };
+  const trimmed = value.trim();
+  if (trimmed === '') return { ok: true, value: null };
+  if (trimmed.length > 2048) return { ok: false };
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { ok: false };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return { ok: false };
+  return { ok: true, value: parsed.toString() };
+}
+
 function methodNotAllowed(allow: string): Response {
   return json({ error: 'method_not_allowed' }, 405, { Allow: allow });
 }
@@ -734,6 +757,12 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
       if (!body.ok) return body.response;
       const { name, role, cohort, photo_url: photoUrl, links } = body.value;
       if (!nonEmpty(name) || !nonEmpty(role)) return json({ error: 'name_role_required' }, 400);
+      let photoUrlValue: string | null = null;
+      if (photoUrl !== undefined) {
+        const clean = validPhotoUrl(photoUrl);
+        if (!clean.ok) return json({ error: 'invalid_photo_url' }, 400);
+        photoUrlValue = clean.value;
+      }
       let linksJson = '[]';
       if (links !== undefined) {
         const clean = validLinks(links);
@@ -749,7 +778,7 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
           (name as string).trim(),
           (role as string).trim(),
           typeof cohort === 'string' ? cohort : null,
-          typeof photoUrl === 'string' ? photoUrl : null,
+          photoUrlValue,
           linksJson,
         )
         .run();
@@ -778,6 +807,10 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
           const clean = validLinks(value);
           if (clean === null) return json({ error: 'invalid_links' }, 400);
           args.push(JSON.stringify(clean));
+        } else if (field === 'photo_url') {
+          const clean = validPhotoUrl(value);
+          if (!clean.ok) return json({ error: 'invalid_photo_url' }, 400);
+          args.push(clean.value);
         } else {
           if (value !== null && typeof value !== 'string') return json({ error: `invalid_${field}` }, 400);
           args.push(value);

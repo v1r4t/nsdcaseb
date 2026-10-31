@@ -343,7 +343,8 @@ export function createBearer(input: {
   name: string;
   role: string;
   cohort?: string;
-  photo_url?: string;
+  /** Absolute http(s) URL; omit or null for no portrait. */
+  photo_url?: string | null;
   links?: BearerLinkInput[];
 }): Promise<{ id: string }> {
   return request<{ id: string }>('/api/content/bearers', 'POST', input);
@@ -351,7 +352,14 @@ export function createBearer(input: {
 
 export function updateBearer(
   id: string,
-  patch: { name?: string; role?: string; cohort?: string | null; photo_url?: string | null; links?: BearerLinkInput[] },
+  patch: {
+    name?: string;
+    role?: string;
+    cohort?: string | null;
+    /** Absolute http(s) URL, or null to clear the portrait. */
+    photo_url?: string | null;
+    links?: BearerLinkInput[];
+  },
 ): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/content/bearers/${encodeURIComponent(id)}`, 'PATCH', patch);
 }

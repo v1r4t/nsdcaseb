@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RisingText } from '../../../design/motion/RisingText';
 
 /**
- * THE ORIGIN — an editorial sequence over the room.
+ * THE ORIGIN — the CMS `origin` prose as an editorial sequence over the room.
  *
- * The founding question holds the top of the section in Bespoke Serif; the
- * real `origin` prose lands beneath it in Switzer. Nothing is pinned and the
- * section paints no ground of its own: the room dolly stays visible behind it.
+ * The founding question now belongs to the About section (`CinematicOrigin`),
+ * so this section carries only the filing mark and the real `origin` prose in
+ * Switzer. Nothing is pinned and the section paints no ground of its own: the
+ * room stays visible behind it.
  *
  * The entrance is a scroll-linked opacity band per block, driven from each
  * block's own distance to the viewport — scroll back and it plays backwards.
@@ -14,22 +14,6 @@ import { RisingText } from '../../../design/motion/RisingText';
  * only receives inline styles once the routine is running. Reduced motion
  * renders the same copy as a static stack.
  */
-
-/** The founding question, broken by hand — the line breaks are the design. */
-const OPENING_LINES: string[][] = [
-  ['WE', 'STARTED'],
-  ['WITH', 'A', 'QUESTION.'],
-];
-
-const QUESTION_LINES: string[][] = [
-  ['WHAT', 'HAPPENS', 'WHEN', 'STUDENTS'],
-  ['STOP', 'WAITING', 'FOR', 'THE', 'FUTURE'],
-  ['AND', 'START', 'BUILDING', 'IT?'],
-];
-
-/** Read as one coherent sentence; the broken lines around it are decorative. */
-const QUESTION_SENTENCE =
-  'We started with a question. What happens when students stop waiting for the future and start building it?';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -54,16 +38,6 @@ function prefersReducedMotion(): boolean {
 function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
 }
-
-/** `RisingText` takes words, not lines: split each hand-broken line into words. */
-function words(lines: string[][]): Array<Array<{ text: string }>> {
-  return lines.map((line) => line.map((text) => ({ text })));
-}
-
-const HEADLINE_CLASS =
-  'font-display text-[clamp(2.25rem,7.4vw,4.5rem)] leading-[0.98] tracking-tight text-ink';
-const QUESTION_CLASS =
-  'mt-8 max-w-[34ch] font-display text-[clamp(1.15rem,2.8vw,1.65rem)] leading-[1.3] tracking-tight text-ink/70';
 
 interface StorySequenceProps {
   /** Sub-label for the prose stage, e.g. "How we started". */
@@ -179,7 +153,7 @@ export default function StorySequence({ title, body }: StorySequenceProps) {
   return (
     <div className="wrap py-20 sm:py-28">
       <div className="grid grid-cols-12 gap-x-6 gap-y-10">
-        {/* Dossier margin: the label and the CMS stage title, pushed to the left. */}
+        {/* Dossier margin: the filing mark and the CMS stage title. */}
         <div className="col-span-12 md:col-span-4">
           <h2 className="mono flex items-center gap-2.5 text-quiet">
             <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 bg-seal" />
@@ -189,14 +163,7 @@ export default function StorySequence({ title, body }: StorySequenceProps) {
         </div>
 
         <div ref={trackRef} className="col-span-12 md:col-span-8 md:col-start-5">
-          {/* The posed sentence is read as one line; the break is typographic. */}
-          <p className="sr-only">{QUESTION_SENTENCE}</p>
-          <div data-band aria-hidden="true" className="mt-2 md:mt-0">
-            <RisingText as="p" lines={words(OPENING_LINES)} className={HEADLINE_CLASS} />
-            <RisingText as="p" lines={words(QUESTION_LINES)} className={QUESTION_CLASS} />
-          </div>
-
-          <div data-band className="mt-12 max-w-[58ch] border-t hairline pt-8">
+          <div data-band className="max-w-[58ch] border-t hairline pt-8">
             {blocks.length === 0 ? (
               <p className="text-[17px] leading-[1.65] text-quiet">
                 This section has not been written yet.

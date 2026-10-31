@@ -39,9 +39,10 @@ export default defineConfig({
   // three browser projects.
   workers: 1,
   reporter: 'list',
-  // 60s: WebKit's full registration/waitlist/cancel flow is ~2x Chromium and
-  // was tripping the old 30s budget mid-assertion.
-  timeout: 60_000,
+  // 120s: the admin broadcast spec includes a Supabase image upload and can
+  // run ~50s on a busy local worker; WebKit's full registration/waitlist/cancel
+  // flow is also ~2x Chromium. The old 60s budget timed out mid-assertion.
+  timeout: 120_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: process.env.BASE_URL ?? 'http://127.0.0.1:8787',

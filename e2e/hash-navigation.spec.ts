@@ -9,8 +9,8 @@ test('hash link /#about reveals the About section', async ({ page }) => {
   const about = page.locator('section#about');
   await expect(about).toBeVisible();
   await expect(about.getByRole('heading', { name: 'Selected work.' })).toHaveCount(0);
-  // The About section's mission statement is the stable content marker.
-  await expect(about).toContainText('We bring students together');
+  // The About section is question-led: the founding question is the marker.
+  await expect(about).toContainText('What happens when students stop waiting for the future');
 });
 
 test('hash link /#people reveals the People section', async ({ page }) => {

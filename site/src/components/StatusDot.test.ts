@@ -1,11 +1,10 @@
 /**
  * Unit tests for statusFor (site/src/components/StatusDot.tsx).
  *
- * statusFor is the single shared source of row-status logic; statusOf (in
- * EventRows.tsx) and the date/time formatters (EventRows.readableDate,
- * EventDetail.formatDate/formatTimeRange) are module-private and therefore
- * untestable as-is without a refactor — noted as a follow-up, current
- * behavior pinned here only through the exported function.
+ * statusFor is the single shared source of row-status logic; the event
+ * date/time formatters (EventDetail.formatDate/formatTimeRange) are
+ * module-private and therefore untestable as-is without a refactor — noted as
+ * a follow-up, current behavior pinned here only through the exported function.
  */
 import { describe, expect, it } from 'vitest';
 import { statusFor } from './StatusDot';

@@ -29,7 +29,7 @@ const PROJECT_ROUTE_RE = /^\/projects\/([^/]+)\/?$/;
 
 export const DEFAULT_SITE_NAME = 'NSDC — National Student Data Corps';
 export const DEFAULT_DESCRIPTION =
-  'NSDC — National Student Data Corps. A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru. We bring students together to learn, build, experiment and compete across data, AI and emerging technology.';
+  'What happens when students stop waiting for the future and start building it? NSDC at Amrita Bengaluru — events, projects and research in the open.';
 
 /** Shell assets that must resolve against the request origin. */
 const DEFAULT_OG_IMAGE_PATH = '/og-default.png';

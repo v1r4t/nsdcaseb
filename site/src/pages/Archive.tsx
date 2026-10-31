@@ -7,6 +7,7 @@ import { useFocusTrap } from '../lib/focus-trap';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { ApiError, listMedia } from '../lib/media';
 import type { MediaAlbum, MediaItem } from '../lib/media';
+import { photoAlt } from '../components/LandingArchive';
 import { galleryFullSources, galleryTileSources } from '../lib/image-variants';
 import { listEvents } from '../lib/events';
 import type { EventSummary } from '../lib/events';
@@ -28,14 +29,6 @@ function embedUrl(url: string): string | null {
   } catch {
     return null;
   }
-}
-
-function photoAlt(item: MediaItem): string {
-  return item.title
-    ? item.caption && item.caption !== item.title
-      ? `${item.title} — ${item.caption}`
-      : item.title
-    : item.caption || 'Event photo';
 }
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -86,12 +79,17 @@ function Tile({
   item,
   layout,
   priority = false,
+  albumTitle,
+  frame,
   onOpen,
 }: {
   item: MediaItem;
   layout: TileLayout;
   /** True only for the lead plate — the page's LCP element. */
   priority?: boolean;
+  /** Album and 1-based frame position, for descriptive alt text. */
+  albumTitle?: string;
+  frame?: number;
   onOpen: (item: MediaItem) => void;
 }) {
   if (item.type === 'video') {
@@ -140,7 +138,7 @@ function Tile({
         src={sources.src}
         srcSet={sources.srcSet}
         sizes={layout.sizes}
-        alt={photoAlt(item)}
+        alt={photoAlt(item, albumTitle, frame)}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : undefined}
         decoding="async"
@@ -397,6 +395,8 @@ export default function Archive() {
                         item={item}
                         layout={tileLayout(i)}
                         priority={index === 0 && item.id === leadImageId}
+                        albumTitle={album.title}
+                        frame={i + 1}
                         onOpen={open}
                       />
                     ))}
