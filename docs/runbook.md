@@ -1,7 +1,19 @@
 # Content runbook
 
-How to update what visitors see, what to do when fallback copy shows, and how
-to ship. Baseline numbers live in `docs/baseline.md`.
+How to update what visitors see, what to do when fallback copy shows, how to
+back the site up, watch it, and ship. Baseline numbers live in
+`docs/baseline.md`.
+
+## Surfaces
+
+| Surface | Worker / config | Content |
+| --- | --- | --- |
+| `preview.nsdcaseb.xyz` | `nsdcaseb-staging` / `wrangler.staging.jsonc` | Full club site, **ink-on-paper** design (paper `#F2EEE3`, ink `#111110`, seal `#B33C1B`). This is the current build target for all site work. |
+| `nsdcaseb.xyz`, `www.nsdcaseb.xyz` | `nsdcaseb` / `wrangler.jsonc` | Coming-soon teaser + launch list, until the cutover in `docs/production-cutover.md`. |
+| production site (prepared) | `nsdcaseb-site` / `wrangler.production.jsonc` | Full site deployed on workers.dev only; apex/`www` are still on the teaser. |
+
+Everything below that says "the site" means the ink-on-paper app on
+`preview.nsdcaseb.xyz`. The teaser has no admin, auth or D1 binding.
 
 ## Admin console (`/admin`, sign in as `ob`)
 
@@ -409,20 +421,363 @@ the public form (the API floor is 10). Public submissions are limited to
 
 ## Deploy
 
-**Order matters.** Apply migrations before the worker build that reads them
-(notably `0020_email_kind.sql`, which adds `email_outbox.kind`):
+**Order matters.** Back up first, then apply migrations, then deploy the worker
+that reads them (notably `0020_email_kind.sql`, which adds
+`email_outbox.kind`):
 
 ```bash
-npm run migrate:staging   # apply worker/db/migrations to the staging D1
-npm run deploy:staging    # build dist-site/ + deploy nsdcaseb-staging (preview.nsdcaseb.xyz)
-
-# Production site worker: same order, DB first. 0020 must exist before the
-# worker selects email_outbox.kind.
-npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
-npm run build:site
-npx wrangler deploy -c wrangler.production.jsonc
+node scripts/backup-d1.mjs --env staging --label pre-deploy   # restore point
+npm run migrate:staging                                       # DB first
+npm run build:site && npx wrangler deploy -c wrangler.staging.jsonc
 ```
 
-Production apex (`nsdcaseb.xyz`) serves the coming-soon teaser from
-`wrangler.jsonc` (`npm run build && npx wrangler deploy`); the teaser has no
-`AUTH_DB` binding and is **not** affected by site migrations or deploys.
+Production is a separate, human-run cutover (`docs/production-cutover.md`).
+There is **no automatic production deploy**, and CI cannot deploy production.
+
+### Deploy paths at a glance
+
+| Path | Trigger | Gate |
+| --- | --- | --- |
+| CI staging deploy | Actions → `ci` → **Run workflow**, set `deploy_staging` and a `reason` | `quality` + `audit` + `e2e` green on the same commit |
+| Manual staging deploy | a human at a shell | run the checklist below |
+| Production cutover | human, planned | `docs/production-cutover.md` §2–§3 |
+
+The CI deploy job only runs when the workflow is dispatched with
+`deploy_staging: true`. A normal push or pull request never deploys. The job
+uses the `staging` environment, so repository settings can add required
+reviewers on top of this.
+
+Required repository secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit and
+D1:Edit for the deploy, migration and export; add KV edit only when bindings
+change) and optionally `CLOUDFLARE_ACCOUNT_ID` for multi-account tokens. The CI
+backup is D1-only; Supabase credentials are not required there.
+
+### What the CI staging job does
+
+1. **Preflight** — refuses to run without `CLOUDFLARE_API_TOKEN` (and uses
+   `CLOUDFLARE_ACCOUNT_ID` when set). Secrets are never printed.
+2. **Build** — `npm run build:site` (`dist-site/`).
+3. **Backup first** — `node scripts/backup-d1.mjs --env staging` exports the
+   staging D1 and (when the Supabase pair is in the environment) writes a
+   Storage manifest. The dump is uploaded as
+   `d1-backup-staging-<run_number>` and kept 14 days.
+4. **Migrations** — prints `wrangler d1 migrations list`, then applies pending
+   migrations (`npm run migrate:staging`).
+5. **Deploy** — `npx wrangler deploy -c wrangler.staging.jsonc`.
+6. **Smoke** — shell, security headers, routes (`/nope` + `/admin` must 404),
+   data APIs, canonical origin, XML sitemap and the Supabase CSP origin.
+7. **Summary** — commit, reason, artifact name and the manual ink-on-paper
+   checks still due. On failure it prints the rollback commands.
+
+The job never touches `nsdcaseb` (teaser) or `nsdcaseb-site` (production).
+
+### Manual staging deploy
+
+Use this when CI is unavailable. It is the same order as CI:
+
+```bash
+git status --porcelain          # must be empty
+git rev-parse HEAD              # record the SHA in the deploy note
+npm ci
+npm run build:site
+
+# 1. Restore point BEFORE any schema change. Keep the dump out of git.
+node scripts/backup-d1.mjs --env staging --label pre-deploy
+
+# 2. Confirm what will be applied, then apply.
+npx wrangler d1 migrations list nsdc-auth --remote -c wrangler.staging.jsonc
+npm run migrate:staging
+
+# 3. Deploy the worker + dist-site assets.
+npx wrangler deploy -c wrangler.staging.jsonc
+
+# 4. Smoke it (see the checklist below), then check the ink-on-paper items.
+```
+
+If a migration is pending and the backup step cannot run (expired login,
+missing token), **stop** — do not apply the migration without a restore point.
+
+### Rollback
+
+**Worker code (preferred, 10–30 s, keeps DNS, bindings, secrets, crons):**
+
+```bash
+npx wrangler versions list -c wrangler.staging.jsonc
+npx wrangler rollback <version-id> -c wrangler.staging.jsonc \
+  -m "rollback: <reason>" -y
+```
+
+`rollback` takes a **version ID**, not a deployment ID. A rollback does not
+undo a bad secret/vars change; re-put the correct value instead.
+
+**Data.** Migrations in `worker/db/migrations/` are additive — there are no
+down scripts, and the worker must not be pointed at a database that has not
+applied the newest migration. Recover data like this:
+
+1. Download the pre-deploy artifact `d1-backup-staging-<run_number>` (or use a
+   local dump).
+2. Create a **new** D1 database and import into it:
+   ```bash
+   npx wrangler d1 create nsdc-staging-restore
+   npx wrangler d1 execute nsdc-staging-restore --remote \
+     -c wrangler.staging.jsonc --file=tmp-d1-backups/<dump>.sql
+   ```
+3. Verify row counts (`users`, `events`, `registrations`,
+   `recruitment_applications`, `email_outbox`) and spot-check the admin console.
+4. Only then point a config at the restored database (a code/config change,
+   reviewed like any other) and redeploy.
+
+Cloudflare D1 Time Travel keeps 30 days of bookmarks and can restore in place:
+`npx wrangler d1 time-travel info nsdc-auth --remote -c wrangler.staging.jsonc`.
+Prefer importing the export into a new database for anything beyond a
+minutes-old mistake; Time Travel restore is a last resort and still needs a
+fresh export first.
+
+**Never during an incident:** drop tables, run destructive SQL, delete the
+worker (keeping it deployed makes recovery a rollback, not a rebuild), or
+deploy the teaser config over staging.
+
+## Backups (D1 + Supabase Storage)
+
+What lives where:
+
+| Store | Contents | Backup |
+| --- | --- | --- |
+| D1 `nsdc-auth` (staging) / `nsdc-auth-prod` (production) | users, sessions, events, registrations, applications, outbox, audit log, content | `scripts/backup-d1.mjs` export (`.sql`) |
+| Supabase Storage `event-posters` | event posters **and** gallery photos (`gallery/<item id>/…`) | Storage manifest + byte copy |
+| Supabase Storage `email-assets` | broadcast images (`email/<uuid>.jpg` or `.png`) | Storage manifest + byte copy |
+
+A D1 dump alone is not a complete restore: rows point at Storage objects. The
+script writes a manifest so a restore can prove which objects are missing; take
+a byte copy before cutover and before bulk media work.
+
+### Routine
+
+- **Before every staging deploy** (CI does this automatically).
+- **Before any production write or cutover** — twice: once at T-1 day, once
+  immediately before the flip.
+- **Daily while recruitment or event registration is open.**
+- **Monthly** — keep one snapshot off the workstation (encrypted drive or
+  club-owned storage). Dumps contain real member data: never commit, never
+  paste into chat, never attach to a public issue.
+
+### Commands
+
+```bash
+# Staging (default): nsdc-auth, wrangler.staging.jsonc
+node scripts/backup-d1.mjs --label daily
+
+# Production: nsdc-auth-prod, wrangler.production.jsonc
+node scripts/backup-d1.mjs --env production --label pre-cutover
+
+# Local wrangler dev database (no credentials needed)
+node scripts/backup-d1.mjs --local --label local
+
+# Print the commands without writing anything
+node scripts/backup-d1.mjs --env production --dry-run
+```
+
+Output defaults to `tmp-d1-backups/` (ignored by the `tmp-*` rule in
+`.gitignore`). Each run prints the file, size and SHA-256, and keeps the newest
+10 dumps (`--keep N`, `0` keeps all). The Supabase manifest is written
+automatically when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set;
+`--supabase` makes a missing pair an error and `--no-supabase` skips it. The
+manifest lists bucket, object key, size and update time — it does **not**
+download bytes.
+
+Byte copy of the public buckets (no extra credentials; both buckets are public):
+
+```bash
+MANIFEST=tmp-d1-backups/<dump>.storage-manifest.json
+DEST=tmp-d1-backups/storage
+for bucket in event-posters email-assets; do
+  jq -r --arg b "$bucket" '.buckets[$b].objects[]?.key' "$MANIFEST" |
+  while IFS= read -r key; do
+    mkdir -p "$DEST/$bucket/$(dirname "$key")"
+    curl -fsS "$SUPABASE_URL/storage/v1/object/public/$bucket/$key" \
+      -o "$DEST/$bucket/$key"
+  done
+done
+```
+
+For a private bucket or a resumable copy, use rclone against the Supabase S3
+endpoint (`https://<project>.supabase.co/storage/v1/s3`) with S3 access keys
+created in the Supabase dashboard (Storage → S3). The service-role key is not
+an S3 credential.
+
+### Restore drill (do this once per quarter)
+
+1. Import the dump into a throwaway D1 (never staging/production directly).
+2. Count rows in `users`, `events`, `registrations`, `recruitment_applications`.
+3. Check the manifest's object count against the copied files; list a few
+   poster URLs from `events` and confirm the bytes exist locally.
+4. Delete the throwaway database. Record the date and result in the ops note.
+
+## Post-deploy smoke checklist
+
+CI runs the automated part; run the rest after every staging deploy and after
+the production cutover. Use `-H 'cache-control: no-cache'` for the first
+10 minutes.
+
+### Automated (CI `Smoke test staging`)
+
+- [ ] `/` 200; CSP, HSTS and `nosniff` present; CSP includes the Supabase
+      origin (posters render).
+- [ ] `/registrations`, `/recruit`, `/archive`, `/projects` 200; `/media` is a
+      301 to `/archive` (the old route is intentionally retired).
+- [ ] `/nope` and `/admin` 404 (teaser no longer serving; admin door hidden).
+- [ ] `/api/events`, `/api/projects`, `/api/content`, `/api/media`, `/api/site`
+      200.
+- [ ] `/registrations` canonical is the preview origin (for example
+      `https://preview.nsdcaseb.xyz/registrations`).
+- [ ] `/sitemap.xml` is `application/xml` and advertises the preview origin.
+
+### Manual — ink-on-paper
+
+- [ ] Page ground is paper `#F2EEE3`, type is ink `#111110`; no dark-theme
+      flash and no cream-on-cream text (check the landing, admin tables/forms,
+      footer and announcement banner).
+- [ ] Header/Footer render the kit chrome; seal is an accent only (≈10% of a
+      viewport, never body copy).
+- [ ] Landing StoryStages 01/02/03 render text-only with no globe/canvas;
+      reduced motion leaves a readable static stack, and mobile uses the paper
+      composition with no room line-art behind copy.
+- [ ] No layout jump on `/recruit` desktop or `/registrations` mobile
+      (CLS < 0.1); fonts are the local Bespoke Serif / Switzer / Geist Mono.
+- [ ] Archive contact sheet and event posters still show real media (no kit
+      placeholders), and gallery items match `Admin → Gallery`.
+
+### Manual — product
+
+- [ ] Register a college address → verification mail arrives; verify, log in,
+      reload stays signed in, logout clears the session.
+- [ ] Register for an open event → confirmed or waitlisted; cancel → seat
+      frees and the oldest waiter is promoted.
+- [ ] `/recruit` submits and the status lookup returns the same status;
+      `Admin → Recruitment` can select/reject and download CSV.
+- [ ] `/admin` while locked is a camouflage 404; unlock with
+      `ADMIN_ENTRY_CODE`; a member session gets 403.
+- [ ] `Admin → Email → Send test email` reports a Resend id (the only proof
+      the key + sender domain work).
+- [ ] After a cron cycle (≤15 min): `email_outbox` pending drops, or attempts
+      increment if Resend is intentionally off:
+      `npx wrangler d1 execute nsdc-auth --remote -c wrangler.staging.jsonc --command "SELECT status, COUNT(*) FROM email_outbox GROUP BY status;"`
+- [ ] No `E2E_DISABLE_RATE_LIMIT` in vars or page source.
+
+Record the commit SHA, backup artifact name and pass/fail in the deploy note.
+If any item fails, roll back (above) rather than patching on staging.
+
+## Monitoring and alerting
+
+### What “healthy” means
+
+| SLI | Definition | Target (SLO) |
+| --- | --- | --- |
+| Availability | Share of requests to `/` and `/api/*` that are **not 5xx** (4xx/429 are expected client/rate-limit outcomes) | **99.5% / 30 days** |
+| Registration path | `POST /api/events/:id/register` returns 2xx/409/429, never 5xx | 99.5% / 30 days |
+| Email sweep | Oldest `pending` outbox row is drained within 30 min of the cron tick | 99% of days |
+| Deploy success | Manual staging deploy passes smoke on first try | track, no SLO |
+
+99.5% monthly leaves an **error budget of ~3 h 36 min**. Budget policy:
+
+- **>50% remaining:** ship normally.
+- **<50% remaining:** no risky changes (migrations, auth, cron); fix
+  reliability first.
+- **Exhausted:** only fixes and rollbacks until a clean 7-day window; note it
+  in the ops log and tell the club.
+
+This is a club site, not a payment system: the SLO exists to make “is it bad
+enough to act?” a decision, not to justify paging at 3 a.m.
+
+### Cloudflare analytics and logs
+
+- **Workers & Pages → `nsdcaseb-staging` (and `nsdcaseb-site`) → Metrics:**
+  requests, 5xx count/rate, subrequests, CPU p50/p99. Filter by status and
+  path; `/api/*` errors are the first place to look.
+- **Observability / Workers Logs:** enable in the dashboard for both workers
+  (the committed Wrangler configs deliberately do not pin an observability
+  block). Logs are sampled and retained by Cloudflare; do not log secrets,
+  passwords, session cookies or full request bodies.
+- **Live tail during an incident:** `npx wrangler tail -c wrangler.staging.jsonc
+  --format pretty` (authenticated; stop it afterwards — it streams real
+  traffic).
+- **D1 → `nsdc-auth` / `nsdc-auth-prod`:** queries, rows read/written, errors,
+  storage; Time Travel bookmarks and the 30-day restore window.
+- **Cron:** Worker → Triggers → Cron (expect exactly `*/15 * * * *`) and the
+  outbox query above; `wrangler deployments status` does **not** show crons.
+- **Zone analytics** (`nsdcaseb.xyz`): request volume, cache ratio, 5xx at the
+  edge, certificate status.
+
+### Uptime checks
+
+Use an external monitor (Better Stack, UptimeRobot, or Cloudflare Health
+Checks) so a Cloudflare-wide incident is still visible. Read-only endpoints
+only:
+
+| Check | URL | Expect | Interval |
+| --- | --- | --- | --- |
+| Site HTML | `https://preview.nsdcaseb.xyz/` (production: apex) | 200, body contains `NSDC` | 1 min |
+| Data API | `/api/events` | 200, JSON | 5 min |
+| Admin liveness | `/api/admin/_ping` | 403 unauthenticated (worker + D1 reachable; it is not a public `/health`) | 5 min |
+| Sitemap | `/sitemap.xml` | 200, `application/xml` | 15 min |
+
+Do not probe `POST` endpoints, registration, or auth from a monitor: they
+write data and consume rate-limit budget. A `403` from `_ping` is a **pass**.
+
+### Alerts
+
+Route to the club ops address and a chat channel the exec team reads.
+
+| Alert | Condition | First response |
+| --- | --- | --- |
+| 5xx spike | >1% of requests over 5 min, or >10 5xx/min | Check Worker logs + D1 errors; roll back if it started with a deploy |
+| Worker exceptions | any uncaught exception in 5 min | Same; capture the request path (never the body) |
+| Latency | p95 > 1.5 s for 10 min | Check D1 and Supabase reachability |
+| Site down | 2 consecutive uptime failures | Check Cloudflare status; then worker/deploy |
+| Email stalled | oldest `pending` outbox row > 30 min, or pending > 25 for 30 min | Check cron trigger, `RESEND_API_KEY`, Resend status |
+| D1 errors | any query error rate above baseline | Check migration state and D1 status |
+| Certificate | <14 days to expiry | Cloudflare usually auto-renews; check the zone |
+| Deploy failure | CI `deploy-staging` fails | Use the run summary rollback block |
+
+Review the error budget and alert noise on the first Monday of each month;
+delete alerts nobody acts on and add the ones that were missed.
+
+## Dependency audits
+
+`package.json` splits runtime dependencies (shipped in the worker/site bundle)
+from devDependencies (build, test and deploy tooling only). CI enforces that
+split:
+
+```bash
+npm audit --omit=dev --audit-level=high   # gate: production deps must be clean
+npm audit --audit-level=high              # informational: includes dev tooling
+```
+
+The `audit` job runs the first command as a gate and posts the second as a run
+summary without blocking the deploy. As of **2026-10-31** production
+dependencies are clean; the full audit reports dev-only advisories in `vite`
+(launch-editor Windows handling, dev-server middleware) and its build-time
+transitives `source-map-js` and `postcss-selector-parser`. None is in the
+deployed worker or `dist-site` output: they run while building or testing.
+
+**Triage dev-only findings**
+
+1. Confirm it is dev-only: `npm explain <package>` and check it is not a
+   dependency of `worker/` or `site/` runtime code. If it ships, treat it as a
+   production gate failure.
+2. Read the advisory (GHSA link) for the affected versions and the actual
+   attack surface. A dev-server-only issue is not reachable from the deployed
+   site.
+3. Prefer a patch/minor upgrade in the lockfile; run `npm ci`, `npm run
+   build`, `npm run build:site`, `npm test` and the e2e job. Do not use
+   `npm audit fix --force` (it can jump majors) and do not upgrade tooling
+   during a deploy freeze or the cutover window.
+4. If no fix exists, record the advisory, why it is not reachable, and the
+   review date in the ops note; re-check monthly.
+5. `.npmrc` sets `legacy-peer-deps=true`, so peer conflicts are ignored during
+   install. After a major upgrade, verify the build explicitly rather than
+   trusting a clean `npm ci`.
+
+Cadence: monthly, plus before the production cutover and after any Dependabot
+security alert. Enabling Dependabot alerts/security updates in repository
+settings is recommended; this repo does not commit a Dependabot config.

@@ -48,7 +48,7 @@ export function Footer({ club }: { club: FooterClub }) {
               {links.map((link) => (
                 <li key={link.label}>
                   <a
-                    className="mono text-paper transition-colors hover:text-footer-accent"
+                    className="mono inline-flex min-h-11 items-center text-paper transition-colors hover:text-footer-accent"
                     data-cursor="view"
                     href={link.href}
                     rel={link.href.startsWith("mailto:") ? undefined : "noreferrer noopener"}

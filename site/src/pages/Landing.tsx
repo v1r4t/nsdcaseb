@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchContent, FALLBACK_CONTENT } from '../lib/content';
 import type { SiteContent } from '../lib/content';
@@ -6,17 +6,17 @@ import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { listEvents, type EventSummary } from '../lib/events';
 import { loadSiteState } from '../lib/site';
 import { archiveSlides, listMedia } from '../lib/media';
-import type { ArchiveSlide } from '../lib/media';
+import type { MediaAlbum } from '../lib/media';
 import { Reveal } from '../../../design/motion/Reveal';
 import { SectionIndex } from '../../../design/primitives/SectionIndex';
 import StorySequence from '../components/StorySequence';
 import CinematicOrigin from '../components/CinematicOrigin';
-import GlobeStory from '../components/GlobeStory';
+import StoryStages from '../components/StoryStages';
 import PeopleList from '../components/PeopleList';
 import NowSection from '../components/NowSection';
 import LandingProjects from '../components/LandingProjects';
-import LandingEvents from '../components/LandingEvents';
-import LandingArchive from '../components/LandingArchive';
+import LandingEvents, { eventsErrorMessage } from '../components/LandingEvents';
+import LandingArchive, { archiveErrorMessage } from '../components/LandingArchive';
 import Swoop from '../components/Swoop';
 import ZoomIn from '../components/ZoomIn';
 
@@ -60,8 +60,12 @@ export default function Landing() {
   });
   const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
   // null = in flight or failed; sections degrade to honest empty states.
+  // `eventsError`/`mediaError` keep the failed state's copy, so the child
+  // strips never need a second fetch just to render an error.
   const [events, setEvents] = useState<EventSummary[] | null>(null);
-  const [photos, setPhotos] = useState<ArchiveSlide[]>([]);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [albums, setAlbums] = useState<MediaAlbum[] | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   // null = unknown (in flight or failed); mirrors NowSection's recruitment fetch.
   const [recruitmentOpen, setRecruitmentOpen] = useState<boolean | null>(null);
 
@@ -80,10 +84,14 @@ export default function Landing() {
     let active = true;
     listEvents()
       .then(({ events: list }) => {
-        if (active) setEvents(list);
+        if (!active) return;
+        setEvents(list);
+        setEventsError(null);
       })
-      .catch(() => {
-        if (active) setEvents(null);
+      .catch((err: unknown) => {
+        if (!active) return;
+        setEvents(null);
+        setEventsError(eventsErrorMessage(err));
       });
     return () => {
       active = false;
@@ -101,20 +109,28 @@ export default function Landing() {
     };
   }, []);
 
-  // Up to six archive photos per event for the carousel. Best-effort.
+  // Single media fetch shared by NOW's count and ARCHIVE's contact sheet.
+  // Best-effort: a failure keeps the honest empty state.
   useEffect(() => {
     let active = true;
     listMedia()
-      .then(({ albums }) => {
-        if (active) setPhotos(archiveSlides(albums, 6));
+      .then(({ albums: list }) => {
+        if (!active) return;
+        setAlbums(list);
+        setMediaError(null);
       })
-      .catch(() => {
-        if (active) setPhotos([]);
+      .catch((err: unknown) => {
+        if (!active) return;
+        setAlbums(null);
+        setMediaError(archiveErrorMessage(err));
       });
     return () => {
       active = false;
     };
   }, []);
+
+  // NOW's count and ARCHIVE's frames read the same album snapshot.
+  const photos = useMemo(() => (albums ? archiveSlides(albums, 6) : []), [albums]);
 
   const about = content.sections.find((section) => section.key === 'about');
   const origin = content.sections.find((section) => section.key === 'origin');
@@ -123,7 +139,7 @@ export default function Landing() {
   return (
     <div>
       {/* THE NETWORK — the story over the room ---------------------------- */}
-      <GlobeStory />
+      <StoryStages />
 
       {/* 1. WHAT WE DO ---------------------------------------------------- */}
       <section id="about" aria-label="About" data-folio="01 / About" className="border-t hairline">
@@ -189,16 +205,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 4. EVENTS ----------------------------------------------------------- */}
+      {/* 4. EVENTS — a compact date ledger; the statement sits beside it --- */}
       <section aria-label="Events" data-folio="04 / Events" className="border-t hairline">
         <div className="wrap py-14 sm:py-28">
           <SectionHead index="04" name="Events" />
-          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
-            Upcoming dates.
-          </Reveal>
           <div className="mt-6 grid grid-cols-12 gap-x-6 sm:mt-8">
-            <div className="col-span-12 md:col-span-10 md:col-start-2">
-              <LandingEvents />
+            <div className="col-span-12 md:col-span-3">
+              <Reveal as="h2" className="statement-sm max-w-[9ch] text-ink">
+                Upcoming dates.
+              </Reveal>
+            </div>
+            <div className="col-span-12 mt-6 md:col-span-9 md:mt-0">
+              <LandingEvents events={events} error={eventsError} />
             </div>
           </div>
         </div>
@@ -271,20 +289,22 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* 7. ARCHIVE ---------------------------------------------------------- */}
+      {/* 7. ARCHIVE — index first, the statement closes the sheet ---------- */}
       <section aria-label="Archive" data-folio="07 / Archive" className="border-t hairline">
         <div className="wrap py-14 sm:py-28">
           <SectionHead index="07" name="Archive" meta="Filed frames" />
-          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
-            From the room.
-          </Reveal>
           <div className="mt-7 sm:mt-10">
-            <LandingArchive />
+            <LandingArchive albums={albums} error={mediaError} />
+          </div>
+          <div className="mt-9 border-t hairline pt-5 sm:mt-12 sm:pt-6">
+            <Reveal as="h2" className="statement-sm max-w-2xl text-ink">
+              From the room.
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* 8. ACHIEVEMENTS — editorial timeline, inline ------------------------ */}
+      {/* 8. ACHIEVEMENTS — starts on its first row, statement closes ------- */}
       <section
         id="achievements"
         aria-label="Achievements"
@@ -293,10 +313,7 @@ export default function Landing() {
       >
         <div className="wrap py-14 sm:py-28">
           <SectionHead index="08" name="Achievements" meta="System.status · Online" />
-          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
-            Logged, not claimed.
-          </Reveal>
-          <div className="mt-7 grid grid-cols-12 gap-x-6 sm:mt-10">
+          <div className="mt-6 grid grid-cols-12 gap-x-6 sm:mt-9">
             <div className="col-span-12 md:col-span-9 md:col-start-3">
               {content.achievements.length === 0 ? (
                 <p className="border-t hairline pt-5 text-[17px] leading-[1.65] text-quiet">
@@ -326,6 +343,11 @@ export default function Landing() {
                 </ol>
               )}
             </div>
+          </div>
+          <div className="mt-9 border-t hairline pt-5 sm:mt-12 sm:pt-6">
+            <Reveal as="h2" className="statement-sm max-w-2xl text-ink">
+              Logged, not claimed.
+            </Reveal>
           </div>
         </div>
       </section>

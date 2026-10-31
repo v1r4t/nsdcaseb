@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ApiError,
   cancelRegistration,
+  downloadEventIcs,
+  eventCalendarReady,
   formatEventDate,
   formatEventDateTime,
   formatEventTimeRange,
@@ -189,6 +191,11 @@ export default function EventDetailPage() {
     setStep(next);
   }
 
+  function handleAddToCalendar() {
+    if (!event) return;
+    downloadEventIcs(event);
+  }
+
   if (error && !event) {
     return (
       <div className="wrap py-16 md:py-24">
@@ -215,6 +222,7 @@ export default function EventDetailPage() {
     event.registration_open && event.capacity !== null && event.spots_left !== null;
   const isActive = status === 'registered' || status === 'waitlisted';
   const poster = posterSources(event.poster_url, event.poster_variants);
+  const calendarReady = eventCalendarReady(event);
 
   return (
     <div className="wrap py-12 md:py-20">
@@ -249,6 +257,12 @@ export default function EventDetailPage() {
               <dd className="mt-1 font-mono text-sm text-ink">{timeRange}</dd>
             </div>
           )}
+          {event.venue && (
+            <div>
+              <dt className="mono text-quiet">Venue</dt>
+              <dd className="mt-1 break-words font-mono text-sm text-ink">{event.venue}</dd>
+            </div>
+          )}
           <div>
             <dt className="mono text-quiet">Reg opens</dt>
             <dd className="mt-1 font-mono text-sm text-ink">
@@ -262,6 +276,19 @@ export default function EventDetailPage() {
             </dd>
           </div>
         </dl>
+
+        {calendarReady && (
+          <p className="mt-6">
+            <button
+              type="button"
+              onClick={handleAddToCalendar}
+              aria-label={`Add ${event.title} to calendar (download .ics)`}
+              className="link mono text-sm"
+            >
+              Add to calendar (.ics)
+            </button>
+          </p>
+        )}
       </header>
 
       <div className="mt-12 grid gap-12 lg:grid-cols-12 lg:gap-16">

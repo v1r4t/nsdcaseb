@@ -1,12 +1,13 @@
 /**
- * Unit tests for site/src/lib/search.ts (Phase 0/5A scaffolding).
+ * Unit tests for site/src/lib/search.ts.
  *
- * Covers only currently-exported pure logic: buildStaticIndex, fuzzyMatch,
- * matchItem, searchPalette, and ensureRemoteIndex (with fetch stubbed).
+ * Covers the exported pure logic: buildStaticIndex, fuzzyMatch, matchItem,
+ * searchPalette, and ensureRemoteIndex (with fetch stubbed) for every remote
+ * source: events, projects, people and archive albums/items.
  *
- * NOTE: event date rendering now lives in lib/events (formatEventDate,
- * pinned to Asia/Kolkata) and is exercised *indirectly* through
- * ensureRemoteIndex sublabels below.
+ * NOTE: event date rendering lives in lib/events (formatEventDate, pinned to
+ * Asia/Kolkata) and is exercised *indirectly* through ensureRemoteIndex
+ * sublabels below.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -31,17 +32,39 @@ function item(overrides: Partial<SearchItem> = {}): SearchItem {
 }
 
 describe('buildStaticIndex', () => {
-  it('returns the five static pages, all in the pages domain', () => {
+  it('returns the seven public pages in navigation order', () => {
     const index = buildStaticIndex();
-    expect(index).toHaveLength(5);
     expect(index.map((i) => i.id)).toEqual([
       'page-about',
       'page-events',
-      'page-people',
+      'page-projects',
       'page-archive',
+      'page-people',
+      'page-recruit',
       'page-login',
     ]);
     for (const entry of index) expect(entry.domain).toBe('pages');
+    expect(index.map((i) => i.href)).toEqual([
+      '/',
+      '/registrations',
+      '/projects',
+      '/archive',
+      '/#people',
+      '/recruit',
+      '/login',
+    ]);
+  });
+
+  it('exposes synonyms as searchable keywords', () => {
+    const index = buildStaticIndex();
+    const archive = index.find((i) => i.id === 'page-archive')!;
+    const people = index.find((i) => i.id === 'page-people')!;
+    expect(archive.keywords).toContain('photos');
+    expect(people.keywords).toContain('office bearers');
+  });
+
+  it('tags every page with the PAGE kind', () => {
+    for (const entry of buildStaticIndex()) expect(entry.kind).toBe('PAGE');
   });
 });
 
@@ -138,6 +161,67 @@ describe('matchItem', () => {
   it('returns null when there is no match', () => {
     expect(matchItem('zzz', item())).toBeNull();
   });
+
+  it('ranks an exact title above a prefix and a scattered match', () => {
+    const exact = matchItem('hack', item({ id: 'exact', label: 'Hack' }))!;
+    const prefix = matchItem('hack', item({ id: 'prefix', label: 'Hackathon' }))!;
+    const scattered = matchItem('hack', item({ id: 'scattered', label: 'Pre-hack' }))!;
+    expect(exact.score).toBeGreaterThan(prefix.score);
+    expect(prefix.score).toBeGreaterThan(scattered.score);
+    expect(exact.labelRanges).toEqual([{ start: 0, end: 4 }]);
+  });
+
+  it('ranks an exact role keyword above a partial role', () => {
+    const president = matchItem(
+      'president',
+      item({
+        id: 'president',
+        domain: 'people',
+        label: 'Ada Lovelace',
+        sublabel: 'President',
+        keywords: ['President'],
+      }),
+    )!;
+    const vice = matchItem(
+      'president',
+      item({
+        id: 'vice',
+        domain: 'people',
+        label: 'Grace Hopper',
+        sublabel: 'Vice President',
+        keywords: ['Vice President'],
+      }),
+    )!;
+    expect(president.score).toBeGreaterThan(vice.score);
+  });
+
+  it('highlights a keyword hit inside the sublabel', () => {
+    const scored = matchItem(
+      'president',
+      item({
+        domain: 'people',
+        label: 'Ada Lovelace',
+        sublabel: 'President · Class of 2024',
+        keywords: ['President'],
+      }),
+    )!;
+    expect(scored.labelRanges).toEqual([]);
+    expect(scored.subRanges).toEqual([{ start: 0, end: 9 }]);
+  });
+
+  it('matches keywords that are absent from the visible text', () => {
+    const scored = matchItem(
+      'python',
+      item({
+        domain: 'projects',
+        label: 'Jadal',
+        sublabel: 'SHIPPED',
+        keywords: ['Python'],
+      }),
+    );
+    expect(scored).not.toBeNull();
+    expect(scored!.subRanges).toEqual([]);
+  });
 });
 
 describe('searchPalette', () => {
@@ -157,7 +241,8 @@ describe('searchPalette', () => {
     const groups = searchPalette('  ', staticItems, remote);
     expect(groups.map((g) => g.domain)).toEqual(['pages', 'events']);
     expect(groups[0].heading).toBe('PAGES');
-    expect(groups[0].results).toHaveLength(5);
+    expect(groups[0].results).toHaveLength(7);
+    expect(groups[0].total).toBe(7);
     expect(groups[1].heading).toBe('EVENTS');
     expect(groups[1].results.map((r) => r.item.id)).toEqual(['b', 'd', 'c']);
     for (const r of groups[1].results) {
@@ -174,28 +259,88 @@ describe('searchPalette', () => {
 
   it('non-empty query returns groups in domain order, sorted by score desc', () => {
     const remote: SearchItem[] = [
-      item({ id: 'media-1', domain: 'media', label: 'Bootcamp photos', sublabel: '10 ITEMS', href: '/media' }),
+      item({ id: 'media-1', domain: 'media', label: 'Bootcamp photos', sublabel: '10 ITEMS', href: '/archive' }),
       item({ id: 'person-1', domain: 'people', label: 'Bootcamp lead', sublabel: 'Mentor', href: '/#people' }),
+      item({
+        id: 'project-1',
+        domain: 'projects',
+        label: 'Bootcamp kit',
+        sublabel: 'ACTIVE BUILD',
+        href: '/projects/1',
+      }),
       item({ id: 'event-1', domain: 'events', label: 'Bootcamp', sublabel: 'OPEN', href: '/registrations/x' }),
     ];
     const groups = searchPalette('bootcamp', staticItems, remote);
-    expect(groups.map((g) => g.domain)).toEqual(['events', 'people', 'media']);
+    expect(groups.map((g) => g.domain)).toEqual(['events', 'projects', 'people', 'media']);
     for (const group of groups) {
       const scores = group.results.map((r) => r.score);
       expect([...scores].sort((a, b) => b - a)).toEqual(scores);
     }
   });
 
-  it('caps each domain group at 8 results', () => {
+  it('ranks an exact title first within its group', () => {
+    const remote: SearchItem[] = [
+      item({ id: 'prefix', domain: 'events', label: 'Hackathon', sublabel: 'OPEN' }),
+      item({ id: 'exact', domain: 'events', label: 'Hack', sublabel: 'OPEN' }),
+      item({ id: 'inner', domain: 'events', label: 'Pre-hack', sublabel: 'OPEN' }),
+    ];
+    const groups = searchPalette('hack', [], remote);
+    expect(groups[0].results.map((r) => r.item.id)).toEqual(['exact', 'prefix', 'inner']);
+  });
+
+  it('ranks an exact role first within people', () => {
+    const remote: SearchItem[] = [
+      item({
+        id: 'vice',
+        domain: 'people',
+        label: 'Grace Hopper',
+        sublabel: 'Vice President',
+        keywords: ['Vice President'],
+      }),
+      item({
+        id: 'president',
+        domain: 'people',
+        label: 'Ada Lovelace',
+        sublabel: 'President',
+        keywords: ['President'],
+      }),
+    ];
+    const groups = searchPalette('president', [], remote);
+    expect(groups[0].results.map((r) => r.item.id)).toEqual(['president', 'vice']);
+  });
+
+  it('uses the newest start to break a score tie between events', () => {
+    const remote: SearchItem[] = [
+      item({
+        id: 'old',
+        domain: 'events',
+        label: 'Hack',
+        sublabel: 'OPEN',
+        startsAt: '2025-01-01T10:00:00.000Z',
+      }),
+      item({
+        id: 'new',
+        domain: 'events',
+        label: 'Hack',
+        sublabel: 'OPEN',
+        startsAt: '2026-01-01T10:00:00.000Z',
+      }),
+    ];
+    const groups = searchPalette('hack', [], remote);
+    expect(groups[0].results.map((r) => r.item.id)).toEqual(['new', 'old']);
+  });
+
+  it('caps each domain group at 8 results but reports the full total', () => {
     const remote: SearchItem[] = Array.from({ length: 12 }, (_, i) => ({
       id: `media-${i}`,
       domain: 'media' as const,
       label: `Album thing ${i}`,
       sublabel: '1 ITEM',
-      href: '/media',
+      href: '/archive',
     }));
     const groups = searchPalette('thing', [], remote);
     expect(groups).toHaveLength(1);
+    expect(groups[0].total).toBe(12);
     expect(groups[0].results).toHaveLength(8);
   });
 
@@ -247,6 +392,39 @@ describe('ensureRemoteIndex', () => {
     ],
   };
 
+  const projectsPayload = {
+    projects: [
+      {
+        id: 'jadal',
+        title: 'Jadal',
+        summary: 'Canal water allocation for warabandi irrigation',
+        description: 'An agentic, physics-based system.',
+        stack: ['Python', 'Agents'],
+        url: null,
+        cover_url: null,
+        status: 'shipped',
+        event_id: null,
+        author: 'Team NSDC',
+        featured: true,
+        sort_order: 10,
+      },
+      {
+        id: 'nextmind',
+        title: 'NextMind Kit',
+        summary: '',
+        description: '',
+        stack: [],
+        url: null,
+        cover_url: null,
+        status: 'active',
+        event_id: null,
+        author: '',
+        featured: false,
+        sort_order: 20,
+      },
+    ],
+  };
+
   const contentPayload = {
     sections: [],
     bearers: [
@@ -258,8 +436,23 @@ describe('ensureRemoteIndex', () => {
 
   const mediaPayload = {
     albums: [
-      { id: 'a1', title: 'Kickoff', items: [{ id: 'i1' }] },
-      { id: 'a2', title: 'Finale', items: [{ id: 'i1' }, { id: 'i2' }] },
+      {
+        id: 'a1',
+        title: 'Kickoff',
+        description: 'First meet of the year',
+        items: [
+          { id: 'i1', type: 'image', url: 'https://example.com/1.jpg', title: 'Opening night', caption: 'Doors open' },
+          { id: 'i2', type: 'image', url: 'https://example.com/2.jpg', title: '', caption: '' },
+        ],
+      },
+      {
+        id: 'a2',
+        title: 'Finale',
+        description: '',
+        items: [
+          { id: 'i1', type: 'video', url: 'https://youtu.be/demo', title: 'Demo day', caption: '' },
+        ],
+      },
     ],
   };
 
@@ -271,22 +464,24 @@ describe('ensureRemoteIndex', () => {
     vi.unstubAllGlobals();
   });
 
-  it('maps events, people and media (covers private date/status formatting indirectly)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      jsonResponder((url) => {
-        if (url === '/api/events') return eventsPayload;
-        if (url === '/api/content') return contentPayload;
-        return mediaPayload;
-      }),
-    );
+  function respondAll(url: string): unknown {
+    if (url === '/api/events') return eventsPayload;
+    if (url === '/api/projects') return projectsPayload;
+    if (url === '/api/content') return contentPayload;
+    return mediaPayload;
+  }
+
+  it('maps events, projects, people and archive albums/items', async () => {
+    vi.stubGlobal('fetch', jsonResponder(respondAll));
     const index = await ensureRemoteIndex();
-    expect(index).toHaveLength(3 + 2 + 2);
+    // 3 events + 2 projects + 2 people + (2 albums + 2 titled items).
+    expect(index).toHaveLength(11);
 
     const hack = index.find((i) => i.id === 'event-hack')!;
     expect(hack.label).toBe('Hack Night');
     expect(hack.sublabel).toBe('26 MAR 2026 · OPEN');
     expect(hack.href).toBe('/registrations/hack');
+    expect(hack.kind).toBe('EVENT');
 
     // Invalid ISO date -> DATE TBC fallback; zero spots -> WAITLIST.
     const full = index.find((i) => i.id === 'event-full')!;
@@ -297,13 +492,33 @@ describe('ensureRemoteIndex', () => {
 
     const ada = index.find((i) => i.id === 'person-b1')!;
     expect(ada.sublabel).toBe('President · Class of 2024');
+    expect(ada.keywords).toContain('President');
     const grace = index.find((i) => i.id === 'person-b2')!;
     expect(grace.sublabel).toBe('Mentor');
 
-    const one = index.find((i) => i.id === 'media-a1')!;
-    expect(one.sublabel).toBe('1 ITEM');
-    const many = index.find((i) => i.id === 'media-a2')!;
-    expect(many.sublabel).toBe('2 ITEMS');
+    const jadal = index.find((i) => i.id === 'project-jadal')!;
+    expect(jadal.label).toBe('Jadal');
+    expect(jadal.sublabel).toBe('SHIPPED · PYTHON · AGENTS');
+    expect(jadal.href).toBe('/projects/jadal');
+    expect(jadal.keywords).toContain('Canal water allocation for warabandi irrigation');
+    expect(jadal.keywords).toContain('Team NSDC');
+    const nextmind = index.find((i) => i.id === 'project-nextmind')!;
+    expect(nextmind.sublabel).toBe('ACTIVE BUILD');
+
+    const album = index.find((i) => i.id === 'media-a1')!;
+    expect(album.label).toBe('Kickoff');
+    expect(album.sublabel).toBe('2 ITEMS');
+    expect(album.keywords).toContain('Opening night');
+
+    const photo = index.find((i) => i.id === 'media-item-a1-i1')!;
+    expect(photo.label).toBe('Opening night');
+    expect(photo.sublabel).toBe('PHOTO · Kickoff');
+    expect(photo.keywords).toContain('Doors open');
+    const video = index.find((i) => i.id === 'media-item-a2-i1')!;
+    expect(video.sublabel).toBe('VIDEO · Finale');
+
+    // Untitled, uncaptioned frames are skipped; the album is enough.
+    expect(index.some((i) => i.id === 'media-item-a1-i2')).toBe(false);
   });
 
   it('a failing source contributes nothing and the promise never rejects', async () => {
@@ -312,7 +527,7 @@ describe('ensureRemoteIndex', () => {
       async (input: string | URL | Request): Promise<Response> => {
         const url = typeof input === 'string' ? input : '';
         if (url === '/api/events') throw new Error('down');
-        const payload = url === '/api/content' ? contentPayload : mediaPayload;
+        const payload = respondAll(url);
         return {
           ok: true,
           status: 200,
@@ -323,23 +538,18 @@ describe('ensureRemoteIndex', () => {
     );
     const index = await ensureRemoteIndex();
     expect(index.some((i) => i.domain === 'events')).toBe(false);
+    expect(index.some((i) => i.domain === 'projects')).toBe(true);
     expect(index.some((i) => i.domain === 'people')).toBe(true);
     expect(index.some((i) => i.domain === 'media')).toBe(true);
   });
 
   it('caches the remote index across calls', async () => {
-    const spy = vi.fn(
-      jsonResponder((url) => {
-        if (url === '/api/events') return eventsPayload;
-        if (url === '/api/content') return contentPayload;
-        return mediaPayload;
-      }),
-    );
+    const spy = vi.fn(jsonResponder(respondAll));
     vi.stubGlobal('fetch', spy);
     const first = await ensureRemoteIndex();
     const second = await ensureRemoteIndex();
     expect(second).toBe(first);
-    // One fetch per source (events, content, media), then nothing.
-    expect(spy).toHaveBeenCalledTimes(3);
+    // One fetch per source (events, projects, content, media), then nothing.
+    expect(spy).toHaveBeenCalledTimes(4);
   });
 });

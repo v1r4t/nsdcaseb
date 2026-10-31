@@ -38,6 +38,9 @@ interface EventRow {
   force_closed: number;
   questions: string;
   poster_key: string | null;
+  // Added by 0021_event_venue. Same tolerance as archived_at below: a DB
+  // without the migration yields `undefined`, rendered as "no venue".
+  venue?: string | null;
   // Added by 0016_event_archive. Rows read from a DB that has not applied
   // the migration simply lack the property (SELECT *), which we treat as
   // "not archived" — so old dev DBs keep working.
@@ -131,6 +134,21 @@ function validDate(value: unknown): value is string {
 
 function validCapacity(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === 'number' && Number.isInteger(value) && value >= 0);
+}
+
+const MAX_VENUE_LENGTH = 200;
+
+/**
+ * Optional venue: absent/null/blank -> null (field cleared), a string within
+ * the cap -> trimmed text, anything else -> invalid. Mirrors the admin form,
+ * which caps input at the same length.
+ */
+function parseVenue(value: unknown): { ok: true; value: string | null } | { ok: false } {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== 'string') return { ok: false };
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_VENUE_LENGTH) return { ok: false };
+  return { ok: true, value: trimmed === '' ? null : trimmed };
 }
 
 interface PosterFile {
@@ -287,6 +305,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
             starts_at: e.starts_at, ends_at: e.ends_at,
             reg_opens_at: e.reg_opens_at, reg_closes_at: e.reg_closes_at,
             capacity: e.capacity,
+            venue: e.venue ?? null,
             spots_left: e.capacity === null ? null : Math.max(0, e.capacity - registered),
             registration_open: registrationOpen(e, now),
             archived: !!e.archived_at,
@@ -331,6 +350,8 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
         return json({ error: 'invalid_dates' }, 400);
       }
       if (!validCapacity(v.capacity)) return json({ error: 'invalid_capacity' }, 400);
+      const venue = parseVenue(v.venue);
+      if (!venue.ok) return json({ error: 'invalid_venue' }, 400);
       const questions = v.questions === undefined ? [] : validateQuestions(v.questions);
       if (questions === null) return json({ error: 'invalid_questions' }, 400);
 
@@ -351,11 +372,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       }
 
       await env.AUTH_DB.prepare(
-        `INSERT INTO events (id, title, description, starts_at, ends_at, reg_opens_at, reg_closes_at, capacity, force_closed, questions, poster_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events (id, title, description, starts_at, ends_at, reg_opens_at, reg_closes_at, capacity, force_closed, questions, poster_key, venue)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(id, v.title.trim(), typeof v.description === 'string' ? v.description : '',
         v.starts_at, v.ends_at, v.reg_opens_at, v.reg_closes_at,
-        v.capacity ?? null, v.force_closed ? 1 : 0, JSON.stringify(questions), posterKey).run();
+        v.capacity ?? null, v.force_closed ? 1 : 0, JSON.stringify(questions), posterKey, venue.value).run();
       return json({
         id,
         poster_url: posterUrl(env, posterKey),
@@ -436,6 +457,7 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
           starts_at: event.starts_at, ends_at: event.ends_at,
           reg_opens_at: event.reg_opens_at, reg_closes_at: event.reg_closes_at,
           capacity: event.capacity,
+          venue: event.venue ?? null,
           spots_left: event.capacity === null ? null : Math.max(0, event.capacity - registered),
           registration_open: registrationOpen(event, now),
           // Single-event GET deliberately includes archived events (unlike
@@ -498,6 +520,11 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
       if (v.capacity !== undefined) {
         if (!validCapacity(v.capacity)) return json({ error: 'invalid_capacity' }, 400);
         patch.push('capacity = ?'); args.push(v.capacity ?? null);
+      }
+      if (v.venue !== undefined) {
+        const venue = parseVenue(v.venue);
+        if (!venue.ok) return json({ error: 'invalid_venue' }, 400);
+        patch.push('venue = ?'); args.push(venue.value);
       }
       if (v.force_closed !== undefined) {
         patch.push('force_closed = ?'); args.push(v.force_closed ? 1 : 0);

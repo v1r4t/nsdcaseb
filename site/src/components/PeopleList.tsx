@@ -12,15 +12,16 @@ function indexOf(position: number): string {
  * PEOPLE — the bearers as an editorial index, paired with a portrait plate.
  *
  * The rows stay the index: mono number, name in Bespoke Serif, role in quiet
- * mono, links intact. The active row is the one being read; the plate previews
- * the NEXT bearer after it, labelled `NEXT`. Pointing at or focusing a row makes
- * it active, so the plate follows the index without any hover-only content.
+ * mono, links intact. Pointing at or focusing a row makes it active, and the
+ * plate shows that bearer — their portrait, name, role, class, links and index.
+ * The plate never previews someone else, so what is being read and what is
+ * pictured stay the same person.
  *
- * Clicking the plate advances the active bearer by one and wraps. The same
- * movement is available from the keyboard: focus a row, then Enter/Space,
+ * Advancing is the plate's separate `Next →` button and wraps at the end. The
+ * same movement is available from the keyboard: focus a row, then Enter/Space,
  * ArrowRight/Down to advance or ArrowLeft/Up to go back; focus follows the
- * active row. The plate itself is a button, so it is reachable and operable
- * without a pointer.
+ * active row. Clicking a row only views it; clicking the portrait does nothing,
+ * so looking at a person can never move the index by accident.
  */
 export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   const [active, setActive] = useState(0);
@@ -126,11 +127,7 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
                             {bearer.role}
                             {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
                           </span>
-                          {isActive ? (
-                            <span className="sr-only">, Active bearer</span>
-                          ) : i === nextIndex ? (
-                            <span className="sr-only">, Previewing as the next bearer</span>
-                          ) : null}
+                          {isActive ? <span className="sr-only">, Active bearer</span> : null}
                         </button>
 
                         {bearer.links.length > 0 && (
@@ -166,26 +163,29 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
         </ol>
 
         <p id={hintId} className="mono mt-4 text-faint">
-          <span className="md:hidden">Tap a row to preview. Tap NEXT to advance.</span>
+          <span className="md:hidden">Tap a row to view. Tap Next to advance.</span>
           <span className="hidden md:inline">
-            Focus a row, or use the arrow keys, to preview the next bearer. Enter or space advances.
+            Hover or focus a row to view that bearer; the arrow keys move through the index and
+            Enter advances, or use Next.
           </span>
         </p>
 
         <p role="status" className="sr-only">
-          Next bearer: {next.name}, {next.role}
-          {next.cohort ? `, class of ${next.cohort}` : ''}. Activate the preview to advance.
+          Viewing {current.name}, {current.role}
+          {current.cohort ? `, class of ${current.cohort}` : ''}. Bearer {activeIndex + 1} of{' '}
+          {total}.
         </p>
       </div>
 
-      {/* Portrait plate: after the roster on mobile, right column on desktop. */}
-      <div className="col-span-12 md:col-span-4 md:col-start-9 md:row-start-1">
+      {/* Portrait plate: first on mobile so a tapped row updates a visible plate;
+          right column on desktop. */}
+      <div className="order-first col-span-12 md:order-none md:col-span-4 md:col-start-9 md:row-start-1">
         <div className="motion-safe:md:sticky motion-safe:md:top-24">
           <PeoplePreview
-            bearer={next}
-            position={nextIndex}
+            bearer={current}
+            position={activeIndex}
             total={total}
-            activeName={current.name}
+            nextName={next.name}
             onAdvance={() => advance(activeIndex, 1, false)}
           />
         </div>

@@ -25,6 +25,13 @@ import { broadcastText, htmlToText, isEmailAssetUrl, plainTextToHtml, renderBroa
 import { sendEmail } from './mailer';
 import { cancelRegistrationAndPromote } from './events';
 import { storageConfigured, uploadEmailImage } from './supabase-storage';
+import {
+  MAX_PORTRAIT_BYTES,
+  MAX_PORTRAIT_REQUEST_BYTES,
+  detectPortraitType,
+  isPortraitContentType,
+  uploadPortrait,
+} from './portraits';
 
 const MAX_ADMIN_BODY_BYTES = 32 * 1024;
 /** Hard cap for a broadcast image, matching the bucket's 10 MB limit loosely. */
@@ -364,6 +371,53 @@ export async function handleAdminApi(request: Request, env: Env): Promise<Respon
     // Audit the location only; the bytes never enter the log.
     await audit(env, user, 'email_image_upload', JSON.stringify({ url: imageUrl }));
     return json({ url: imageUrl }, 201);
+  }
+
+  // POST /api/admin/people/portrait — store an office-bearer portrait in the
+  // shared public bucket (`people/<uuid>/portrait-<name>.<ext>`) and return its
+  // URL. The console persists that URL as `photo_url` through the normal bearer
+  // create/update calls, so URL validation and auditing stay in one place.
+  // JPEG/PNG/WebP under 5 MB; an unconfigured local storage answers 503 and the
+  // URL field stays usable as a fallback.
+  if (path === '/api/admin/people/portrait') {
+    if (method !== 'POST') return methodNotAllowed('POST');
+    // Refuse an oversized declared body before buffering the multipart form;
+    // the per-file check below still guards chunked or lying clients.
+    const declaredLength = request.headers.get('content-length');
+    const declaredBytes = declaredLength === null ? Number.NaN : Number(declaredLength);
+    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_PORTRAIT_REQUEST_BYTES) {
+      return json({ error: 'portrait_too_large' }, 413);
+    }
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return json({ error: 'invalid_portrait' }, 400);
+    }
+    const uploaded = form.get('image');
+    if (!(uploaded instanceof File)) return json({ error: 'portrait_required' }, 400);
+    const declaredType = (uploaded.type || '').toLowerCase();
+    if (!isPortraitContentType(declaredType)) return json({ error: 'invalid_file_type' }, 400);
+    if (uploaded.size <= 0) return json({ error: 'invalid_file_type' }, 400);
+    if (uploaded.size > MAX_PORTRAIT_BYTES) return json({ error: 'portrait_too_large' }, 413);
+    let data: ArrayBuffer;
+    try {
+      data = await uploaded.arrayBuffer();
+    } catch {
+      return json({ error: 'invalid_portrait' }, 400);
+    }
+    // The sniffed format wins: a lying MIME type must not label the object.
+    const contentType = detectPortraitType(data);
+    if (contentType === null) return json({ error: 'invalid_file_type' }, 400);
+    if (!storageConfigured(env)) return json({ error: 'storage_not_configured' }, 503);
+
+    const requestedName = form.get('name');
+    const personName = typeof requestedName === 'string' ? requestedName.trim().slice(0, 120) : '';
+    const stored = await uploadPortrait(env, data, contentType, personName);
+    if (stored === null) return json({ error: 'portrait_upload_failed' }, 502);
+    // Audit the location only; the bytes never enter the log.
+    await audit(env, user, 'bearer_portrait_upload', JSON.stringify({ url: stored.url, name: stored.name }));
+    return json({ url: stored.url, name: stored.name, alt: stored.alt }, 201);
   }
 
   // POST /api/admin/broadcast

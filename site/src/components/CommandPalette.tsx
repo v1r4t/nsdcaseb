@@ -20,14 +20,24 @@ import {
   ensureRemoteIndex,
   searchPalette,
 } from '../lib/search';
-import type { MatchRange, SearchItem } from '../lib/search';
+import type { MatchRange, SearchDomain, SearchItem } from '../lib/search';
 import { dispatchShip, secretLineFor } from '../lib/easter-eggs';
 import { useFocusTrap } from '../lib/focus-trap';
 
 /** Keep the exit timer in sync with the `duration-200` transition below. */
 const EXIT_MS = 200;
 const LISTBOX_ID = 'nsdc-palette-listbox';
+const INSTRUCTIONS_ID = 'nsdc-palette-instructions';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Badge shown when an item does not carry its own kind. */
+const KIND_FALLBACK: Record<SearchDomain, string> = {
+  pages: 'PAGE',
+  events: 'EVENT',
+  projects: 'PROJECT',
+  people: 'PERSON',
+  media: 'ALBUM',
+};
 
 function optionId(index: number): string {
   return `nsdc-palette-option-${index}`;
@@ -73,6 +83,7 @@ export default function CommandPalette() {
   const [entered, setEntered] = useState(false);
   const [query, setQuery] = useState('');
   const [remote, setRemote] = useState<SearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -133,16 +144,27 @@ export default function CommandPalette() {
     prevFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery('');
     setActive(0);
+    setLoading(remote.length === 0);
     let cancelled = false;
     ensureRemoteIndex().then((items) => {
-      if (!cancelled) setRemote(items);
+      if (cancelled) return;
+      setRemote(items);
+      setLoading(false);
     });
-    const frame = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frame);
     };
+    // `remote` is read once per open to avoid a loading flash on cached data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open ]);
+
+  // Focus only after the panel has actually mounted; the enter frame races
+  // with the mount effect and used to leave focus on <body>.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, mounted]);
 
   // Return focus to the trigger — only on a real open → close transition.
   useEffect(() => {
@@ -210,6 +232,12 @@ export default function CommandPalette() {
     } else if (event.key === 'PageUp') {
       event.preventDefault();
       setActive((prev) => Math.max(0, prev - 5));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setActive(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setActive(Math.max(0, total - 1));
     } else if (event.key === 'Enter') {
       event.preventDefault();
       const result = flat[active];
@@ -255,9 +283,10 @@ export default function CommandPalette() {
             aria-activedescendant={activeId}
             aria-autocomplete="list"
             aria-keyshortcuts={isMac ? 'meta+k' : 'control+k'}
+            aria-describedby={INSTRUCTIONS_ID}
             autoComplete="off"
             spellCheck={false}
-            placeholder="Type to search pages, events, people, media…"
+            placeholder="Type to search pages, events, projects, people, archive…"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -290,43 +319,69 @@ export default function CommandPalette() {
           </div>
         )}
 
+        {loading && remote.length === 0 && (
+          <p className="border-b border-[color:var(--hairline)] px-4 py-2 font-mono text-[10px] uppercase tracking-wide text-faint">
+            Indexing events, projects, people and archive…
+          </p>
+        )}
+
         {total > 0 ? (
           <ul
             role="listbox"
             id={LISTBOX_ID}
-            aria-label="Search results"
+            aria-label="Search results, grouped by type"
             className="max-h-[50vh] overflow-y-auto px-2 py-2"
           >
             {groups.map((group) => (
               <li key={group.domain} role="presentation">
-                <p aria-hidden="true" className="mono px-3 pb-1 pt-3 text-quiet">
-                  {group.heading}
-                </p>
-                <ul role="group" aria-label={group.heading}>
-                  {group.results.map((result) => {
+                <div
+                  aria-hidden="true"
+                  className="mono flex items-baseline justify-between gap-3 px-3 pb-1 pt-3 text-quiet"
+                >
+                  <span>{group.heading}</span>
+                  <span className="text-faint">
+                    {group.total > group.results.length
+                      ? `${String(group.results.length).padStart(2, '0')} / ${String(group.total).padStart(2, '0')}`
+                      : String(group.total).padStart(2, '0')}
+                  </span>
+                </div>
+                <ul role="group" aria-label={`${group.heading}, ${group.total} results`}>
+                  {group.results.map((result, groupIndex) => {
                     runningIndex += 1;
                     const index = runningIndex;
                     const isActive = index === active;
+                    const kind = result.item.kind ?? KIND_FALLBACK[group.domain];
                     return (
                       <li
                         key={result.item.id}
                         id={optionId(index)}
                         role="option"
                         aria-selected={isActive}
+                        aria-posinset={groupIndex + 1}
+                        aria-setsize={group.results.length}
+                        aria-label={`${kind}: ${result.item.label} — ${result.item.sublabel}`}
                         onMouseEnter={() => setActive(index)}
                         onClick={() => go(result.item.href)}
-                        className={`relative flex cursor-pointer items-baseline justify-between gap-4 rounded-[2px] px-3 py-2 transition-colors duration-200 ${
+                        className={`relative flex min-h-11 cursor-pointer items-baseline justify-between gap-4 rounded-[2px] px-3 py-2 transition-colors duration-200 ${
                           isActive ? 'bg-ink/5' : 'bg-transparent'
                         }`}
                       >
                         {isActive && (
                           <span aria-hidden="true" className="absolute inset-y-1 left-0 w-[2px] bg-seal" />
                         )}
-                        <span className="min-w-0 truncate font-sans text-[15px] text-ink">
-                          <HighlightedLabel text={result.item.label} ranges={result.labelRanges} />
+                        <span className="flex min-w-0 flex-1 items-baseline gap-3">
+                          <span
+                            aria-hidden="true"
+                            className="shrink-0 border border-[color:var(--hairline)] px-1 py-0.5 font-mono text-[9px] uppercase tracking-wide text-faint"
+                          >
+                            {kind}
+                          </span>
+                          <span className="min-w-0 truncate font-sans text-[15px] text-ink">
+                            <HighlightedLabel text={result.item.label} ranges={result.labelRanges} />
+                          </span>
                         </span>
-                        <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-quiet">
-                          {result.item.sublabel}
+                        <span className="max-w-[48%] shrink-0 truncate text-right font-mono text-[11px] uppercase tracking-wide text-quiet">
+                          <HighlightedLabel text={result.item.sublabel} ranges={result.subRanges} />
                         </span>
                       </li>
                     );
@@ -341,7 +396,10 @@ export default function CommandPalette() {
           </p>
         )}
 
-        <div className="flex items-center gap-4 border-t border-[color:var(--hairline)] px-4 py-2.5 font-mono text-[11px] text-quiet">
+        <div
+          id={INSTRUCTIONS_ID}
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[color:var(--hairline)] px-4 py-2.5 font-mono text-[11px] text-quiet"
+        >
           <span>
             <span aria-hidden="true">↑↓</span> navigate
           </span>
@@ -354,10 +412,17 @@ export default function CommandPalette() {
           <span>
             <span aria-hidden="true">{toggleHint}</span> to toggle
           </span>
+          <span aria-hidden="true" className="ml-auto text-faint">
+            {loading ? 'INDEXING…' : ''}
+          </span>
         </div>
 
         <p aria-live="polite" className="sr-only">
-          {query.trim().length === 0 ? 'Type to search.' : countLabel}
+          {query.trim().length === 0
+            ? loading
+              ? 'Loading the search index.'
+              : `Type to search. ${countLabel}.`
+            : `${countLabel}.${loading ? ' Indexing more results.' : ''}`}
         </p>
       </div>
     </div>

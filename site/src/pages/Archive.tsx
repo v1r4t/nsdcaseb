@@ -33,6 +33,42 @@ function embedUrl(url: string): string | null {
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
+/** Placeholder-looking DB titles ("Photo 1", "photo 02", "Photo 1 of 12") are not labels. */
+const GENERIC_PHOTO_TITLE = /^photo[\s_-]*\d+(?:\s*(?:of|\/)\s*\d+)?$/i;
+
+/** Trim a DB string and drop generic "Photo N" placeholders. */
+function meaningfulText(value: string | undefined | null): string {
+  const text = (value ?? '').trim();
+  return text && !GENERIC_PHOTO_TITLE.test(text) ? text : '';
+}
+
+interface MediaLabel {
+  text: string;
+  /** True when this is the album/frame fallback, not a real caption. */
+  fallback: boolean;
+}
+
+/**
+ * Visible index title for a frame: caption, then title, then "Album / 03".
+ * Generic "Photo 1" placeholders never render in the contact sheet.
+ */
+function mediaLabel(item: MediaItem, albumTitle?: string, frame?: number): MediaLabel {
+  const title = meaningfulText(item.title);
+  const caption = meaningfulText(item.caption);
+  if (caption && caption !== title) return { text: caption, fallback: false };
+  if (title) return { text: title, fallback: false };
+  if (albumTitle) {
+    return {
+      text: typeof frame === 'number' ? `${albumTitle} / ${pad(frame)}` : albumTitle,
+      fallback: true,
+    };
+  }
+  return {
+    text: typeof frame === 'number' ? `Frame ${pad(frame)}` : 'Unlabelled frame',
+    fallback: true,
+  };
+}
+
 function chipClass(on: boolean): string {
   return on
     ? 'min-h-11 shrink-0 whitespace-nowrap rounded-[2px] border border-seal px-3.5 py-2 mono text-seal md:min-h-0 md:py-1.5'
@@ -82,27 +118,31 @@ function Tile({
   item,
   layout,
   priority = false,
+  label,
+  alt,
   albumTitle,
-  frame,
   onOpen,
 }: {
   item: MediaItem;
   layout: TileLayout;
   /** True only for the lead plate — the page's LCP element. */
   priority?: boolean;
-  /** Album and 1-based frame position, for descriptive alt text. */
-  albumTitle?: string;
-  frame?: number;
+  /** Visible index title (caption, title, or album/frame). */
+  label: MediaLabel;
+  /** Descriptive alt text, shared with the lightbox. */
+  alt: string;
+  albumTitle: string;
   onOpen: (item: MediaItem) => void;
 }) {
   if (item.type === 'video') {
     const src = embedUrl(item.url);
+    const videoLabel = meaningfulText(item.title) || meaningfulText(item.caption);
     return (
       <figure className={`${layout.span} self-start overflow-hidden border hairline`}>
         {src ? (
           <iframe
             src={src}
-            title={item.title || 'Event video'}
+            title={videoLabel || item.title || 'Event video'}
             loading="lazy"
             allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -113,9 +153,9 @@ function Tile({
             Video unavailable
           </div>
         )}
-        {(item.title || item.caption) && (
-          <figcaption className="mono-sm border-t hairline px-3 py-2.5 text-quiet md:py-2">
-            {item.title || item.caption}
+        {videoLabel && (
+          <figcaption className="mono-sm break-words border-t hairline px-3 py-2.5 text-quiet md:py-2">
+            {videoLabel}
           </figcaption>
         )}
       </figure>
@@ -129,11 +169,16 @@ function Tile({
   // priority. Keep the full responsive srcset: `sizes` already selects the
   // thumb for small columns, while retina displays can still pick a larger
   // candidate instead of being capped at 640w.
+  const captionTone = label.fallback ? 'text-faint' : 'text-quiet';
   return (
     <button
       type="button"
       onClick={() => onOpen(item)}
-      aria-label={`Open photo: ${item.caption || item.title || 'untitled'}`}
+      aria-label={
+        label.fallback
+          ? `Open photo: ${label.text}`
+          : `Open photo from ${albumTitle}: ${label.text}`
+      }
       data-cursor="EXPAND →"
       className={`group block w-full self-start overflow-hidden border hairline text-left transition-colors duration-200 hover:border-ink/40 focus-visible:border-ink/40 ${layout.span}`}
     >
@@ -141,7 +186,7 @@ function Tile({
         src={sources.src}
         srcSet={sources.srcSet}
         sizes={layout.sizes}
-        alt={photoAlt(item, albumTitle, frame)}
+        alt={alt}
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : undefined}
         decoding="async"
@@ -149,13 +194,19 @@ function Tile({
         height={360}
         className={`w-full object-cover transition-transform duration-700 ease-ink group-hover:scale-[1.03] motion-reduce:transform-none ${layout.ratio}`}
       />
-      {item.caption && (
-        <span className="mono-sm block border-t hairline px-3 py-2.5 text-quiet transition-colors duration-200 group-hover:text-ink md:py-2">
-          {item.caption}
-        </span>
-      )}
+      <span
+        className={`mono-sm block break-words border-t hairline px-3 py-2.5 transition-colors duration-200 group-hover:text-ink md:py-2 ${captionTone}`}
+      >
+        {label.text}
+      </span>
     </button>
   );
+}
+
+interface Photo {
+  item: MediaItem;
+  label: MediaLabel;
+  alt: string;
 }
 
 export default function Archive() {
@@ -163,7 +214,7 @@ export default function Archive() {
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<string>(ALL);
   const [eventsById, setEventsById] = useState<Map<string, EventSummary> | null>(null);
-  const [lightbox, setLightbox] = useState<{ items: MediaItem[]; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<{ items: Photo[]; index: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -210,11 +261,24 @@ export default function Archive() {
     };
   }, []);
 
-  // Videos play inline, so only images go in the viewer.
-  const photos = useMemo(() => {
+  // Videos play inline, so only images go in the viewer. Each entry carries the
+  // label and alt text its album gave it, so the lightbox never falls back to a
+  // generic "Photo N".
+  const photos = useMemo<Photo[]>(() => {
     if (!albums) return [];
     const scoped = active === ALL ? albums : albums.filter((a) => a.id === active);
-    return scoped.flatMap((a) => a.items).filter((item) => item.type !== 'video');
+    const list: Photo[] = [];
+    for (const album of scoped) {
+      album.items.forEach((item, i) => {
+        if (item.type === 'video') return;
+        list.push({
+          item,
+          label: mediaLabel(item, album.title, i + 1),
+          alt: photoAlt(item, album.title, i + 1),
+        });
+      });
+    }
+    return list;
   }, [albums, active]);
 
   const sections = useMemo(() => {
@@ -261,10 +325,10 @@ export default function Archive() {
 
   const open = useCallback(
     (item: MediaItem) => {
-      const index = photos.indexOf(item);
+      const index = photos.findIndex((photo) => photo.item.id === item.id);
       if (index === -1) return;
-      const active = document.activeElement;
-      triggerRef.current = active instanceof HTMLButtonElement ? active : null;
+      const trigger = document.activeElement;
+      triggerRef.current = trigger instanceof HTMLButtonElement ? trigger : null;
       setLightbox({ items: photos, index });
     },
     [photos],
@@ -285,7 +349,11 @@ export default function Archive() {
   const current = lightbox ? lightbox.items[lightbox.index] : null;
   // The full variant (capped 1600w) stands in for the original in the viewer;
   // URL-based items without variants keep their original URL.
-  const currentSources = current ? galleryFullSources(current.url, current.variants) : null;
+  const currentSources = current
+    ? galleryFullSources(current.item.url, current.item.variants)
+    : null;
+  const currentTitle = current ? meaningfulText(current.item.title) : '';
+  const currentCaption = current ? meaningfulText(current.item.caption) : '';
 
   return (
     <div className="wrap py-8 md:py-16">
@@ -375,7 +443,7 @@ export default function Archive() {
                       {pad(index + 1)}
                     </span>
                     <div className="md:col-span-7">
-                      <h2 className="statement-sm text-ink">{album.title}</h2>
+                      <h2 className="break-words statement-sm text-ink">{album.title}</h2>
                       {album.description && (
                         <p className="mt-3 max-w-2xl text-pretty text-[15px] leading-[1.7] text-quiet">
                           {album.description}
@@ -388,7 +456,7 @@ export default function Archive() {
                         <Link
                           to={`/registrations/${encodeURIComponent(album.event_id ?? '')}`}
                           aria-label={`From event: ${event.title}`}
-                          className="mono text-quiet transition-colors duration-200 hover:text-seal"
+                          className="mono min-w-0 break-words text-quiet transition-colors duration-200 hover:text-seal"
                         >
                           From: {event.title} →
                         </Link>
@@ -396,17 +464,21 @@ export default function Archive() {
                     </div>
                   </div>
                   <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4 md:mt-8 md:grid-cols-12 md:gap-x-6 md:gap-y-8">
-                    {album.items.map((item, i) => (
-                      <Tile
-                        key={item.id}
-                        item={item}
-                        layout={tileLayout(i)}
-                        priority={index === 0 && item.id === leadImageId}
-                        albumTitle={album.title}
-                        frame={i + 1}
-                        onOpen={open}
-                      />
-                    ))}
+                    {album.items.map((item, i) => {
+                      const label = mediaLabel(item, album.title, i + 1);
+                      return (
+                        <Tile
+                          key={item.id}
+                          item={item}
+                          layout={tileLayout(i)}
+                          priority={index === 0 && item.id === leadImageId}
+                          label={label}
+                          alt={photoAlt(item, album.title, i + 1)}
+                          albumTitle={album.title}
+                          onOpen={open}
+                        />
+                      );
+                    })}
                   </div>
                 </section>
               </Reveal>
@@ -419,7 +491,7 @@ export default function Archive() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Photo ${lightbox.index + 1} of ${lightbox.items.length}`}
+          aria-label={`Photo viewer: ${current.label.text} (${lightbox.index + 1} of ${lightbox.items.length})`}
           tabIndex={-1}
           ref={dialogRef}
           onKeyDown={handleDialogKeyDown}
@@ -456,11 +528,11 @@ export default function Archive() {
             </button>
 
             <img
-              key={current.id}
-              src={currentSources?.src ?? current.url}
+              key={current.item.id}
+              src={currentSources?.src ?? current.item.url}
               srcSet={currentSources?.srcSet}
               sizes="100vw"
-              alt={photoAlt(current)}
+              alt={current.alt}
               decoding="async"
               className="max-h-full max-w-full object-contain"
             />
@@ -468,13 +540,17 @@ export default function Archive() {
 
           <div className="wrap flex flex-wrap items-baseline justify-between gap-4 border-t hairline py-5">
             <div className="min-w-0 max-w-2xl">
-              {current.title && (
-                <p className="font-display text-xl leading-tight tracking-tight text-ink">
-                  {current.title}
+              {current.label.fallback ? (
+                <p className="mono break-words text-quiet">{current.label.text}</p>
+              ) : (
+                <p className="break-words font-display text-xl leading-tight tracking-tight text-ink">
+                  {currentTitle || current.label.text}
                 </p>
               )}
-              {current.caption && (
-                <p className="mt-1 text-[15px] leading-[1.6] text-quiet">{current.caption}</p>
+              {currentCaption && currentCaption !== currentTitle && (
+                <p className="mt-1 break-words text-[15px] leading-[1.6] text-quiet">
+                  {currentCaption}
+                </p>
               )}
             </div>
             <p aria-live="polite" className="mono shrink-0 text-quiet">

@@ -53,6 +53,11 @@
     outline: 2px solid var(--color-ink);
     outline-offset: 3px;
   }
+
+  /* The footer is the one ink slab; the ink focus ring disappears on it. */
+  footer :focus-visible {
+    outline-color: var(--color-paper);
+  }
 }
 
 @layer components {

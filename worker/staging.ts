@@ -9,7 +9,18 @@ import { handleProjectsApi } from './projects';
 import { handleRecruitmentApi } from './recruitment';
 import { handleScheduled } from './email';
 import { applySecurityHeaders } from './security-headers';
-import { buildSitemap, fetchEventMeta, injectDefaultMeta, injectEventMeta, isKnownRoute, matchEventRoute } from './meta';
+import {
+  buildSitemap,
+  fetchEventMeta,
+  fetchProjectMeta,
+  fetchSitemapProjectIds,
+  injectDefaultMeta,
+  injectEventMeta,
+  injectProjectMeta,
+  isKnownRoute,
+  matchEventRoute,
+  matchProjectRoute,
+} from './meta';
 import { handleNotify } from './notify';
 
 const ASSET_DIR_RE = /^\/(assets|static|images|fonts)\//;
@@ -98,7 +109,8 @@ async function serveSitemap(request: Request, env: Env): Promise<Response> {
     // Degrade to a static-only sitemap rather than failing the request.
     console.error('[staging] sitemap D1 query failed, serving static-only sitemap', err);
   }
-  return new Response(buildSitemap(origin, ids), {
+  const projectIds = await fetchSitemapProjectIds(env);
+  return new Response(buildSitemap(origin, ids, projectIds), {
     status: 200,
     headers: {
       'content-type': 'application/xml; charset=utf-8',
@@ -139,6 +151,40 @@ async function serveEventPage(request: Request, env: Env, rawId: string): Promis
     return applySecurityHeaders(injectEventMeta(base, { origin, eventId, meta }), env);
   } catch (err) {
     console.error('[staging] meta injection failed, serving unmodified shell', err);
+    return applySecurityHeaders(base, env);
+  }
+}
+
+async function serveProjectPage(request: Request, env: Env, rawId: string): Promise<Response> {
+  const origin = new URL(request.url).origin;
+  let projectId = rawId;
+  try {
+    projectId = decodeURIComponent(rawId).slice(0, 128);
+  } catch {
+    // Keep the raw segment; fetchProjectMeta rejects malformed ids safely.
+  }
+
+  const shell = await fetchShell(request, env);
+  if (!shell) return serviceUnavailable();
+
+  const headers = new Headers(shell.headers);
+  headers.set('cache-control', 'no-store');
+  headers.delete('etag');
+  headers.delete('content-length');
+  const base = new Response(shell.body, { status: 200, headers });
+
+  if (request.method === 'HEAD') return applySecurityHeaders(base, env);
+
+  let meta = null;
+  try {
+    meta = await fetchProjectMeta(env, projectId);
+  } catch (err) {
+    console.error('[staging] project meta lookup failed, serving default metadata', err);
+  }
+  try {
+    return applySecurityHeaders(injectProjectMeta(base, { origin, projectId, meta }), env);
+  } catch (err) {
+    console.error('[staging] project meta injection failed, serving unmodified shell', err);
     return applySecurityHeaders(base, env);
   }
 }
@@ -246,6 +292,9 @@ async function handleRequest(request: Request, env: SiteEnv): Promise<Response> 
 
   const eventId = matchEventRoute(pathname);
   if (eventId !== null) return serveEventPage(request, env, eventId);
+
+  const projectId = matchProjectRoute(pathname);
+  if (projectId !== null) return serveProjectPage(request, env, projectId);
 
   return serveAppRoute(request, env, pathname);
 }

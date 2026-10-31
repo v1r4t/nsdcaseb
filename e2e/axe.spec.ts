@@ -24,6 +24,12 @@ async function settleForScan(page: Page): Promise<void> {
   // renders an honest empty state.
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null);
 
+  // Webfonts decide the measured line boxes and the final contrast pairs; a
+  // scan that races font swap can measure the fallback face instead.
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  }).catch(() => null);
+
   await page.evaluate(async () => {
     const nextFrame = (): Promise<void> =>
       new Promise<void>((resolve) => {
@@ -41,6 +47,16 @@ async function settleForScan(page: Page): Promise<void> {
     window.scrollTo(0, 0);
     await nextFrame();
   });
+
+  // Lazy images (People portraits, archive stills) start loading as the walk
+  // brings them into view; let every one settle before the scan so axe sees
+  // the final loaded state rather than a half-decoded frame.
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null);
+  await page
+    .waitForFunction(() => Array.from(document.images).every((img) => img.complete), undefined, {
+      timeout: 10000,
+    })
+    .catch(() => null);
 
   await page.waitForTimeout(1500);
 }

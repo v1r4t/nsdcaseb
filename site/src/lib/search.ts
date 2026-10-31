@@ -1,21 +1,24 @@
 /**
  * Search index + fuzzy matcher for the ⌘K command palette.
  *
- * Static pages resolve synchronously via `buildStaticIndex()`. Events, people
- * and media are fetched lazily the first time the palette opens (never on page
- * load) through `ensureRemoteIndex()`, cached in module state, and a failing
- * source simply contributes nothing.
+ * Static pages resolve synchronously via `buildStaticIndex()`. Events,
+ * projects, people and media are fetched lazily the first time the palette
+ * opens (never on page load) through `ensureRemoteIndex()`, cached in module
+ * state, and a failing source simply contributes nothing.
  *
  * The matcher is dependency-free: a case-insensitive subsequence match over
- * `label + sublabel`, scored exact-prefix > word-start > scattered
- * subsequence, with a small bonus for shorter labels. It returns matched
- * index ranges so the UI can highlight hits.
+ * the label, sublabel and any extra keywords. Exact title/role matches rank
+ * first, then prefix > word-start > scattered subsequence, with a small bonus
+ * for shorter labels. It returns matched index ranges so the UI can highlight
+ * hits in both the label and its metadata line.
  */
 
 import { fetchContent } from './content';
 import { formatEventDate, listEvents } from './events';
 import type { EventSummary } from './events';
 import { listMedia } from './media';
+import { listProjects } from './projects';
+import type { ProjectStatus } from './projects';
 
 /** DOM events the palette listens for (dispatched by whoever mounts it). */
 export const OPEN_PALETTE_EVENT = 'nsdc:open-palette';
@@ -29,24 +32,42 @@ export function closePalette(): void {
   window.dispatchEvent(new CustomEvent(CLOSE_PALETTE_EVENT));
 }
 
-export type SearchDomain = 'pages' | 'events' | 'people' | 'media';
+export type SearchDomain = 'pages' | 'events' | 'projects' | 'people' | 'media';
 
 /** Group order the palette renders. */
-export const DOMAIN_ORDER: readonly SearchDomain[] = ['pages', 'events', 'people', 'media'];
+export const DOMAIN_ORDER: readonly SearchDomain[] = [
+  'pages',
+  'events',
+  'projects',
+  'people',
+  'media',
+];
 
 export const DOMAIN_HEADINGS: Record<SearchDomain, string> = {
   pages: 'PAGES',
   events: 'EVENTS',
+  projects: 'PROJECTS',
   people: 'PEOPLE',
   media: 'ARCHIVE',
 };
 
+/** Small badge shown beside a result; media distinguishes albums from items. */
+export type SearchKind = 'PAGE' | 'EVENT' | 'PROJECT' | 'PERSON' | 'ALBUM' | 'PHOTO' | 'VIDEO';
+
 export interface SearchItem {
   id: string;
   domain: SearchDomain;
+  /** Optional badge override; the palette falls back to the domain default. */
+  kind?: SearchKind;
   label: string;
+  /** Metadata line: page path, date · status, role · class, stack, item count. */
   sublabel: string;
   href: string;
+  /**
+   * Extra terms that should match without being part of the visible label or
+   * sublabel — e.g. a person's role, a project's stack/author, page synonyms.
+   */
+  keywords?: string[];
   /** ISO timestamp used for recency ranking (events). Absent = no recency. */
   startsAt?: string;
 }
@@ -67,38 +88,104 @@ export interface ScoredResult {
 export interface SearchGroup {
   domain: SearchDomain;
   heading: string;
+  /** Number of matches before the per-group cap; lets the UI show "8 / 12". */
+  total: number;
   results: ScoredResult[];
 }
 
 /** Cap per domain so keyboard navigation stays sane on large indexes. */
 const MAX_PER_GROUP = 8;
 
+// Field weighting ------------------------------------------------------------
+
+/** A visible label hit outranks the same hit in metadata. */
+const LABEL_FIELD_BONUS = 100;
+/** An exact title always sits above prefix/role matches. */
+const EXACT_LABEL_BONUS = 2500;
+/** "President" should find the President before a Vice President. */
+const EXACT_KEYWORD_BONUS = 900;
+
 // Static index ---------------------------------------------------------------
 
 export function buildStaticIndex(): SearchItem[] {
-  const pages: SearchItem[] = [
-    { id: 'page-about', domain: 'pages', label: 'About', sublabel: 'PAGE · /', href: '/' },
+  return [
+    {
+      id: 'page-about',
+      domain: 'pages',
+      kind: 'PAGE',
+      label: 'About',
+      sublabel: 'PAGE · /',
+      href: '/',
+      keywords: ['home', 'club', 'mission'],
+    },
     {
       id: 'page-events',
       domain: 'pages',
+      kind: 'PAGE',
       label: 'Events',
       sublabel: 'PAGE · /REGISTRATIONS',
       href: '/registrations',
+      keywords: ['registrations', 'calendar', 'upcoming'],
     },
-    { id: 'page-people', domain: 'pages', label: 'People', sublabel: 'PAGE · /#PEOPLE', href: '/#people' },
+    {
+      id: 'page-projects',
+      domain: 'pages',
+      kind: 'PAGE',
+      label: 'Projects',
+      sublabel: 'PAGE · /PROJECTS',
+      href: '/projects',
+      keywords: ['builds', 'student work', 'portfolio'],
+    },
     {
       id: 'page-archive',
       domain: 'pages',
+      kind: 'PAGE',
       label: 'Archive',
       sublabel: 'PAGE · /ARCHIVE',
       href: '/archive',
+      keywords: ['media', 'photos', 'gallery'],
     },
-    { id: 'page-login', domain: 'pages', label: 'Sign in', sublabel: 'PAGE · /LOGIN', href: '/login' },
+    {
+      id: 'page-people',
+      domain: 'pages',
+      kind: 'PAGE',
+      label: 'People',
+      sublabel: 'PAGE · /#PEOPLE',
+      href: '/#people',
+      keywords: ['team', 'board', 'office bearers', 'members'],
+    },
+    {
+      id: 'page-recruit',
+      domain: 'pages',
+      kind: 'PAGE',
+      label: 'Recruit',
+      sublabel: 'PAGE · /RECRUIT',
+      href: '/recruit',
+      keywords: ['join', 'membership', 'apply'],
+    },
+    {
+      id: 'page-login',
+      domain: 'pages',
+      kind: 'PAGE',
+      label: 'Sign in',
+      sublabel: 'PAGE · /LOGIN',
+      href: '/login',
+      keywords: ['login', 'account'],
+    },
   ];
-  return pages;
 }
 
 // Remote index (lazy, cached, failure-tolerant) --------------------------------
+
+function nonEmpty(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const text = value.trim();
+    if (text.length > 0) seen.add(text);
+  }
+  return [...seen];
+}
 
 function eventStatusWord(event: EventSummary): string {
   if (!event.registration_open) return 'CLOSED';
@@ -118,11 +205,38 @@ async function loadEventItems(): Promise<SearchItem[]> {
   return events.map((event) => ({
     id: `event-${event.id}`,
     domain: 'events' as const,
+    kind: 'EVENT' as const,
     label: event.title,
     sublabel: `${eventSublabelDate(event.starts_at)} · ${eventStatusWord(event)}`,
     href: `/registrations/${encodeURIComponent(event.id)}`,
+    keywords: nonEmpty([event.description]),
     startsAt: event.starts_at,
   }));
+}
+
+const PROJECT_STATUS_WORD: Record<ProjectStatus, string> = {
+  active: 'ACTIVE BUILD',
+  shipped: 'SHIPPED',
+  archived: 'ARCHIVED',
+};
+
+async function loadProjectItems(): Promise<SearchItem[]> {
+  const { projects } = await listProjects();
+  return projects.map((project) => {
+    const stack = nonEmpty(Array.isArray(project.stack) ? project.stack : []).map((tech) =>
+      tech.toUpperCase(),
+    );
+    const status = PROJECT_STATUS_WORD[project.status] ?? 'PROJECT';
+    return {
+      id: `project-${project.id}`,
+      domain: 'projects' as const,
+      kind: 'PROJECT' as const,
+      label: project.title,
+      sublabel: [status, ...stack.slice(0, 2)].join(' · '),
+      href: `/projects/${encodeURIComponent(project.id)}`,
+      keywords: nonEmpty([project.summary, project.author, ...stack, status]),
+    };
+  });
 }
 
 async function loadPeopleItems(): Promise<SearchItem[]> {
@@ -132,21 +246,54 @@ async function loadPeopleItems(): Promise<SearchItem[]> {
   return content.bearers.map((bearer) => ({
     id: `person-${bearer.id}`,
     domain: 'people' as const,
+    kind: 'PERSON' as const,
     label: bearer.name,
     sublabel: bearer.cohort ? `${bearer.role} · Class of ${bearer.cohort}` : bearer.role,
     href: '/#people',
+    keywords: nonEmpty([
+      bearer.role,
+      bearer.cohort,
+      bearer.cohort ? `Class of ${bearer.cohort}` : null,
+      ...bearer.links.map((link) => link.label),
+    ]),
   }));
 }
 
 async function loadMediaItems(): Promise<SearchItem[]> {
   const { albums } = await listMedia();
-  return albums.map((album) => ({
-    id: `media-${album.id}`,
-    domain: 'media' as const,
-    label: album.title,
-    sublabel: `${album.items.length} ${album.items.length === 1 ? 'ITEM' : 'ITEMS'}`,
-    href: '/archive',
-  }));
+  const items: SearchItem[] = [];
+
+  for (const album of albums) {
+    const media = Array.isArray(album.items) ? album.items : [];
+    items.push({
+      id: `media-${album.id}`,
+      domain: 'media' as const,
+      kind: 'ALBUM' as const,
+      label: album.title,
+      sublabel: `${media.length} ${media.length === 1 ? 'ITEM' : 'ITEMS'}`,
+      href: '/archive',
+      keywords: nonEmpty([album.description, ...media.flatMap((item) => [item.title, item.caption])]),
+    });
+
+    for (const mediaItem of media) {
+      const title = typeof mediaItem.title === 'string' ? mediaItem.title.trim() : '';
+      const caption = typeof mediaItem.caption === 'string' ? mediaItem.caption.trim() : '';
+      // Untitled, uncaptioned frames add noise; the album itself is indexed.
+      if (title.length === 0 && caption.length === 0) continue;
+      const video = mediaItem.type === 'video';
+      items.push({
+        id: `media-item-${album.id}-${mediaItem.id}`,
+        domain: 'media' as const,
+        kind: video ? ('VIDEO' as const) : ('PHOTO' as const),
+        label: title || caption,
+        sublabel: `${video ? 'VIDEO' : 'PHOTO'} · ${album.title}`,
+        href: '/archive',
+        keywords: nonEmpty([album.title, title.length > 0 ? caption : '', mediaItem.type]),
+      });
+    }
+  }
+
+  return items;
 }
 
 /** One loader per source so a single failure cannot take down the others. */
@@ -162,15 +309,20 @@ let remoteCache: SearchItem[] | null = null;
 let inflight: Promise<SearchItem[]> | null = null;
 
 /**
- * Fetch events + people + media once, cache in module state, resolve to `[]`
- * per failed source. Never rejects.
+ * Fetch events + projects + people + media once, cache in module state,
+ * resolve to `[]` per failed source. Never rejects.
  */
 export function ensureRemoteIndex(): Promise<SearchItem[]> {
   if (remoteCache) return Promise.resolve(remoteCache);
   if (inflight) return inflight;
-  inflight = Promise.all([loadSource(loadEventItems), loadSource(loadPeopleItems), loadSource(loadMediaItems)])
-    .then(([events, people, media]) => {
-      remoteCache = [...events, ...people, ...media];
+  inflight = Promise.all([
+    loadSource(loadEventItems),
+    loadSource(loadProjectItems),
+    loadSource(loadPeopleItems),
+    loadSource(loadMediaItems),
+  ])
+    .then(([events, projects, people, media]) => {
+      remoteCache = [...events, ...projects, ...people, ...media];
       return remoteCache;
     })
     .catch(() => {
@@ -255,25 +407,89 @@ export function fuzzyMatch(query: string, text: string): { score: number; ranges
   };
 }
 
-/** Match one item over `label + sublabel`, splitting ranges back per field. */
-export function matchItem(query: string, item: SearchItem): ScoredResult | null {
-  const q = query.trim();
-  if (q.length === 0) return null;
-  const combined = `${item.label} ${item.sublabel}`;
-  const match = fuzzyMatch(q, combined);
-  if (!match) return null;
+interface MatchCandidate {
+  score: number;
+  labelRanges: MatchRange[];
+  subRanges: MatchRange[];
+}
+
+/** Split a combined `label + sublabel` hit back into per-field ranges. */
+function splitCombinedRanges(ranges: MatchRange[], labelLength: number) {
   const labelRanges: MatchRange[] = [];
   const subRanges: MatchRange[] = [];
-  const boundary = item.label.length;
-  for (const range of match.ranges) {
+  const boundary = labelLength;
+  for (const range of ranges) {
     if (range.start < boundary) {
       labelRanges.push({ start: range.start, end: Math.min(range.end, boundary) });
     }
     if (range.end > boundary + 1) {
-      subRanges.push({ start: Math.max(range.start, boundary + 1) - (boundary + 1), end: range.end - (boundary + 1) });
+      subRanges.push({
+        start: Math.max(range.start, boundary + 1) - (boundary + 1),
+        end: range.end - (boundary + 1),
+      });
     }
   }
-  return { item, score: match.score, labelRanges, subRanges };
+  return { labelRanges, subRanges };
+}
+
+/**
+ * Match one item over its label, sublabel and keywords, keeping the highest
+ * scoring interpretation. Exact titles beat everything; an exact keyword
+ * (e.g. a person's role) beats a partial mention of the same word. Ranges are
+ * reported against the field that produced the winning match so the palette
+ * can highlight label and metadata hits separately.
+ */
+export function matchItem(query: string, item: SearchItem): ScoredResult | null {
+  const q = query.trim();
+  if (q.length === 0) return null;
+  const lower = q.toLowerCase();
+  const candidates: MatchCandidate[] = [];
+
+  const labelMatch = fuzzyMatch(q, item.label);
+  if (labelMatch) {
+    candidates.push({
+      score:
+        labelMatch.score +
+        LABEL_FIELD_BONUS +
+        (item.label.toLowerCase() === lower ? EXACT_LABEL_BONUS : 0),
+      labelRanges: labelMatch.ranges,
+      subRanges: [],
+    });
+  }
+
+  const subMatch = fuzzyMatch(q, item.sublabel);
+  if (subMatch) {
+    candidates.push({ score: subMatch.score, labelRanges: [], subRanges: subMatch.ranges });
+  }
+
+  for (const keyword of item.keywords ?? []) {
+    const text = keyword.trim();
+    if (text.length === 0) continue;
+    const match = fuzzyMatch(q, text);
+    if (!match) continue;
+    // Highlight the keyword in the metadata line when it appears verbatim
+    // there (roles, stacks); otherwise it is a searchable-only synonym.
+    const at = item.sublabel.toLowerCase().indexOf(text.toLowerCase());
+    candidates.push({
+      score: match.score + (text.toLowerCase() === lower ? EXACT_KEYWORD_BONUS : 0),
+      labelRanges: [],
+      subRanges: at === -1 ? [] : [{ start: at, end: at + text.length }],
+    });
+  }
+
+  // Cross-boundary typo-tolerance: a hit spanning label + sublabel still works.
+  const combined = fuzzyMatch(q, `${item.label} ${item.sublabel}`);
+  if (combined) {
+    const split = splitCombinedRanges(combined.ranges, item.label.length);
+    candidates.push({ score: combined.score, ...split });
+  }
+
+  if (candidates.length === 0) return null;
+  let best = candidates[0];
+  for (const candidate of candidates) {
+    if (candidate.score > best.score) best = candidate;
+  }
+  return { item, score: best.score, labelRanges: best.labelRanges, subRanges: best.subRanges };
 }
 
 // Query ------------------------------------------------------------------------
@@ -282,28 +498,57 @@ function unscored(item: SearchItem): ScoredResult {
   return { item, score: 0, labelRanges: [], subRanges: [] };
 }
 
+/** Date.parse with an invalid/missing value sorted last instead of NaN. */
+function timeValue(iso: string | undefined): number {
+  if (!iso) return 0;
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? 0 : time;
+}
+
 function recentEvents(remote: SearchItem[]): ScoredResult[] {
   return remote
-    .filter((item) => item.domain === 'events')
-    .sort((a, b) => Date.parse(b.startsAt ?? '') - Date.parse(a.startsAt ?? ''))
+    .filter((item) => item.domain === 'events' && timeValue(item.startsAt) > 0)
+    .sort((a, b) => timeValue(b.startsAt) - timeValue(a.startsAt))
     .slice(0, 3)
     .map(unscored);
+}
+
+/** Score desc, then shorter label, then newest start, then alphabetical. */
+function compareResults(a: ScoredResult, b: ScoredResult): number {
+  if (b.score !== a.score) return b.score - a.score;
+  if (a.item.label.length !== b.item.label.length) {
+    return a.item.label.length - b.item.label.length;
+  }
+  const recency = timeValue(b.item.startsAt) - timeValue(a.item.startsAt);
+  if (recency !== 0) return recency;
+  return a.item.label.localeCompare(b.item.label);
 }
 
 /**
  * Empty query → static pages plus the 3 most recent events. Otherwise fuzzy
  * match everything and return non-empty groups in DOMAIN_ORDER, each sorted
- * by score (ties: shorter label first) and capped at MAX_PER_GROUP.
+ * by score (ties: shorter label, then newest event) and capped at
+ * MAX_PER_GROUP while reporting the uncapped total.
  */
 export function searchPalette(query: string, staticItems: SearchItem[], remoteItems: SearchItem[]): SearchGroup[] {
   if (query.trim().length === 0) {
     const groups: SearchGroup[] = [];
     if (staticItems.length > 0) {
-      groups.push({ domain: 'pages', heading: DOMAIN_HEADINGS.pages, results: staticItems.map(unscored) });
+      groups.push({
+        domain: 'pages',
+        heading: DOMAIN_HEADINGS.pages,
+        total: staticItems.length,
+        results: staticItems.map(unscored),
+      });
     }
     const recent = recentEvents(remoteItems);
     if (recent.length > 0) {
-      groups.push({ domain: 'events', heading: DOMAIN_HEADINGS.events, results: recent });
+      groups.push({
+        domain: 'events',
+        heading: DOMAIN_HEADINGS.events,
+        total: recent.length,
+        results: recent,
+      });
     }
     return groups;
   }
@@ -318,8 +563,13 @@ export function searchPalette(query: string, staticItems: SearchItem[], remoteIt
       if (scored) results.push(scored);
     }
     if (results.length === 0) continue;
-    results.sort((a, b) => b.score - a.score || a.item.label.length - b.item.label.length);
-    groups.push({ domain, heading: DOMAIN_HEADINGS[domain], results: results.slice(0, MAX_PER_GROUP) });
+    results.sort(compareResults);
+    groups.push({
+      domain,
+      heading: DOMAIN_HEADINGS[domain],
+      total: results.length,
+      results: results.slice(0, MAX_PER_GROUP),
+    });
   }
   return groups;
 }

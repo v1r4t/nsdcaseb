@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchContent } from '../../lib/content';
 import type { Achievement, OfficeBearer } from '../../lib/content';
 import {
+  ApiError as AdminApiError,
   createAchievement,
   createBearer,
   deleteAchievement,
   deleteBearer,
+  portraitFileError,
   updateAchievement,
   updateBearer,
+  uploadBearerPortrait,
 } from '../../lib/admin';
 import {
   ApiError,
@@ -117,6 +120,25 @@ function parsePhotoUrl(raw: string): { ok: true; value: string | null } | { ok: 
   return { ok: true, value: parsed.toString() };
 }
 
+/** Friendly copy for the portrait upload endpoint's error codes. */
+function portraitErrText(err: unknown): string {
+  if (err instanceof AdminApiError) {
+    if (err.error === 'network_error') return 'Could not reach the server.';
+    if (err.error === 'storage_not_configured') {
+      return 'Portrait uploads need storage, which is not configured here. Paste a Portrait URL instead.';
+    }
+    if (err.error === 'portrait_too_large') return 'Portrait must be 5 MB or smaller.';
+    if (err.error === 'invalid_file_type' || err.error === 'invalid_portrait') {
+      return 'Portrait must be a JPEG, PNG or WebP image.';
+    }
+    if (err.error === 'portrait_upload_failed') return 'Could not store the portrait. Try again.';
+    return `Request failed (${err.error}).`;
+  }
+  return 'Something went wrong.';
+}
+
+const PORTRAIT_ACCEPT = 'image/jpeg,image/png,image/webp';
+
 function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m: string) => Promise<void> }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
@@ -125,6 +147,8 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
     Record<string, { name: string; role: string; photoUrl: string; links: string }>
   >({});
   const [invalid, setInvalid] = useState<{ id: string; field: 'links' | 'photo' } | null>(null);
+  /** Bearer id, or 'new' while the create-form upload runs. */
+  const [uploading, setUploading] = useState<string | null>(null);
   async function run(fn: () => Promise<unknown>, msg: string): Promise<void> {
     try {
       await fn();
@@ -132,6 +156,47 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
     } catch (err) {
       await onDone(errText(err));
     }
+  }
+  /** Validate + upload, returning the public URL or null after notifying. */
+  async function upload(file: File, personName: string, key: string, apply: (url: string) => void): Promise<string | null> {
+    const problem = portraitFileError(file);
+    if (problem) {
+      await onDone(problem);
+      return null;
+    }
+    setUploading(key);
+    try {
+      const stored = await uploadBearerPortrait(file, personName);
+      apply(stored.url);
+      return stored.url;
+    } catch (err) {
+      await onDone(portraitErrText(err));
+      return null;
+    } finally {
+      setUploading(null);
+    }
+  }
+  /** Persist an uploaded portrait immediately for an existing bearer. */
+  async function uploadExisting(
+    id: string,
+    personName: string,
+    file: File,
+    apply: (url: string) => void,
+  ): Promise<void> {
+    const url = await upload(file, personName, id, apply);
+    if (!url) return;
+    try {
+      await updateBearer(id, { photo_url: url });
+      await onDone(`Portrait uploaded for ${personName}.`);
+    } catch (err) {
+      // The object is already public; keep its URL in the field so Save can retry.
+      await onDone(`${portraitErrText(err)} Portrait uploaded; press Save to apply.`);
+    }
+  }
+  /** Queue an uploaded portrait for the create form; Add persists it. */
+  async function uploadNew(file: File): Promise<void> {
+    const url = await upload(file, name.trim() || 'Office bearer', 'new', setPhotoUrl);
+    if (url) await onDone('Portrait uploaded. Add the bearer to save it.');
   }
   async function save(
     id: string,
@@ -185,6 +250,19 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
             setEdits({ ...edits, [x.id]: { ...ed, ...patch } });
             if (invalid?.id === x.id) setInvalid(null);
           };
+          // Functional update: an upload can finish while the operator types.
+          const applyPhoto = (url: string): void => {
+            setEdits((prev) => {
+              const current = prev[x.id] ?? {
+                name: x.name,
+                role: x.role,
+                photoUrl: storedPhoto,
+                links: linksText(x.links),
+              };
+              return { ...prev, [x.id]: { ...current, photoUrl: url } };
+            });
+            if (invalid?.id === x.id) setInvalid(null);
+          };
           return (
             <li key={x.id} className="flex flex-wrap items-end gap-2 border-t hairline py-3">
               <input
@@ -210,6 +288,24 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
                   inputMode="url"
                   className="field mt-1"
                 />
+              </label>
+              <label className="min-w-[9rem] flex-1">
+                <span className="mono text-quiet">Upload portrait</span>
+                <input
+                  type="file"
+                  aria-label={`Upload portrait for ${x.name}`}
+                  accept={PORTRAIT_ACCEPT}
+                  disabled={uploading !== null}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) void uploadExisting(x.id, ed.name.trim() || x.name, file, applyPhoto);
+                  }}
+                  className="field mt-1 min-w-0 text-sm file:mr-2 file:rounded-[2px] file:border-0 file:bg-ink file:px-2 file:py-1 file:text-xs file:font-medium file:text-paper"
+                />
+                <span className="hint">
+                  {uploading === x.id ? 'Uploading portrait…' : 'JPEG, PNG or WebP up to 5 MB.'}
+                </span>
               </label>
               <textarea
                 aria-label={`Bearer links for ${x.name}, one Label and URL per line`}
@@ -268,6 +364,24 @@ function BearerEditor({ bearers, onDone }: { bearers: OfficeBearer[]; onDone: (m
             inputMode="url"
             className="field mt-1"
           />
+        </label>
+        <label className="min-w-[9rem] flex-1">
+          <span className="mono text-quiet">Upload portrait</span>
+          <input
+            type="file"
+            aria-label="Upload portrait for the new bearer"
+            accept={PORTRAIT_ACCEPT}
+            disabled={uploading !== null}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void uploadNew(file);
+            }}
+            className="field mt-1 min-w-0 text-sm file:mr-2 file:rounded-[2px] file:border-0 file:bg-ink file:px-2 file:py-1 file:text-xs file:font-medium file:text-paper"
+          />
+          <span className="hint">
+            {uploading === 'new' ? 'Uploading portrait…' : 'JPEG, PNG or WebP up to 5 MB.'}
+          </span>
         </label>
         <button type="submit" className="btn-primary shrink-0" disabled={!name.trim() || !role.trim()}>
           Add

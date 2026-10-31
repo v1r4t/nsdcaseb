@@ -1,9 +1,30 @@
 name: ci
 
+# Quality/e2e run on every push and PR. Deployment is manual only:
+# dispatch this workflow with `deploy_staging: true`. There is deliberately no
+# automatic production deploy anywhere in this file — the apex cutover is a
+# human-run procedure in docs/production-cutover.md.
 on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      deploy_staging:
+        description: 'Deploy the ink-on-paper site to staging (preview.nsdcaseb.xyz) after quality + e2e pass'
+        type: boolean
+        default: false
+      reason:
+        description: 'Why this staging deploy is happening (appears in the run summary)'
+        type: string
+        required: true
+        default: 'manual staging deploy'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -19,12 +40,50 @@ jobs:
         run: npx tsc -b
       - name: Typecheck (site)
         run: npm run typecheck:site
+      - name: Typecheck (worker)
+        run: npx tsc -p worker --noEmit
+      - name: Typecheck (e2e)
+        run: npx tsc -p e2e --noEmit
       - name: Build (root)
         run: npm run build
       - name: Build (site)
         run: npm run build:site
       - name: Unit tests
         run: npm test
+
+  # Production dependencies must be clean. Dev-only advisories (Vite tooling,
+  # PostCSS helpers, etc.) are reported in the run summary but do not block a
+  # deploy: they never ship in the worker bundle. See docs/runbook.md
+  # "Dependency audits" for the triage rule.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies (gate)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit dev dependencies (informational)
+        run: |
+          set +e
+          npm audit --audit-level=high > dev-audit.txt 2>&1
+          status=$?
+          set -e
+          {
+            echo '### Dependency audit'
+            echo ''
+            echo 'Production dependencies (`npm audit --omit=dev --audit-level=high`) are gated above.'
+            echo ''
+            echo "Dev-only report exited \`$status\` (informational — does not block deploy):"
+            echo ''
+            echo '```'
+            tail -n 40 dev-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
 
   # Real e2e: builds the site, seeds a local D1, serves the staging worker on
   # :8787, and runs Playwright on chromium + firefox + webkit (BROWSERS=all).
@@ -77,12 +136,27 @@ jobs:
         if: failure()
         run: tail -100 /tmp/wrangler-dev.log || true
 
-  # Staging deploy: manual ONLY (workflow_dispatch) and only after e2e is
-  # green. Production (apex teaser worker) is never touched here.
+  # Staging deploy: manual ONLY (workflow_dispatch + deploy_staging=true) and
+  # only after quality, audit and e2e are green on the same commit. Production
+  # (apex/`nsdcaseb-site`) is never touched here.
+  #
+  # Order matters: pre-deploy D1 backup -> migrations -> worker deploy -> smoke.
+  # Migrations are additive; rolling back the worker version keeps the schema,
+  # so a bad migration is recovered from the backup artifact, not a down script.
   deploy-staging:
-    needs: e2e
-    if: github.event_name == 'workflow_dispatch'
+    needs: [quality, audit, e2e]
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_staging == true
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: staging
+      url: https://preview.nsdcaseb.xyz
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -90,9 +164,166 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      - name: Preflight — Cloudflare credentials
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "::error::Missing CLOUDFLARE_API_TOKEN repository secret; staging deploy cannot run."
+            echo "Set it in Settings -> Secrets and variables -> Actions. Never commit a token."
+            exit 1
+          fi
+          if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "Cloudflare credentials present; account id set."
+          else
+            echo "Cloudflare credentials present; CLOUDFLARE_ACCOUNT_ID unset (token default account used)."
+          fi
+
+      - name: Preflight — deployment intent
+        env:
+          DEPLOY_REASON: ${{ inputs.reason }}
+        run: |
+          echo "Deploying ${{ github.sha }} from '${{ github.ref_name }}' to staging."
+          echo "Reason: $DEPLOY_REASON"
+
       - name: Build (site)
         run: npm run build:site
+
+      # D1 is the system of record; take an export before migrations touch it.
+      # The dump is uploaded as a run artifact so a rollback has a restore point
+      # that outlives the runner. A Storage manifest is added when the Supabase
+      # pair is present in the job environment (not required for a D1 restore).
+      - name: Backup staging D1
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backup-d1.mjs --env staging --label "ci-${{ github.run_number }}"
+      - name: Upload D1 backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-backup-staging-${{ github.run_number }}
+          path: |
+            tmp-d1-backups/*.sql
+            tmp-d1-backups/*.storage-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Show pending staging migrations
+        run: npx wrangler d1 migrations list nsdc-auth --remote -c wrangler.staging.jsonc
+
       - name: Apply staging D1 migrations
         run: npm run migrate:staging
+
       - name: Deploy staging worker
         run: npx wrangler deploy -c wrangler.staging.jsonc
+
+      # Post-deploy smoke: shell, headers, routing, canonical/sitemap, data
+      # APIs and the Supabase CSP origin. The ink-on-paper checks that need eyes
+      # (paper ground, no cream-on-cream, lazy landing scene) are in the manual
+      # checklist in docs/runbook.md.
+      - name: Smoke test staging
+        run: |
+          set -uo pipefail
+          BASE=https://preview.nsdcaseb.xyz
+          fail=0
+          code() { curl -sS --max-time 20 -o /dev/null -w '%{http_code}' -H 'cache-control: no-cache' "$BASE$1" || true; }
+
+          # Custom-domain attachment can lag a few seconds after deploy.
+          for i in $(seq 1 12); do
+            root=$(code /)
+            [ "$root" = "200" ] && break
+            sleep 5
+          done
+
+          expect() {
+            local path=$1 want=$2 got
+            got=$(code "$path")
+            printf '%-20s %s (want %s)\n' "$path" "$got" "$want"
+            [ "$got" = "$want" ] || fail=1
+          }
+
+          expect / 200
+          for p in /registrations /recruit /archive /projects; do expect "$p" 200; done
+          expect /media 301
+          expect /nope 404
+          expect /admin 404
+          for p in /api/events /api/projects /api/content /api/media /api/site; do expect "$p" 200; done
+
+          headers=$(curl -sS -D - -o /dev/null --max-time 20 -H 'cache-control: no-cache' "$BASE/" || true)
+          for h in '^content-security-policy:' '^strict-transport-security:' '^x-content-type-options: nosniff'; do
+            if echo "$headers" | grep -Eqi "$h"; then
+              echo "header ok: $h"
+            else
+              echo "::error::missing header matching $h"
+              fail=1
+            fi
+          done
+          if ! echo "$headers" | grep -Eqi '^content-security-policy:.*supabase\.co'; then
+            echo "::error::CSP does not include the Supabase origin (SUPABASE_URL secret missing?)"
+            fail=1
+          fi
+
+          if curl -sS --max-time 20 -H 'cache-control: no-cache' "$BASE/registrations" \
+               | grep -q 'rel="canonical" href="https://preview.nsdcaseb.xyz/registrations"'; then
+            echo "canonical ok"
+          else
+            echo "::error::canonical on /registrations is not the preview origin"
+            fail=1
+          fi
+
+          if ! curl -sS --max-time 20 "$BASE/sitemap.xml" | grep -q '<loc>https://preview.nsdcaseb.xyz'; then
+            echo "::error::sitemap does not advertise the preview origin (teaser still serving?)"
+            fail=1
+          fi
+          if ! curl -sS -D - -o /dev/null --max-time 20 "$BASE/sitemap.xml" \
+               | grep -Eqi '^content-type: application/xml'; then
+            echo "::error::sitemap is not XML"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::staging smoke failed — see docs/runbook.md rollback section"
+            exit 1
+          fi
+          echo "staging smoke passed"
+
+      - name: Deploy summary
+        if: success()
+        env:
+          DEPLOY_REASON: ${{ inputs.reason }}
+        run: |
+          {
+            echo '### Staging deploy complete'
+            echo ''
+            echo "- URL: https://preview.nsdcaseb.xyz"
+            echo "- Commit: \`${{ github.sha }}\` (\`${{ github.ref_name }}\`)"
+            echo "- Reason: $DEPLOY_REASON"
+            echo "- D1 backup artifact: \`d1-backup-staging-${{ github.run_number }}\` (14 days)"
+            echo ''
+            echo 'Manual ink-on-paper checks still due: paper ground `#F2EEE3`, readable'
+            echo 'header/footer, landing scene static-first and lazy (no heavy'
+            echo 'chunk under reduced motion), no cream-on-cream admin tables. See'
+            echo '`docs/runbook.md` “Post-deploy smoke checklist”.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rollback notes (on failure)
+        if: failure()
+        run: |
+          {
+            echo '### Staging deploy failed'
+            echo ''
+            echo 'The job stops before or after the worker deploy. If the backup step'
+            echo 'completed, its pre-deploy D1 artifact is kept for 14 days:'
+            echo "\`d1-backup-staging-${{ github.run_number }}\`"
+            echo ''
+            echo 'Roll the worker back one version (keeps bindings, vars, crons, secrets):'
+            echo ''
+            echo '```bash'
+            echo 'npx wrangler versions list -c wrangler.staging.jsonc'
+            echo 'npx wrangler rollback <version-id> -c wrangler.staging.jsonc -m "rollback: <reason>" -y'
+            echo '```'
+            echo ''
+            echo 'Migrations are additive: do **not** run a down-migration. If the'
+            echo 'migration itself is bad, restore the dump into a NEW D1 database and'
+            echo 'repoint staging only after verification. Full procedure:'
+            echo '`docs/runbook.md` → “Rollback”.'
+          } >> "$GITHUB_STEP_SUMMARY"

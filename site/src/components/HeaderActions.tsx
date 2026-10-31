@@ -67,7 +67,6 @@ export default function HeaderActions() {
         <button
           type="button"
           onClick={openSearch}
-          aria-label={`Search ${shortcut}`}
           className="mono flex min-h-11 w-full items-center justify-between gap-3 border-b hairline text-left text-quiet transition-colors duration-200 hover:text-ink"
         >
           <span className="inline-flex items-center gap-3">

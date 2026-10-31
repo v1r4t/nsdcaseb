@@ -75,86 +75,96 @@ function Portrait({ bearer }: { bearer: OfficeBearer }) {
 }
 
 interface PeoplePreviewProps {
-  /** The bearer after the active one — always a real row, never invented. */
+  /** The bearer currently being viewed — always a real row, never invented. */
   bearer: OfficeBearer;
-  /** Zero-based position of the previewed bearer in the index. */
+  /** Zero-based position of the viewed bearer in the index. */
   position: number;
   total: number;
-  activeName: string;
+  /** Name of the bearer the Next control would move to. */
+  nextName: string;
   onAdvance: () => void;
 }
 
 /**
- * PEOPLE preview — the next bearer's portrait, clearly tagged `NEXT`.
+ * PEOPLE plate — the portrait of the bearer being viewed.
+ *
+ * The plate is a reading surface, not a control: it shows the current bearer's
+ * portrait, name, role, class, links and index. Advancing lives in the separate
+ * `Next →` button below it, so a reader can look at a person without the plate
+ * turning a stray click into a navigation.
  *
  * On a phone this is a compact plate after the roster: a 96–112px portrait
- * beside the name, so the list stays the lead and the preview reads as a
- * secondary control. From `md` up the same markup opens into the sticky
- * portrait plate in the right column.
- *
- * The whole plate is one button: clicking, tapping, Enter or Space advances the
- * active bearer. It is never hover-only — it renders at rest, so touch, keyboard
- * and reduced-motion readers get the same portrait and control.
+ * beside the name, so the list stays the lead. From `md` up the same markup
+ * opens into the sticky portrait plate in the right column. It is never
+ * hover-only — it renders at rest for touch, keyboard and reduced-motion
+ * readers alike.
  */
 export default function PeoplePreview({
   bearer,
   position,
   total,
-  activeName,
+  nextName,
   onAdvance,
 }: PeoplePreviewProps) {
   return (
     <div className="border-t hairline pt-3">
-      <button
-        type="button"
-        onClick={onAdvance}
-        className="group block w-full text-left focus-visible:outline-offset-4"
-      >
-        <span className="flex items-baseline justify-between gap-4 border-b hairline pb-2">
-          <span className="mono flex items-center gap-2 text-seal">
-            <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 bg-seal" />
-            Next
-          </span>
-          <span className="mono text-faint">
-            {pad(position + 1)} / {pad(total)}
-          </span>
+      <div className="flex items-baseline justify-between gap-4 border-b hairline pb-2">
+        <span className="mono flex items-center gap-2 text-seal">
+          <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 bg-seal" />
+          Viewing
         </span>
+        <span className="mono text-faint">
+          {pad(position + 1)} / {pad(total)}
+        </span>
+      </div>
 
-        <span className="mt-3 flex items-center gap-4 md:mt-4 md:block">
-          <span className="block w-24 shrink-0 overflow-hidden border hairline sm:w-28 md:w-full">
-            <Portrait key={bearer.id} bearer={bearer} />
+      <div className="mt-3 flex items-center gap-4 md:mt-4 md:block">
+        <div className="w-24 shrink-0 overflow-hidden border hairline sm:w-28 md:w-full">
+          <Portrait key={bearer.id} bearer={bearer} />
+        </div>
+
+        <div className="min-w-0 flex-1 md:mt-4 md:border-b md:hairline md:pb-3">
+          <p className="break-words font-serif text-[clamp(1.35rem,2.4vw,1.85rem)] leading-tight tracking-tight text-ink">
+            {bearer.name}
+          </p>
+          <p className="mono mt-2 text-quiet">
+            {bearer.role}
+            {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
+          </p>
+
+          {bearer.links.length > 0 && (
+            <ul className="mono mt-3 flex flex-wrap gap-x-4 gap-y-1">
+              {bearer.links.map((link) => (
+                <li key={`${link.label}-${link.url}`}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${bearer.name} — ${link.label} (opens in a new tab)`}
+                    className="text-quiet underline decoration-[color:var(--hairline)] underline-offset-4 transition-colors duration-200 hover:text-seal hover:decoration-seal/40"
+                  >
+                    ↗ {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end border-t hairline pt-3">
+        <button
+          type="button"
+          onClick={onAdvance}
+          aria-label={`Next — view ${nextName}`}
+          className="mono inline-flex min-h-11 w-full touch-manipulation items-center justify-between gap-3 border border-ink/25 px-4 text-ink transition-colors duration-200 hover:border-seal hover:text-seal focus-visible:outline-offset-4 sm:w-auto sm:justify-center sm:gap-2"
+        >
+          <span>Next</span>
+          <span aria-hidden="true" className="transition-transform duration-200">
+            →
           </span>
-
-          <span className="min-w-0 flex-1 md:mt-4 md:block">
-            <span className="flex items-baseline justify-between gap-4 md:border-b md:hairline md:pb-3">
-              <span className="min-w-0 flex-1">
-                <span className="block break-words font-serif text-[clamp(1.35rem,2.4vw,1.85rem)] leading-tight tracking-tight text-ink">
-                  {bearer.name}
-                </span>
-                <span className="mono mt-2 block text-quiet">
-                  {bearer.role}
-                  {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
-                </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className="mono shrink-0 text-faint transition-transform duration-200 group-hover:translate-x-1 group-focus-visible:translate-x-1"
-              >
-                →
-              </span>
-            </span>
-          </span>
-        </span>
-
-        <span className="mono mt-2 block text-faint transition-colors duration-200 group-hover:text-seal">
-          <span className="md:hidden">Tap NEXT to advance</span>
-          <span className="hidden md:inline">Select to advance · after {activeName}</span>
-        </span>
-
-        <span className="sr-only">
-          {' '}Next: select to make this bearer active. Currently active: {activeName}.
-        </span>
-      </button>
+        </button>
+      </div>
     </div>
   );
 }

@@ -46,15 +46,11 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
 
 ### Scenes and motion
 
-- **Landing `/` — the globe narrative.** `GlobeStory` renders the paper story
-  frame and upgrades it to `GlobeNarrative` after an `IntersectionObserver`
-  with a 200px `rootMargin`. `GlobeNarrative` imports `three` through
-  `site/src/lib/narrative-globe.ts`; the whole module — three included — is
-  one lazy chunk. Under `prefers-reduced-motion` the component never mounts
-  the engine: it keeps the static `PaperStory` frame, all three stage cards,
-  and requests no globe chunk. The canvas is `aria-hidden`, not focusable and
-  pointer-transparent; the three stage cards stay in the accessibility tree at
-  every scroll progress (their opacity is visual only).
+- **Landing `/` — `StoryStages`, text only.** Three chapters (01/02/03) on a
+  220svh section; the desktop stage is sticky and scroll-driven, with 01
+  entering from the left, 02 from the right and 03 from the left. There is no
+  globe, no canvas and no `three` request. Mobile and reduced motion render the
+  chapters as a static stack with the lightweight `Swoop` entrance.
 - **Landing `/` — the room dolly.** `RoomScene` is a Canvas 2D corridor:
   hairline rails, ribs generated from the camera, objects at fixed depths, one
   far door, a light vignette. Scroll drives `cameraAtProgress`; the loop is
@@ -94,9 +90,8 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
   auth/utility routes (`Login`, `Register`, `VerifyPending`, `VerifyEmail`,
   `ResetPassword`, `Registrations`, `AdminDoor`, `NotFound`) and the eager
   `PageScene` motif modules.
-- **Landing-only lazy chunks:** `GlobeNarrative` (three + the narrative
-  engine), `RoomScene`, `RoomInstrument` and the shared `room`
-  geometry/projection module.
+- **Landing-only lazy chunks:** `RoomScene`, `RoomInstrument` and the shared
+  `room` geometry/projection module. There is no globe chunk.
 - **Device-only lazy chunk:** `Cursor`.
 - **Route lazy chunks:** `EventDetail`, `ProjectDetail`, `Archive`, `Projects`,
   `Recruit`; the admin door then splits into `Admin`, `AdminEmail`,
@@ -105,11 +100,9 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
 - Scene `Suspense` fallbacks are `null` — `body` already paints paper, so there
   is no blank frame. The route fallback keeps its reserved
   `min-h-[100svh] py-12` box (the footer-shift/CLS fix).
-- `three` is a dependency of **both** apps: the apex teaser
-  (`src/three/DataGlobe.ts`, built by `npm run build`) and the preview globe
-  (`site/src/lib/narrative-globe.ts`). In the preview build it appears **only**
-  inside the lazy `GlobeNarrative` chunk — a string search finds
-  `WebGLRenderer` there and zero times in the entry.
+- `three` is now a dependency of the apex teaser only
+  (`src/three/DataGlobe.ts`, built by `npm run build`). It is not imported by
+  `site/`; a string search finds no `WebGLRenderer` in the preview build.
 
 ## Bundle measurement — 2026-10-31
 
@@ -121,8 +114,8 @@ are from this run only.
 
 | Asset | Raw | Gzip |
 | --- | --- | --- |
-| `assets/index-DpuELuj0.js` (entry) | 417.60 kB | 126.60 kB |
-| `assets/index-BffNECDA.css` | 48.44 kB | 10.39 kB |
+| `assets/index-B8kOlymB.js` (entry) | 431.46 kB | 129.50 kB |
+| `assets/index-CnCU1oSU.css` | 50.20 kB | 10.65 kB |
 | `index.html` (includes the no-JS `<noscript>` fallback) | 4.68 kB | 1.60 kB |
 | `assets/gsap-CvDoa17S.js` (shared core/ease, preloaded) | 69.58 kB | 27.29 kB |
 | `assets/gsap-reveal-B-Fd9Q3h.js` (on-demand) | 56.64 kB | 23.77 kB |
@@ -132,17 +125,14 @@ are from this run only.
 
 | Chunk | Role | Raw | Gzip |
 | --- | --- | --- | --- |
-| `GlobeNarrative-DaJLN-1T.js` | three + narrative globe engine | 545.07 kB | 136.98 kB |
 | `RoomScene-DtdYtPMa.js` | landing canvas | 5.29 kB | 2.37 kB |
 | `RoomInstrument-CFihs97m.js` | landing readout | 1.49 kB | 0.81 kB |
 | `room-Cj39FGGE.js` | shared room geometry/projection | 1.50 kB | 0.65 kB |
 | `Cursor-BfcBMBGW.js` | fine-pointer cursor | 8.64 kB | 3.36 kB |
 
-`GlobeNarrative` is requested only on `/` and only when the story section
-approaches the viewport with motion enabled. It is **not** requested on
-`/projects`, `/registrations`, `/archive` or `/recruit`, and it is not
-requested at all under reduced motion. `RoomScene`/`RoomInstrument` remain
-landing-only; `Cursor` is fetched only on fine pointers with motion enabled.
+`RoomScene`/`RoomInstrument` remain landing-only and are not mounted below
+768px; `Cursor` is fetched only on fine pointers with motion enabled. There is
+no globe or `three` chunk on any preview route.
 
 ### Route and admin chunks
 
@@ -169,20 +159,15 @@ opens the Email tab.
 
 ## Remaining large chunks and why
 
-- **Entry — 417.60 kB raw / 126.60 kB gzip.** Mostly React 19 + React Router
+- **Entry — 431.46 kB raw / 129.50 kB gzip.** Mostly React 19 + React Router
   DOM, the eager route components, the `PageScene` motifs, GSAP core +
   `CustomEase` pulled in by `RisingText`, and the index/stage landing
   components. ScrollTrigger and SplitText are not in the entry: `Reveal` loads
-  `gsap-reveal` on demand. `three` is not in the entry.
-- **`GlobeNarrative` — 545.07 kB raw / 136.98 kB gzip.** `three` r186 plus the
-  narrative-globe engine (sphere, markers, network, dissolve). It is the only
-  chunk above Vite's 500 kB threshold and it is lazy, landing-only.
+  `gsap-reveal` on demand. `three` is not imported by `site/`.
 - **`AdminEmail` — 415.98 kB raw / 131.66 kB gzip.** TipTap + ProseMirror,
   below the threshold and admin-only.
-- **Build warning — exactly one.** Vite reports "Some chunks are larger than
-  500 kB" for `GlobeNarrative` only. The entry (417.60 kB) and `AdminEmail`
-  (415.98 kB) are under the limit; do not "fix" the warning by raising
-  `chunkSizeWarningLimit`, and do not treat the globe chunk as entry cost.
+- **Build warning — none.** The entry (431.46 kB) and `AdminEmail`
+  (415.98 kB) are both under Vite's 500 kB threshold.
 
 ### Live preview reference (older build)
 

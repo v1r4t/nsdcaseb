@@ -35,25 +35,46 @@ test('about leads with the only h1 and drops the retired slogans', async ({ page
 });
 
 // ---------------------------------------------------------------------------
-// Globe story — the static fallback keeps all three stages
+// StoryStages — the globe is retired, the 01/02/03 dossier is not
 // ---------------------------------------------------------------------------
 
-test.describe('globe story under reduced motion', () => {
+const STORY_STAGES = [
+  '01 / A CHAPTER IN BENGALURU',
+  '02 / STUDENTS, CONNECTED',
+  '03 / WHAT WE BUILD TOGETHER',
+] as const;
+
+async function expectStoryStages(page: Page): Promise<void> {
+  const story = landingSection(page, 'Our story');
+  await expect(story).toBeVisible();
+  await story.scrollIntoViewIfNeeded();
+
+  // The retired globe painted through a <canvas>; StoryStages is paper only.
+  await expect(story.locator('canvas')).toHaveCount(0);
+
+  for (const stage of STORY_STAGES) {
+    const mark = story.getByText(stage, { exact: true });
+    await expect(mark, `stage "${stage}" should render exactly once`).toHaveCount(1);
+    await expect(mark).toBeVisible();
+  }
+}
+
+test.describe('story stages under normal motion', () => {
+  // The suite default is reduced motion; this describe asserts the motion path.
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('keeps 01/02/03 in the paper story', async ({ page }) => {
+    await page.goto('/');
+    await expectStoryStages(page);
+  });
+});
+
+test.describe('story stages under reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
   test('keeps 01/02/03 in the paper story', async ({ page }) => {
     await page.goto('/');
-
-    const story = landingSection(page, 'Our story');
-    await expect(story).toBeVisible();
-
-    for (const stage of [
-      '01 / A CHAPTER IN BENGALURU',
-      '02 / STUDENTS, CONNECTED',
-      '03 / WHAT WE BUILD TOGETHER',
-    ]) {
-      await expect(story.getByText(stage, { exact: true })).toBeVisible();
-    }
+    await expectStoryStages(page);
   });
 });
 
@@ -139,15 +160,10 @@ test.describe('index + stage at 390px', () => {
 });
 
 // ---------------------------------------------------------------------------
-// People — the NEXT plate is always on screen and advances the index
+// People — the portrait plate follows the active bearer; Next advances
 // ---------------------------------------------------------------------------
 
 const PEOPLE_EMPTY = 'The current board has not been published yet.';
-
-/** The plate is the button whose visible label starts with NEXT. */
-function peoplePreview(region: Locator): Locator {
-  return region.getByRole('button', { name: /^Next\b/i });
-}
 
 /** Index rows live inside the roster list. */
 function peopleRows(region: Locator): Locator {
@@ -159,22 +175,56 @@ function activeRow(region: Locator): Locator {
   return region.getByRole('button', { name: /,\s*Active bearer$/ });
 }
 
-/** The plate's sr-only tail reports which bearer is currently active. */
-function previewActiveName(text: string): string {
-  const current = text.match(/Currently active: (.+)\.\s*$/);
-  if (current) return current[1].trim();
-  const after = text.match(/after (.+?)(?:\s+Next:|\s*$)/);
-  return after?.[1]?.trim() ?? '';
+/** The standalone control that steps the active bearer forward. */
+function nextControl(region: Locator): Locator {
+  return region.getByRole('button', { name: /^Next\b/i });
 }
 
-/** The plate must name the row it follows (hover, focus or keyboard). */
-async function expectPreviewFollows(preview: Locator, row: Locator): Promise<void> {
-  const rowText = (await row.textContent()) ?? '';
+/** The plate's portrait: a real <img> or the drawn placeholder (role="img"). */
+function platePortrait(region: Locator): Locator {
+  return region.getByRole('img').first();
+}
+
+/** Accessible label of the portrait, for both <img alt> and role="img". */
+async function accessibleLabel(locator: Locator): Promise<string> {
+  const label = await locator.evaluate((el) => {
+    const labelled = el.getAttribute('aria-label');
+    if (labelled) return labelled;
+    if (el instanceof HTMLImageElement) return el.getAttribute('alt') ?? '';
+    return el.textContent ?? '';
+  });
+  return label.trim();
+}
+
+/**
+ * The person a portrait names. A real photo reads `Portrait of <name>`; the
+ * drawn stand-in reads `Drawn portrait placeholder for <name>.` — both are
+ * part of the People contract, so the spec accepts either.
+ */
+function portraitPerson(label: string): string {
+  const patterns = [
+    /^Portrait of (.+)$/i,
+    /^Drawn portrait placeholder for (.+?)(?:\.|$)/i,
+    /^Portrait placeholder for (.+?)(?:\.|$)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = label.match(pattern);
+    if (match) return match[1].trim();
+  }
+  return '';
+}
+
+/** The plate must show the bearer that hover/focus/Next made active. */
+async function expectPlateShows(region: Locator, row: Locator): Promise<void> {
   await expect
-    .poll(async () => {
-      const active = previewActiveName((await preview.textContent()) ?? '');
-      return active.length > 0 && rowText.includes(active);
-    })
+    .poll(
+      async () => {
+        const person = portraitPerson(await accessibleLabel(platePortrait(region)));
+        if (!person) return false;
+        return ((await row.textContent()) ?? '').includes(person);
+      },
+      { message: 'the plate portrait should belong to the active row' },
+    )
     .toBe(true);
 }
 
@@ -187,20 +237,26 @@ async function openPeople(page: Page): Promise<Locator> {
   return people;
 }
 
-test('people: the NEXT plate is visible at rest and advances on click', async ({ page }) => {
+test('people: the plate shows the active bearer and a separate Next advances', async ({ page }) => {
   const people = await openPeople(page);
-  const preview = peoplePreview(people);
+  const portrait = platePortrait(people);
 
-  await expect(preview.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
+  await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
   test.skip(
-    (await preview.count()) === 0,
+    (await people.getByRole('img').count()) === 0,
     'content API has no bearers — honest empty state only',
   );
 
-  // No hover required: the NEXT tag, portrait and label all render at rest.
-  await expect(preview).toBeVisible();
-  await expect(preview.getByText(/^Next$/i)).toBeVisible();
-  await expect(preview.getByRole('img')).toBeVisible();
+  // At rest the plate already belongs to the active bearer — no hover needed.
+  await expect(activeRow(people)).toHaveCount(1);
+  await expect(portrait).toBeVisible();
+  await expectPlateShows(people, activeRow(people));
+
+  // Advancing is a separate control, not the portrait plate itself.
+  const next = nextControl(people);
+  await expect(next).toBeVisible();
+  await expect(next).toBeEnabled();
+  await expect(next.getByRole('img')).toHaveCount(0);
 
   // Advancing needs a second bearer to advance to; the rest is still covered.
   test.skip(
@@ -208,53 +264,47 @@ test('people: the NEXT plate is visible at rest and advances on click', async ({
     'a single bearer has no next bearer to advance to',
   );
 
-  const active = activeRow(people);
-  await expect(active).toHaveCount(1);
-  const activeBefore = (await active.textContent()) ?? '';
-  const previewBefore = previewActiveName((await preview.textContent()) ?? '');
-  expect(previewBefore, 'the plate should name the currently active bearer').not.toBe('');
+  // The pointer is off the roster: only the Next control moves the bearer.
+  await page.mouse.move(0, 0);
+  const activeBefore = (await activeRow(people).textContent()) ?? '';
+  await next.click();
 
-  await preview.click();
-
-  // The previewed bearer becomes active; the plate moves on to the next one.
-  await expect
-    .poll(async () => previewActiveName((await preview.textContent()) ?? ''))
-    .not.toBe(previewBefore);
   await expect
     .poll(async () => (await activeRow(people).textContent()) ?? '')
     .not.toBe(activeBefore);
   await expect(activeRow(people)).toHaveCount(1);
+  await expectPlateShows(people, activeRow(people));
 });
 
-test('people: focus and hover follow the row, Enter advances the bearer', async ({ page }) => {
+test('people: focus and hover point the portrait at that bearer', async ({ page }) => {
   const people = await openPeople(page);
-  const preview = peoplePreview(people);
+  const portrait = platePortrait(people);
 
-  await expect(preview.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
+  await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
   test.skip(
-    (await preview.count()) === 0,
+    (await people.getByRole('img').count()) === 0,
     'content API has no bearers — honest empty state only',
   );
 
   const rows = peopleRows(people);
   const total = await rows.count();
-  expect(total).toBeGreaterThan(0);
+  test.skip(total < 2, 'focus/hover mapping needs at least two bearers');
 
-  const focusIndex = total > 1 ? 1 : 0;
+  const focusIndex = 1;
   const hoverIndex = (focusIndex + 1) % total;
   const advanceTarget = (hoverIndex + 1) % total;
 
-  // Focus is an activation path: the plate reports that row as active.
+  // Focus is an activation path: the plate shows that row's portrait.
   await rows.nth(focusIndex).focus();
   await expect(rows.nth(focusIndex)).toHaveAccessibleName(/,\s*Active bearer$/);
-  await expectPreviewFollows(preview, rows.nth(focusIndex));
+  await expectPlateShows(people, rows.nth(focusIndex));
 
   // Pointer enter is the same activation path on a mouse/trackpad.
   await rows.nth(hoverIndex).hover();
   await expect(rows.nth(hoverIndex)).toHaveAccessibleName(/,\s*Active bearer$/);
-  await expectPreviewFollows(preview, rows.nth(hoverIndex));
+  await expectPlateShows(people, rows.nth(hoverIndex));
 
-  // Return to keyboard-only input before stepping the index.
+  // Return to keyboard-only input before stepping the index with Enter.
   await page.mouse.move(0, 0);
   await rows.nth(hoverIndex).focus();
   await expect(rows.nth(hoverIndex)).toHaveAccessibleName(/,\s*Active bearer$/);
@@ -262,4 +312,43 @@ test('people: focus and hover follow the row, Enter advances the bearer', async 
 
   await expect(rows.nth(advanceTarget)).toHaveAccessibleName(/,\s*Active bearer$/);
   await expect(rows.nth(advanceTarget)).toBeFocused();
+  await expectPlateShows(people, rows.nth(advanceTarget));
+});
+
+test('people: the plate portrait is a real photo or a drawn placeholder', async ({ page }) => {
+  const people = await openPeople(page);
+  const portrait = platePortrait(people);
+
+  await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
+  test.skip(
+    (await people.getByRole('img').count()) === 0,
+    'content API has no bearers — honest empty state only',
+  );
+
+  await portrait.scrollIntoViewIfNeeded();
+  await expect(portrait).toBeVisible();
+
+  // The lazy <img> either decodes (real photo) or falls back on error to the
+  // drawn monogram — both are honest; a permanent spinner is not.
+  const kindOf = (): Promise<string> =>
+    portrait.evaluate((el) => {
+      if (el.tagName.toLowerCase() !== 'img') return 'placeholder';
+      const img = el as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0 ? 'photo' : 'pending';
+    });
+
+  await expect
+    .poll(kindOf, { message: 'the portrait should settle into a photo or a placeholder' })
+    .toMatch(/photo|placeholder/);
+
+  if ((await kindOf()) === 'photo') {
+    await expect(portrait).toHaveAttribute('alt', /^Portrait of \S+/);
+    expect(await portrait.getAttribute('src'), 'a real portrait needs a source').toBeTruthy();
+  } else {
+    await expect(portrait).toHaveAttribute('role', 'img');
+    await expect(portrait).toHaveAccessibleName(/portrait placeholder for \S+/i);
+  }
+
+  // Whichever shape it takes, it names the active bearer.
+  await expectPlateShows(people, activeRow(people));
 });

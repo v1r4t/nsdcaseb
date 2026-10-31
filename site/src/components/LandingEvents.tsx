@@ -12,37 +12,61 @@ import {
 } from '../lib/events';
 import type { EventSummary } from '../lib/events';
 
+export interface LandingEventsProps {
+  /**
+   * Shared landing snapshot. Omit to let the component fetch its own list;
+   * the landing page passes its single read through to NOW and EVENTS so both
+   * sections describe the same moment.
+   */
+  events?: EventSummary[] | null;
+  /** Error copy for the shared snapshot. Ignored when `events` is omitted. */
+  error?: string | null;
+}
+
+/** The honest error line for a failed events read, shared with Landing. */
+export function eventsErrorMessage(err: unknown): string {
+  return err instanceof ApiError && err.error === 'network_error'
+    ? 'Could not reach the server. Check your connection and try again.'
+    : 'Could not load events. Please try again.';
+}
+
 /**
  * EVENTS — landing index + stage.
  *
  * Index: IST date, title, and the shared StatusDot label (OPEN, FILLING FAST,
  * FULL, CLOSED, REGISTERED, WAITLISTED). The stage repeats the date and time range,
- * the status, the description, any real seat count, and the link to the event's
- * registration page. The events API exposes no venue or location field, so
- * none is shown rather than inventing one.
+ * the status, the real venue when published, the description, any real seat
+ * count, and the link to the event's registration page.
+ *
+ * Data: `events`/`error` are optional so the strip still works on its own, but
+ * the landing page supplies the snapshot it already fetched instead of asking
+ * the API a second time.
  */
-export default function LandingEvents() {
-  const [events, setEvents] = useState<EventSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function LandingEvents({
+  events: sharedEvents,
+  error: sharedError,
+}: LandingEventsProps = {}) {
+  const controlled = sharedEvents !== undefined;
+  const [ownEvents, setOwnEvents] = useState<EventSummary[] | null>(null);
+  const [ownError, setOwnError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (controlled) return;
     let active = true;
     listEvents()
       .then((res) => {
-        if (active) setEvents(res.events);
+        if (active) setOwnEvents(res.events);
       })
       .catch((err: unknown) => {
-        if (!active) return;
-        setError(
-          err instanceof ApiError && err.error === 'network_error'
-            ? 'Could not reach the server. Check your connection and try again.'
-            : 'Could not load events. Please try again.',
-        );
+        if (active) setOwnError(eventsErrorMessage(err));
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [controlled]);
+
+  const events = controlled ? (sharedEvents ?? null) : ownEvents;
+  const error = controlled ? (sharedError ?? null) : ownError;
 
   if (error) {
     return (
@@ -94,6 +118,10 @@ export default function LandingEvents() {
           </p>
           <StatusDot event={event} />
         </div>
+
+        {event.venue && (
+          <p className="mono mt-3 text-quiet">{event.venue}</p>
+        )}
 
         {event.description && (
           <p className="mt-4 max-w-[58ch] text-[17px] leading-[1.65] text-quiet">

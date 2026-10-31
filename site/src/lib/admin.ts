@@ -329,6 +329,7 @@ export function adminUpdateEvent(
     force_closed: boolean;
     questions: unknown[];
     archived: boolean;
+    venue: string | null;
   }>,
 ): Promise<{ ok: true }> {
   return request<{ ok: true }>(`/api/events/${encodeURIComponent(eventId)}`, 'PATCH', patch);
@@ -337,6 +338,86 @@ export function adminUpdateEvent(
 export interface BearerLinkInput {
   label: string;
   url: string;
+}
+
+/** Mirrors MAX_PORTRAIT_BYTES in worker/portraits.ts. */
+export const BEARER_PORTRAIT_MAX_BYTES = 5 * 1024 * 1024;
+const BEARER_PORTRAIT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/**
+ * Cheap client-side gate so a wrong file is rejected before it is read and
+ * uploaded. The worker repeats every check (and sniffs the bytes).
+ */
+export function portraitFileError(file: File): string | null {
+  const type = (file.type || '').toLowerCase();
+  if (!(BEARER_PORTRAIT_TYPES as readonly string[]).includes(type)) {
+    return 'Portrait must be a JPEG, PNG or WebP image.';
+  }
+  if (file.size <= 0) return 'That portrait file is empty.';
+  if (file.size > BEARER_PORTRAIT_MAX_BYTES) return 'Portrait must be 5 MB or smaller.';
+  return null;
+}
+
+export interface BearerPortraitUpload {
+  /** Public URL to store as `photo_url`. */
+  url: string;
+  /** Stored object name, e.g. `portrait-jane-doe.webp`. */
+  name: string;
+  /** Alt-text suggestion, e.g. `Portrait of Jane Doe`. */
+  alt: string;
+}
+
+/**
+ * Upload a bearer portrait; the worker validates the bytes and stores them in
+ * the public bucket. The console then saves the returned URL as `photo_url`
+ * via createBearer/updateBearer, so URL limits stay in one place.
+ */
+export async function uploadBearerPortrait(
+  file: File,
+  personName: string,
+): Promise<BearerPortraitUpload> {
+  const problem = portraitFileError(file);
+  if (problem) throw new ApiError(0, 'invalid_portrait');
+  const form = new FormData();
+  form.append('image', file);
+  form.append('name', personName.trim());
+  let response: Response;
+  const controller = new AbortController();
+  // Image bytes can be several MB; give the upload longer than a JSON call.
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  try {
+    response = await fetch('/api/admin/people/portrait', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(0, 'network_error');
+  } finally {
+    clearTimeout(timer);
+  }
+  const raw = await response.text().catch(() => '');
+  let payload: unknown = null;
+  try {
+    payload = raw.length > 0 ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) throw new ApiError(response.status, errorCode(payload, response.status));
+  const record = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
+  const url = record?.url;
+  // Never hand the editor a malformed URL it would then fail to save.
+  if (typeof url !== 'string' || url.length === 0) throw new ApiError(0, 'invalid_response');
+  const cleanName = personName.trim();
+  return {
+    url,
+    name: typeof record?.name === 'string' && record.name ? record.name : 'portrait',
+    alt:
+      typeof record?.alt === 'string' && record.alt
+        ? record.alt
+        : `Portrait of ${cleanName || 'an office bearer'}`,
+  };
 }
 
 export function createBearer(input: {
@@ -450,6 +531,7 @@ export async function adminCreateEvent(input: {
   capacity?: number | null;
   force_closed?: boolean;
   questions?: unknown[];
+  venue?: string | null;
   // Optional in local dev without club storage (the worker accepts a
   // poster-less create there); required once storage is connected.
   poster?: File;
@@ -467,6 +549,7 @@ export async function adminCreateEvent(input: {
     capacity: input.capacity ?? null,
     force_closed: input.force_closed ?? false,
     questions: input.questions ?? [],
+    venue: input.venue ?? null,
   };
   const form = new FormData();
   form.append('data', JSON.stringify(data));

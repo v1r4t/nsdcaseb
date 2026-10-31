@@ -21,7 +21,13 @@ export default function HashScroll() {
     let cancelled = false;
     const scroll = () => {
       if (cancelled) return;
-      document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.scrollIntoView({ block: 'start' });
+      // Move keyboard/AT focus with the viewport so the next Tab starts from
+      // the destination rather than the page header.
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
     };
 
     // Immediate pass after the route paints, then a few short retries for

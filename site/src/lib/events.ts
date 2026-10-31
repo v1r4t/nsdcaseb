@@ -31,6 +31,8 @@ export interface EventSummary {
   capacity: number | null;
   spots_left: number | null;
   registration_open: boolean;
+  /** Optional physical location; absent or null means none published. */
+  venue?: string | null;
   poster_url: string | null;
   /**
    * Present for posters uploaded after the variant pipeline shipped. Older
@@ -174,6 +176,130 @@ export function fromEventLocalInput(value: string): string | null {
   );
   if (Number.isNaN(d.getTime()) || toEventLocalInput(d.toISOString()) !== value) return null;
   return d.toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Add to calendar (.ics)
+//
+// Generated entirely in the browser from data the API already returns — no
+// dependency and no server round-trip. Times are UTC instants, so DTSTART and
+// DTEND are written in UTC (`Z`) and calendar apps localise them themselves.
+// ---------------------------------------------------------------------------
+
+/** The subset of an event needed to build a calendar entry. */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string | null;
+  starts_at: string;
+  ends_at: string;
+  venue?: string | null;
+}
+
+/** False when the event has unparseable or non-increasing start/end times. */
+export function eventCalendarReady(event: Pick<CalendarEvent, 'starts_at' | 'ends_at'>): boolean {
+  const starts = toValidDate(event.starts_at);
+  const ends = toValidDate(event.ends_at);
+  return !!starts && !!ends && ends.getTime() > starts.getTime();
+}
+
+/** RFC 5545 TEXT escaping: backslash, newlines, semicolons and commas. */
+function escapeIcsText(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r\n|\r|\n/g, '\\n')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,');
+}
+
+/** `2026-03-26T18:00:00.000Z` -> `20260326T180000Z`. */
+function toIcsUtc(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+/** Fold at 75 UTF-8 octets, continuing lines with a single leading space. */
+function foldIcsLine(line: string): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
+  const folded: string[] = [];
+  let current = '';
+  let bytes = 0;
+  for (const char of line) {
+    const size = encoder.encode(char).length;
+    // The first line has 75 octets; continuations spend one on the space.
+    const limit = folded.length === 0 ? 75 : 74;
+    if (bytes + size > limit) {
+      folded.push(current);
+      current = ' ';
+      bytes = 1;
+    }
+    current += char;
+    bytes += size;
+  }
+  folded.push(current);
+  return folded.join('\r\n');
+}
+
+/** `hack-night-2026-03-26.ics`; safe across filesystems. */
+function icsFilename(title: string, startsAt: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  const day = /^\d{4}-\d{2}-\d{2}/.test(startsAt) ? startsAt.slice(0, 10) : 'event';
+  return `${slug || 'event'}-${day}.ics`;
+}
+
+/**
+ * Build a single-event VCALENDAR document, or null when the event's times
+ * cannot produce a valid VEVENT. Includes title, start/end, venue (as
+ * LOCATION) and description.
+ */
+export function buildEventIcs(event: CalendarEvent, now: Date = new Date()): string | null {
+  const starts = toValidDate(event.starts_at);
+  const ends = toValidDate(event.ends_at);
+  if (!starts || !ends || ends.getTime() <= starts.getTime() || Number.isNaN(now.getTime())) {
+    return null;
+  }
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//NSDC//Events//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${event.id}@nsdc`,
+    `DTSTAMP:${toIcsUtc(now)}`,
+    `DTSTART:${toIcsUtc(starts)}`,
+    `DTEND:${toIcsUtc(ends)}`,
+    `SUMMARY:${escapeIcsText(event.title)}`,
+  ];
+  if (event.description) lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);
+  if (event.venue) lines.push(`LOCATION:${escapeIcsText(event.venue)}`);
+  lines.push('END:VEVENT', 'END:VCALENDAR');
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
+}
+
+/**
+ * Trigger a client-side download. Returns false (and does nothing) when the
+ * event cannot be represented or the environment has no Blob URL support.
+ */
+export function downloadEventIcs(event: CalendarEvent): boolean {
+  const content = buildEventIcs(event);
+  if (!content) return false;
+  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') return false;
+  const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = icsFilename(event.title, event.starts_at);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Give the click a tick to start before releasing the object URL.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  return true;
 }
 
 /** Every failure surfaces as an ApiError, so callers can branch on `.error`. */

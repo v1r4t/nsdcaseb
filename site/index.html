@@ -11,6 +11,7 @@
     <link rel="icon" type="image/png" href="/brand/favicon-512.png" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
     <link rel="canonical" href="https://nsdcaseb.xyz/" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
     <!-- Self-hosted kit fonts (public/fonts/). Preload the display and body faces. -->
     <link
       rel="preload"
@@ -28,6 +29,7 @@
     />
     <!-- Default social card. Per-route pages may override title/description client-side. -->
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:site_name" content="NSDC — National Student Data Corps" />
     <meta property="og:title" content="NSDC — National Student Data Corps" />
     <meta
@@ -36,6 +38,7 @@
     />
     <meta property="og:url" content="https://nsdcaseb.xyz/" />
     <meta property="og:image" content="https://nsdcaseb.xyz/og-default.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
@@ -52,15 +55,42 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "National Student Data Corps",
-        "alternateName": "NSDC",
-        "url": "https://nsdcaseb.xyz/",
-        "logo": "https://nsdcaseb.xyz/nsdc_logo.png",
-        "description": "A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru.",
-        "sameAs": [
-          "https://www.instagram.com/nsdc_avvb/",
-          "https://www.linkedin.com/company/nsdc-avv-b"
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://nsdcaseb.xyz/#organization",
+            "name": "National Student Data Corps",
+            "alternateName": "NSDC",
+            "url": "https://nsdcaseb.xyz/",
+            "logo": {
+              "@type": "ImageObject",
+              "@id": "https://nsdcaseb.xyz/#logo",
+              "url": "https://nsdcaseb.xyz/nsdc_logo.png"
+            },
+            "description": "A student technology community at Amrita Vishwa Vidyapeetham, Bengaluru.",
+            "email": "nsdcaseb@gmail.com",
+            "foundingDate": "2024-08-01",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Bengaluru",
+              "addressRegion": "Karnataka",
+              "addressCountry": "IN"
+            },
+            "sameAs": [
+              "https://www.instagram.com/nsdc_avvb/",
+              "https://www.linkedin.com/company/nsdc-avv-b"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://nsdcaseb.xyz/#website",
+            "url": "https://nsdcaseb.xyz/",
+            "name": "NSDC — National Student Data Corps",
+            "alternateName": "NSDC",
+            "description": "What happens when students stop waiting for the future and start building it? NSDC at Amrita Bengaluru — events, projects and research in the open.",
+            "inLanguage": "en-IN",
+            "publisher": { "@id": "https://nsdcaseb.xyz/#organization" }
+          }
         ]
       }
     </script>

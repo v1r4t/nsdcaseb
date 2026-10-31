@@ -52,6 +52,7 @@ function EventRow({ event }: { event: EventSummary }) {
             {event.title}
           </h3>
           {range && <p className="mono mt-1 text-quiet">{range}</p>}
+          {event.venue && <p className="mono mt-1 break-words text-faint">{event.venue}</p>}
         </div>
         <div className="relative col-start-2 row-start-1 flex shrink-0 flex-col items-end gap-2 justify-self-end sm:col-start-3 sm:row-start-1">
           <StatusDot event={event} />
@@ -91,6 +92,7 @@ function FeaturedNext({ event }: { event: EventSummary }) {
           <p className="mono text-faint">
             {formatEventDate(event.starts_at)}
             {range ? ` / ${range}` : ''}
+            {event.venue ? ` / ${event.venue}` : ''}
           </p>
           <h2 className="statement-sm mt-3 text-ink">{event.title}</h2>
           <Link

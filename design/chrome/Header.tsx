@@ -166,7 +166,7 @@ export function Header({
         <RouteWipe trigger={pathname} />
 
         <div className="wrap flex h-16 items-center justify-between gap-3 border-b hairline md:h-[88px] md:gap-6">
-          <LinkComponent href={home} className="flex min-h-11 items-center gap-3" aria-label={`${name} home`}>
+          <LinkComponent href={home} className="flex min-h-11 min-w-11 items-center gap-3" aria-label={`${name} home`}>
             <Logo className="h-[30px]" />
             <span className="mono hidden text-[12px] tracking-[0.18em] text-ink sm:inline">
               {name}

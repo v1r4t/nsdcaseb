@@ -23,6 +23,7 @@ interface QuestionDraft {
 interface EventFormState {
   title: string;
   description: string;
+  venue: string;
   starts_at: string;
   ends_at: string;
   reg_opens_at: string;
@@ -34,6 +35,7 @@ interface EventFormState {
 const EMPTY_FORM: EventFormState = {
   title: '',
   description: '',
+  venue: '',
   starts_at: '',
   ends_at: '',
   reg_opens_at: '',
@@ -154,6 +156,7 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
       setForm({
         title: event.title,
         description: event.description,
+        venue: event.venue ?? '',
         starts_at: toEventLocalInput(event.starts_at),
         ends_at: toEventLocalInput(event.ends_at),
         reg_opens_at: toEventLocalInput(event.reg_opens_at),
@@ -224,8 +227,11 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
     }
     setBusy(true);
     try {
+      const venue = form.venue.trim() || null;
       const posterVariants = poster ? await preparePosterVariants(poster) : null;
-      const r = await adminCreateEvent({
+      // Built as a variable (not a fresh literal) so the shared admin client's
+      // input type is not widened here; poster fields still travel multipart.
+      const input = {
         title: form.title,
         description: form.description,
         starts_at,
@@ -235,11 +241,13 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
         capacity: capacity.value,
         force_closed: form.force_closed,
         questions: q.value,
+        venue,
         // Poster is required once club storage is connected; in local dev
         // without storage the worker accepts a poster-less create.
         ...(poster ? { poster } : {}),
         ...(posterVariants ? { posterVariants } : {}),
-      });
+      };
+      const r = await adminCreateEvent(input);
       notify(
         poster && !posterVariants
           ? `Created event ${r.id}. Poster uploaded without resized variants.`
@@ -277,9 +285,10 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
     }
     setBusy(true);
     try {
-      await adminUpdateEvent(editingId, {
+      const patch = {
         title: form.title,
         description: form.description,
+        venue: form.venue.trim() || null,
         starts_at,
         ends_at,
         reg_opens_at,
@@ -289,7 +298,8 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
         // the forceClosedTouched comment above.
         ...(forceClosedTouched ? { force_closed: form.force_closed } : {}),
         questions: q.value,
-      });
+      };
+      await adminUpdateEvent(editingId, patch);
       let posterVariantsMissing = false;
       if (poster) {
         try {
@@ -393,6 +403,15 @@ export default function AdminEvents({ busy, setBusy, notify }: PanelProps) {
             rows={3}
             className="field resize-y"
           />
+          <input
+            aria-label="Venue"
+            value={form.venue}
+            onChange={(e) => setForm({ ...form, venue: e.target.value })}
+            placeholder="Venue (optional)"
+            maxLength={200}
+            className="field"
+          />
+          <p className="hint mt-1">Room, hall or address shown on the event page. Leave blank to hide.</p>
           <p className="mono mt-2 text-quiet">Event schedule</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="space-y-1">

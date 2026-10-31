@@ -6,6 +6,14 @@ resources were created and the site worker deployed to workers.dev on
 2026-10-25 — see §0.5. Apex/`www` are **still on the teaser**; the domain flip
 has not run. Numbers for the "before" state live in `docs/baseline.md`.
 
+The site being cut over is the **ink-on-paper** build on
+`preview.nsdcaseb.xyz` (paper `#F2EEE3`, ink `#111110`, seal `#B33C1B`).
+`docs/baseline.md` (2026-10-31) is the visual and performance reference;
+post-cutover acceptance compares production to **that preview**, not to the
+older dark editorial design. Deployment is human-run: CI has a manual-only
+`deploy-staging` job and no production path (`docs/runbook.md` → Deploy,
+Backups, Monitoring).
+
 ### 0.5 Production resources created 2026-10-25 (pre-flip)
 
 | Resource | Value |
@@ -19,8 +27,9 @@ has not run. Numbers for the "before" state live in `docs/baseline.md`.
 | Content | 4 events, 6 projects, real copy; `[SAMPLE]` album deleted; 0 users |
 | Verified on workers.dev | `/` + `/recruit` 200 with CSP/HSTS; `/nope` + `/admin` 404; sitemap XML; notify 405/400; poster upload + variants 200 |
 
-Remaining before flip: apply `0020_email_kind.sql` to `nsdc-auth-prod`
-**before** deploying the site worker (§2.1), set `RESEND_API_KEY`, bootstrap the
+Remaining before flip: apply `0020_email_kind.sql` **and**
+`0021_event_venue.sql` to `nsdc-auth-prod` **before** deploying the site worker
+(§2.1), set `RESEND_API_KEY`, bootstrap the
 first `ob` account (register with the admin code, then verify), confirm
 `recruitment_open`, take a D1 export, and obtain the final explicit go for the
 domain move.
@@ -52,11 +61,12 @@ D1, and the apex/`www` custom domains.
 | Surface | Worker | Config | Content |
 | --- | --- | --- | --- |
 | `nsdcaseb.xyz`, `www.nsdcaseb.xyz` | **`nsdcaseb`** (teaser) | `wrangler.jsonc`, `worker/index.ts`, `dist/` | coming-soon + `/api/notify` |
-| `preview.nsdcaseb.xyz` | **`nsdcaseb-staging`** | `wrangler.staging.jsonc`, `worker/staging.ts`, `dist-site/` | full site |
-| intended production | **`nsdcaseb-site`** | `wrangler.production.jsonc` (does not exist yet) | full site |
+| `preview.nsdcaseb.xyz` | **`nsdcaseb-staging`** | `wrangler.staging.jsonc`, `worker/staging.ts`, `dist-site/` | full ink-on-paper site |
+| production site | **`nsdcaseb-site`** | `wrangler.production.jsonc` | full site, deployed to workers.dev only; apex not attached |
 
-`npx wrangler deployments list --name nsdcaseb-site` → **"This Worker does not
-exist on your account."** There is no production site worker today.
+`wrangler.production.jsonc` is committed and points at `nsdc-auth-prod` and the
+production `RATELIMIT_KV` (§0.5). `nsdcaseb-site` exists on the account and is
+deployed on workers.dev; `nsdcaseb.xyz`/`www` still resolve to the teaser.
 
 Current live versions (for rollback reference):
 
@@ -81,11 +91,12 @@ NS = `brodie.ns.cloudflare.com`, `nena.ns.cloudflare.com`).
 | Resource | Exists | Name / ID | Used by |
 | --- | --- | --- | --- |
 | D1 | yes | `nsdc-auth` = `2c866704-7c1f-4556-b1b7-6bd9fc3d8709` | staging only |
-| D1 | **no** | production DB (suggest `nsdc-auth-prod`) | — |
-| KV | yes | `NOTIFY_KV` = `9b54a4a0c174444e8b64cb7a2a590d47` | teaser + staging (shared) |
+| D1 | yes | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` | `nsdcaseb-site` (production) |
+| KV | yes | `NOTIFY_KV` = `9b54a4a0c174444e8b64cb7a2a590d47` | teaser + staging + production (shared) |
 | KV | yes | `nsdc-ratelimit` = `5535eca24d924115ad24c5b3d22af89f` | staging (`RATELIMIT_KV`) |
-| KV | **no** | production `RATELIMIT_KV` | — |
+| KV | yes | production `RATELIMIT_KV` = `bb4737aa246446258181b22f666ff8e3` | production only |
 | Secrets (staging) | yes | `ADMIN_ENTRY_CODE`, `RESEND_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | — |
+| Secrets (production) | 3 of 4 | `ADMIN_ENTRY_CODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; **`RESEND_API_KEY` missing** | — |
 | Secrets (teaser) | none | `[]` (teaser needs none) | — |
 
 ### 0.3 Apex today is asset-served, not worker-served
@@ -119,9 +130,9 @@ only once `nsdcaseb-site` owns the domain.
 
 ## 1. What is different between the configs
 
-| Binding / setting | Teaser (`wrangler.jsonc`) | Production site (needed) |
+| Binding / setting | Teaser (`wrangler.jsonc`) | Production site (committed) |
 | --- | --- | --- |
-| `name` | `nsdcaseb` | `nsdcaseb-site` (**new**) |
+| `name` | `nsdcaseb` | `nsdcaseb-site` |
 | `main` | `worker/index.ts` | `worker/staging.ts` |
 | `assets.directory` | `./dist` | `./dist-site` |
 | `assets.binding` | `ASSETS` | `ASSETS` |
@@ -134,54 +145,26 @@ only once `nsdcaseb-site` owns the domain.
 | `vars.MAIL_FROM` | — | `NSDC <noreply@mail.nsdcaseb.xyz>` |
 | Worker secrets | none | `ADMIN_ENTRY_CODE`, `RESEND_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 
-### 1.1 Required file: `wrangler.production.jsonc` (absent today)
+### 1.1 `wrangler.production.jsonc` (exists; created 2026-10-25)
 
-This is **blocker #1**. Create exactly this file (it is deliberately separate
-from both existing configs; do not repoint `wrangler.jsonc` at `dist-site`, and
-do not deploy production over `nsdcaseb-staging`):
+The file is committed and deliberately separate from the other two configs: do
+not repoint `wrangler.jsonc` at `dist-site`, and do not deploy production over
+`nsdcaseb-staging`. Shape:
 
-```jsonc
-{
-  "name": "nsdcaseb-site",
-  "compatibility_date": "2026-09-30",
-  "main": "worker/staging.ts",
-  "workers_dev": true,
-  "assets": {
-    "directory": "./dist-site",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/*"]
-  },
-  "d1_databases": [
-    {
-      "binding": "AUTH_DB",
-      "database_name": "nsdc-auth-prod",
-      "database_id": "<D1_ID_FROM_STEP_2.1>",
-      "migrations_dir": "worker/db/migrations"
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "RATELIMIT_KV",
-      "id": "<KV_ID_FROM_STEP_2.2>"
-    },
-    {
-      "binding": "NOTIFY_KV",
-      "id": "9b54a4a0c174444e8b64cb7a2a590d47"
-    }
-  ],
-  "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
-  "vars": {
-    "MAIL_FROM": "NSDC <noreply@mail.nsdcaseb.xyz>"
-  }
-}
-```
+- `name: nsdcaseb-site`, `main: worker/staging.ts`,
+  `compatibility_date: 2026-09-30`
+- `assets.directory: ./dist-site`, `binding: ASSETS`,
+  `not_found_handling: single-page-application`,
+  `run_worker_first: ["/*"]`
+- D1 `AUTH_DB` → `nsdc-auth-prod` (`1cf53797-43f7-4516-966d-47c09a9d870a`)
+- `RATELIMIT_KV` → `bb4737aa246446258181b22f666ff8e3`
+- `NOTIFY_KV` → shared teaser namespace `9b54a4a0c174444e8b64cb7a2a590d47`
+- `triggers.crons: ["*/15 * * * *"]`, `vars.MAIL_FROM`,
+  `workers_dev: true`, `preview_urls: false`
 
 Notes:
 
-- No `routes`/`custom_domains` in phase 1. Domains are moved in §3 only after the
+- No `routes`/`custom_domains` yet. Domains are moved in §3 only after the
   worker is verified on `https://nsdcaseb-site.dhruvav0308.workers.dev`.
 - `worker/staging.ts` is only named that — it is the full-site router; its
   `[staging]` log prefix is cosmetic.
@@ -189,8 +172,9 @@ Notes:
 - `package.json` has **no** `deploy`, `deploy:prod`, or `migrate:prod` script
   (only `deploy:staging` / `migrate:staging`). All production commands below are
   explicit `npx wrangler … -c wrangler.production.jsonc`.
-- Never let CI's `deploy-staging` job touch the apex; it only deploys
-  `wrangler.staging.jsonc` on manual `workflow_dispatch`.
+- CI's `deploy-staging` job runs only on manual `workflow_dispatch` (with
+  `deploy_staging: true`) and only deploys `wrangler.staging.jsonc`. No CI job
+  can deploy production; this cutover is human-run.
 
 ---
 
@@ -209,6 +193,7 @@ npm run typecheck:site
 npm run build          # teaser -> dist/
 npm run build:site     # site   -> dist-site/
 npm test               # vitest
+npm audit --omit=dev --audit-level=high   # production deps must be clean
 ```
 
 Local e2e (the Playwright config has **no** `webServer`; it expects a worker on
@@ -229,8 +214,8 @@ npx wrangler dev -c wrangler.staging.jsonc --port 8787 --var E2E_DISABLE_RATE_LI
 npx playwright test -c e2e/playwright.config.ts
 ```
 
-CI `quality` + `e2e` must be green on the branch. `E2E_DISABLE_RATE_LIMIT` is
-test-only and must never appear in staging/production vars.
+CI `quality` + `audit` + `e2e` must be green on the branch. `E2E_DISABLE_RATE_LIMIT`
+is test-only and must never appear in staging/production vars.
 
 ### 2.1 Production D1
 
@@ -239,7 +224,7 @@ npx wrangler d1 create nsdc-auth-prod
 ```
 
 Paste the returned `database_id` into `wrangler.production.jsonc` (§1.1). Then
-apply **all** migrations `0001`–`0020` in order:
+apply **all** migrations `0001`-`0021` in order:
 
 ```bash
 npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
@@ -253,7 +238,7 @@ migration to `nsdc-auth-prod` **before** deploying the production site worker:
 ```bash
 npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
 npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.jsonc
-# expect: 0020_email_kind.sql listed as applied, then "No migrations to apply!"
+# expect: 0020_email_kind.sql and 0021_event_venue.sql listed as applied, then "No migrations to apply!"
 ```
 
 Order is not optional: `0020_email_kind.sql` adds `email_outbox.kind`, and the
@@ -263,9 +248,10 @@ schema. The teaser worker has no `AUTH_DB` binding and is unaffected.
 
 Migration facts (corrected):
 
-- `0018_bearer_links.sql`, `0019_recruitment.sql`, and
-  `0020_email_kind.sql` are the three newest. `0020_email_kind.sql` is the
-  newest additive migration: it adds `email_outbox.kind` (default `other`),
+- `0019_recruitment.sql`, `0020_email_kind.sql`, and
+  `0021_event_venue.sql` are the three newest. `0021_event_venue.sql` adds
+  `events.venue` (nullable); apply it before the worker that reads/writes it.
+  `0020_email_kind.sql` adds `email_outbox.kind` (default `other`),
   backfills history by subject, and deletes only **pending**
   confirmation/reminder rows. The earlier pair are additive too (`ALTER TABLE …
   ADD COLUMN … DEFAULT` / `CREATE TABLE` + indexes); none has a destructive
@@ -425,15 +411,27 @@ before cutover; links issued after cutover use the apex.
 
 ### 2.8 Backups before any production write
 
+Take a D1 export **and** a Storage manifest (rows reference poster/gallery
+objects). The repo script wraps both:
+
 ```bash
-npx wrangler d1 export nsdc-auth-prod --remote -c wrangler.production.jsonc \
-  --output=./tmp-d1-prod-initial.sql
-# tmp-* is gitignored; never commit a dump
+# D1 dump + Supabase Storage manifest (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
+# must be in the shell for the manifest; `--supabase` makes that mandatory).
+node scripts/backup-d1.mjs --env production --label pre-cutover
+
+# Output: tmp-d1-backups/nsdc-auth-prod-production-<stamp>-pre-cutover.sql
+#         tmp-d1-backups/…-pre-cutover.storage-manifest.json
+# tmp-* is gitignored; never commit a dump.
 ```
 
-Take a second export immediately before the flip (§3). Cloudflare D1 also keeps
-Time Travel bookmarks; confirm the retention window in the dashboard before
-relying on it for restore.
+`scripts/backup-d1.mjs` prints the file size and SHA-256 and keeps the newest
+10 dumps. This is the same routine CI uses before staging deploys. Take a
+second export immediately before the flip (§3) and copy at least one snapshot
+off the workstation. Cloudflare D1 also keeps 30 days of Time Travel
+bookmarks; confirm the window in the dashboard before relying on it.
+
+For byte-level Storage backup and a restore drill, see `docs/runbook.md` →
+“Backups (D1 + Supabase Storage)”.
 
 ### 2.9 Resolved pre-flight items (keep as regression checks)
 
@@ -459,21 +457,28 @@ relying on it for restore.
 
 ### 2.10 Pre-flight blocker checklist
 
-- [ ] `wrangler.production.jsonc` created (§1.1) — **file does not exist**
-- [ ] production D1 `nsdc-auth-prod` created, id pasted, migrations `0001`–`0020`
-      applied (existing DB: `0020` before the worker deploy), content verified
-- [ ] production `RATELIMIT_KV` created and id pasted — **no production KV exists**
-- [ ] `npx wrangler deploy --dry-run` passes
-- [ ] `nsdcaseb-site` deployed to workers.dev — **worker does not exist**
-- [ ] four secrets set on `nsdcaseb-site` (names only); `secret list` shows four
+State as of 2026-10-31; verify each before flipping, even the checked ones.
+
+- [x] `wrangler.production.jsonc` exists (§1.1), ids filled in
+- [x] production D1 `nsdc-auth-prod` created (`1cf53797-…`); migrations
+      `0001`–`0019` applied — **`0020` still required before the site-worker
+      deploy**, content verified
+- [x] production `RATELIMIT_KV` created (`bb4737aa…`) and bound
+- [x] `nsdcaseb-site` deployed on workers.dev (2026-10-25)
+- [ ] `npx wrangler deploy -c wrangler.production.jsonc --dry-run` passes on
+      the current commit
+- [ ] four secrets set on `nsdcaseb-site` (names only); `secret list` shows
+      four — currently **3 of 4** (`RESEND_API_KEY` missing)
 - [ ] `MAIL_FROM` var + Resend domain verified by a real send
-- [ ] `triggers.crons` present; `E2E_DISABLE_RATE_LIMIT` absent
+- [ ] `triggers.crons` present (`*/15 * * * *`); `E2E_DISABLE_RATE_LIMIT` absent
 - [ ] first `ob` account bootstrapped and email verified
 - [ ] `recruitment_open` set intentionally (`0008` defaults to `'1'`)
 - [ ] `[SAMPLE]` media album deleted
 - [ ] `www` canonical/redirect decision made
-- [ ] fresh D1 export taken
-- [ ] CI `quality` + `e2e` green on the exact commit
+- [ ] fresh D1 export **and** Storage manifest taken (§2.8)
+- [ ] CI `quality`, `audit` + `e2e` green on the exact commit
+- [ ] production build matches the ink-on-paper preview (`docs/baseline.md`,
+      2026-10-31), not an older dark-theme build
 
 ---
 
@@ -563,6 +568,13 @@ All of these are **post-flip** expectations. `curl.exe` on PowerShell, bare
 minutes. Every command is read-only except the two marked **[writes]** (notify
 and registration); use data you intend to keep.
 
+The reusable version of this list — automated CI smoke, ink-on-paper visual
+checks, admin/email/cron checks and the monitoring follow-up — lives in
+`docs/runbook.md` → “Post-deploy smoke checklist”. §4 below is the
+cutover-specific delta; in particular, the visual acceptance target is the
+**ink-on-paper** preview (`docs/baseline.md`, 2026-10-31), not the old dark
+editorial design.
+
 ### 4.1 Shell, headers, routing
 
 ```bash
@@ -578,10 +590,14 @@ curl -sSI "$BASE/" | tr -d '\r' | grep -iE \
 # referrer-policy: strict-origin-when-cross-origin
 
 for p in / /login /register /verify-pending /reset-password /registrations \
-         /recruit /archive /projects /media; do
+         /recruit /archive /projects; do
   printf '%-18s %s\n' "$p" "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE$p")"
 done
 # every line 200
+
+# /media is retired: it 301s to /archive (verify the Location too).
+curl -sS -D - -o /dev/null "$BASE/media" | grep -iE '^(HTTP/|location:)'
+# HTTP/1.1 301 Moved Permanently; location: https://nsdcaseb.xyz/archive
 
 for p in /nope /admin; do
   printf '%-18s %s\n' "$p" "$(curl -sS -o /dev/null -w '%{http_code}' "$BASE$p")"
@@ -595,16 +611,17 @@ default metadata; the client renders its own 404. Do not assert 404 there.
 ### 4.2 Canonical / OG / sitemap
 
 ```bash
-for p in /registrations /recruit /projects /media /archive; do
+for p in /registrations /recruit /projects /archive; do
   echo "$p"
   curl -sS "$BASE$p" | grep -oE '(rel="canonical" href="[^"]*"|property="og:url" content="[^"]*")'
 done
 # every value is https://nsdcaseb.xyz/<path>; zero "preview." strings
+# (/media is a 301 to /archive and has no canonical of its own)
 
-curl -sS "$BASE/sitemap.xml" | grep -c '<loc>https://nsdcaseb.xyz'   # >= 6
+curl -sS "$BASE/sitemap.xml" | grep -c '<loc>https://nsdcaseb.xyz'   # >= 5
 curl -sS "$BASE/sitemap.xml" | grep -c 'preview.nsdcaseb.xyz' || true  # 0 (grep exits 1 on no match)
-curl -sSI "$BASE/sitemap.xml" | grep -i '^content-type:'             # application/xml
-curl -sSI "$BASE/robots.txt"  | grep -iE '^(HTTP/|content-type:)'    # 200, text/plain
+curl -sS -D - -o /dev/null "$BASE/sitemap.xml" | grep -i '^content-type:'  # application/xml
+curl -sS -D - -o /dev/null "$BASE/robots.txt"  | grep -iE '^(HTTP/|content-type:)'  # 200, text/plain
 ```
 
 Event page (use a real id):
@@ -811,13 +828,17 @@ There is **no** `npm run deploy` script (corrected); `wrangler deploy` without
 - If a bad write is suspected, export first and restore into a **new** DB:
 
   ```bash
-  npx wrangler d1 export nsdc-auth-prod --remote -c wrangler.production.jsonc \
-    --output=./tmp-d1-incident.sql
+  node scripts/backup-d1.mjs --env production --label incident
+  # → tmp-d1-backups/nsdc-auth-prod-production-<stamp>-incident.sql
   ```
 
-  Point `database_id` at the restored DB and redeploy only after verification.
-- Media (`event-posters`) is in Supabase Storage and is unaffected by worker
-  rollback.
+  Import it into a new D1, verify row counts (users, events, registrations,
+  applications, outbox) and spot-check the admin console, then point
+  `database_id` at the restored DB and redeploy only after verification.
+  Full drill: `docs/runbook.md` → “Backups (D1 + Supabase Storage)”.
+- Media (`event-posters`, including `gallery/…`, and `email-assets`) is in
+  Supabase Storage and is unaffected by worker rollback. Rows reference those
+  objects, so keep the Storage manifest from §2.8 with the D1 dump.
 
 ### 5.5 After any rollback
 
@@ -838,9 +859,14 @@ npx -y lighthouse@latest https://nsdcaseb.xyz/registrations --preset=desktop \
 # repeat for /, /recruit, /archive, /projects/<id>
 ```
 
-Acceptance vs the staging table appended to `docs/baseline.md` (2026-10-25):
+Acceptance vs the staging table in `docs/baseline.md` (2026-10-31, ink-on-paper):
 
 - No route regresses below staging; mobile `/registrations` CLS < 0.1.
+- **Visual parity with `preview.nsdcaseb.xyz`:** paper `#F2EEE3` ground, ink
+  `#111110` type, kit header/footer, seal accent ≈10% of a viewport, no
+  cream-on-cream admin tables, text-only StoryStages 01/02/03 with no globe or
+  canvas, and reduced motion serving a static stack. A production page that looks like
+  the old dark editorial site means the wrong build shipped — stop and redeploy.
 - **SEO should rise to 1.00 on every route.** Staging's 0.92 came from the
   shell's hardcoded `preview.` canonical, which `worker/meta.ts` now rewrites. A
   0.92 on production means meta injection did not ship (or the canonical/sitemap
@@ -857,12 +883,17 @@ BASE_URL=https://nsdcaseb.xyz npx playwright test -c e2e/playwright.config.ts ht
 Axe specs navigate + scan (read-only); zero critical/serious required. The
 `http-status` sweep now asserts `/nope` and `/admin` are 404 on production.
 
-Ongoing:
+### 6.1 Monitoring after the flip
+
+Canonical guidance: `docs/runbook.md` → “Monitoring and alerting”. Cutover
+delta:
 
 - Uptime: `GET /api/admin/_ping` (expect `403` unauthenticated, `200` with an
-  `ob` cookie; it is not a public `/health`).
+  `ob` cookie; it is not a public `/health`) plus `GET /` and `/api/events`
+  from an external monitor. Watch the first hour closely, then normal cadence.
 - Email outbox depth (Admin → Email) for two cron cycles; failed rows retry.
-- D1 exports/backup schedule; confirm the Time Travel window in the dashboard.
+- D1: daily `node scripts/backup-d1.mjs --env production`; confirm the Time
+  Travel window (30 days) in the dashboard.
 - Cloudflare analytics: 5xx and `/api/*` errors over the first hour.
 - Delete the `[SAMPLE]` media album if not already done.
 - Optional cleanup: after cutover is stable, set `workers_dev: false` in
@@ -870,6 +901,27 @@ Ongoing:
   indexable at `nsdcaseb-site.dhruvav0308.workers.dev` (its `robots.txt` allows
   crawling and its sitemap advertises that origin). This does not affect the
   custom domains or rollback.
+
+## 7. Alerting and error budget
+
+Define the launch bar before the flip, not after an incident:
+
+| SLI | Definition | SLO |
+| --- | --- | --- |
+| Availability | Non-5xx share of `/` + `/api/*` requests | 99.5% / 30 days |
+| Registration | `POST /api/events/:id/register` never 5xx | 99.5% / 30 days |
+| Email sweep | Oldest pending outbox row drained within 30 min of a cron tick | 99% of days |
+
+99.5% is an error budget of **~3 h 36 min per month**. Page on: 5xx >1% for
+5 min, two consecutive uptime failures, any Worker exception burst, or a
+stalled outbox >30 min. Below 50% budget, freeze risky changes; at zero, ship
+only fixes/rollbacks until a clean 7-day window. Full thresholds and the
+monthly review are in the runbook.
+
+Dependency posture at cutover: `npm audit --omit=dev --audit-level=high` must
+be clean (CI gate). Dev-only advisories in Vite/PostCSS tooling do not block
+the cutover because they never ship in the worker or `dist-site`; triage rule
+and cadence are in `docs/runbook.md` → “Dependency audits”.
 
 ---
 
@@ -885,9 +937,10 @@ Ongoing:
   `SUPABASE_SERVICE_ROLE_KEY` (the old doc said the pair was absent and then
   contradicted itself). Production now lists all four as required, and notes the
   CSP dependency on `SUPABASE_URL`.
-- Production resources did not exist at audit time: no `nsdc-auth-prod` D1, no
-  production `RATELIMIT_KV`, no `nsdcaseb-site` worker. The old "recommended
-  shape" is now a required, copy-paste config.
+- Production resources did not exist at the 2026-10-25 *audit*: no
+  `nsdc-auth-prod` D1, no production `RATELIMIT_KV`, no `nsdcaseb-site` worker.
+  They were created later that day (§0.5); the "recommended shape" is now the
+  committed `wrangler.production.jsonc`.
 - `0006_content_demo.sql` is demo copy replaced by `0009`; not "real content".
   `0004` seeds a `[SAMPLE]` album; `0008` defaults `recruitment_open` to `'1'`.
 - `/api/admin/_ping` requires an `ob` session (403 unauthenticated), not a public

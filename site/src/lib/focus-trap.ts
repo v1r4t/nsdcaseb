@@ -28,6 +28,12 @@ export function useFocusTrap(
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const current = document.activeElement;
+      // If focus escaped (or never entered) the dialog, recover it first.
+      if (!panel.contains(current)) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
       // Wrap at both ends so the page behind the overlay stays unreachable.
       if (event.shiftKey && (current === first || current === panel)) {
         event.preventDefault();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import IndexStage from './IndexStage';
@@ -107,6 +107,23 @@ function frameTitle(frame: Frame): string {
   return `${album.title} — frame ${pad(frame.frame)}`;
 }
 
+export interface LandingArchiveProps {
+  /**
+   * Shared landing snapshot. Omit to let the component fetch its own albums;
+   * the landing page passes its single media read through to NOW and ARCHIVE.
+   */
+  albums?: MediaAlbum[] | null;
+  /** Error copy for the shared snapshot. Ignored when `albums` is omitted. */
+  error?: string | null;
+}
+
+/** The honest error line for a failed gallery read, shared with Landing. */
+export function archiveErrorMessage(err: unknown): string {
+  return err instanceof ApiError && err.error === 'network_error'
+    ? 'Could not reach the server. Check your connection and try again.'
+    : 'Could not load the gallery. Please try again.';
+}
+
 /**
  * ARCHIVE — landing index + stage.
  *
@@ -114,29 +131,38 @@ function frameTitle(frame: Frame): string {
  * its stored 640w / 1600w WebP variants) or the real video embed, the caption
  * under a hairline, and the link into the full archive. Nothing is invented:
  * no poster for a video that has none, no derivative URLs that would 404.
+ *
+ * Data: `albums`/`error` are optional so the strip still works on its own, but
+ * the landing page supplies the snapshot it already fetched for NOW.
  */
-export default function LandingArchive() {
-  const [frames, setFrames] = useState<Frame[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function LandingArchive({
+  albums: sharedAlbums,
+  error: sharedError,
+}: LandingArchiveProps = {}) {
+  const controlled = sharedAlbums !== undefined;
+  const [ownAlbums, setOwnAlbums] = useState<MediaAlbum[] | null>(null);
+  const [ownError, setOwnError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (controlled) return;
     let alive = true;
     listMedia()
       .then((res) => {
-        if (alive) setFrames(pickFrames(res.albums));
+        if (alive) setOwnAlbums(res.albums);
       })
       .catch((err: unknown) => {
-        if (!alive) return;
-        setError(
-          err instanceof ApiError && err.error === 'network_error'
-            ? 'Could not reach the server. Check your connection and try again.'
-            : 'Could not load the gallery. Please try again.',
-        );
+        if (alive) setOwnError(archiveErrorMessage(err));
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [controlled]);
+
+  const albums = controlled ? (sharedAlbums ?? null) : ownAlbums;
+  const error = controlled ? (sharedError ?? null) : ownError;
+
+  // One derived contact sheet per snapshot; no state to keep in sync.
+  const frames = useMemo(() => (albums === null ? null : pickFrames(albums)), [albums]);
 
   if (error) {
     return (
