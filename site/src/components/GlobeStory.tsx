@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
 
 /**
  * GlobeStory — the entry point for the landing globe.
@@ -8,17 +9,22 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
  * an IntersectionObserver says the section is ~200px away, and `React.lazy`
  * does not call the import factory before that.
  *
- * `PaperStory` is the paper-compatible section used in three cases:
+ * `PaperStory` is the paper-compatible section used in four cases:
  *   - while the chunk loads (one stage, no frame — the live globe is also
  *     invisible at progress 0, so nothing flashes),
  *   - permanently under `prefers-reduced-motion` (all three stages, static),
+ *   - permanently below 768px (phones get the paper dossier and the still
+ *     globe; the `three` chunk is never requested, nor is an observer wired),
  *   - as the WebGL failure fallback handed to `GlobeNarrative` (all three).
- * It matches the live section's 170vh geometry so nothing shifts on swap.
+ * On desktop it matches the live section's 170vh geometry so nothing shifts on
+ * swap; on phones it is a plain flow section, so there is no pinned frame to
+ * scroll through.
  */
 
 const GlobeNarrative = lazy(() => import('./GlobeNarrative'));
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
+const DESKTOP_QUERY = '(min-width: 768px)';
 
 type Stage = {
   index: string;
@@ -60,7 +66,7 @@ function StillGlobe() {
       aria-hidden="true"
       viewBox="0 0 360 360"
       fill="none"
-      className="pointer-events-none absolute left-1/2 top-1/2 h-auto w-[84vw] max-w-[34rem] -translate-x-1/2 -translate-y-1/2 opacity-30 md:left-[70%] md:opacity-40"
+      className="pointer-events-none relative mx-auto mt-10 block h-auto w-[74vw] max-w-[20rem] opacity-25 md:absolute md:left-[70%] md:top-1/2 md:mx-0 md:mt-0 md:w-[84vw] md:max-w-[34rem] md:-translate-x-1/2 md:-translate-y-1/2 md:opacity-40"
     >
       <g stroke="#111110" strokeOpacity="0.32" strokeWidth="0.75">
         <circle cx="180" cy="180" r="128" />
@@ -117,21 +123,21 @@ function StoryHeader({ counter }: { counter?: string }) {
  */
 function PaperStory({ all }: { all: boolean }) {
   return (
-    <section aria-label="Our story" className="relative h-[170vh]">
-      <div className="sticky top-16 h-[calc(100svh_-_4rem)] overflow-hidden md:top-[88px] md:h-[calc(100svh_-_88px)]">
-        {/* The loading frame is text-only: the live globe is invisible at
-            progress 0, so drawing a still globe here would flash and vanish. */}
-        {all ? <StillGlobe /> : null}
+    <section aria-label="Our story" className="relative md:h-[170vh]">
+      <div className="relative overflow-hidden pb-10 md:sticky md:top-[88px] md:h-[calc(100svh_-_88px)] md:overflow-hidden md:pb-0">
         <StoryHeader counter={all ? undefined : '01'} />
 
         <div
-          className={`relative z-10 flex h-full ${
-            all ? 'items-start pt-20' : 'items-center pt-16'
+          className={`relative z-10 flex ${
+            all ? 'items-start pt-20 md:h-full' : 'h-full items-center pt-16'
           }`}
         >
           <div className="wrap">
             {all ? (
-              <div className="max-w-[38rem] space-y-4 sm:space-y-5">
+              /* Phones read the dossier as a paper plate, full-bleed to the
+                 gutters, so the copy never shares a line with the drawing.
+                 `md:` drops the plate for the pinned desktop frame. */
+              <div className="-mx-4 max-w-[38rem] space-y-4 bg-paper/95 px-4 py-5 sm:space-y-5 md:mx-0 md:bg-transparent md:px-0 md:py-0">
                 {STAGES.map((s) => (
                   <div key={s.index} className="border-t hairline pt-4">
                     <p className="mono text-seal">{s.index}</p>
@@ -156,6 +162,12 @@ function PaperStory({ all }: { all: boolean }) {
             )}
           </div>
         </div>
+
+        {/* The loading frame is text-only: the live globe is invisible at
+            progress 0, so drawing a still globe here would flash and vanish.
+            On phones this prints below the dossier, in flow, as an
+            illustration rather than as a backdrop under the copy. */}
+        {all ? <StillGlobe /> : null}
       </div>
     </section>
   );
@@ -164,8 +176,10 @@ function PaperStory({ all }: { all: boolean }) {
 export default function GlobeStory() {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   // Static from the first render: a mid-session change is handled below, but
-  // the initial decision must not fetch `three` on a reduced-motion visit.
+  // the initial decision must not fetch `three` on a reduced-motion visit — or
+  // on a phone, where the paper story is the whole design.
   const [reduced, setReduced] = useState(prefersReducedMotion);
+  const desktop = useMediaQuery(DESKTOP_QUERY);
   const [near, setNear] = useState(false);
 
   useEffect(() => {
@@ -177,7 +191,7 @@ export default function GlobeStory() {
   }, []);
 
   useEffect(() => {
-    if (reduced) return;
+    if (!desktop || reduced) return;
     const node = wrapRef.current;
     if (!node) return;
     if (typeof IntersectionObserver !== 'function') {
@@ -198,9 +212,11 @@ export default function GlobeStory() {
     );
     io.observe(node);
     return () => io.disconnect();
-  }, [reduced]);
+  }, [desktop, reduced]);
 
-  const ready = near && !reduced;
+  // Never true below 768px: `GlobeNarrative` is not rendered, so the dynamic
+  // import factory never runs and the `three` chunk is never requested.
+  const ready = desktop && near && !reduced;
 
   return (
     <div ref={wrapRef}>
@@ -209,7 +225,7 @@ export default function GlobeStory() {
           <GlobeNarrative fallback={<PaperStory all />} />
         </Suspense>
       ) : (
-        <PaperStory all={reduced} />
+        <PaperStory all={reduced || !desktop} />
       )}
     </div>
   );

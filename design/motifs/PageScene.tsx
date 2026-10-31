@@ -10,6 +10,11 @@ import { Door } from "./DoorMotif";
  * One <svg> frame owns the viewBox and cropping so every motif sits in the same
  * space; each motif draws children only. The frame paints the paper ground
  * because the room canvas is not mounted on these routes.
+ *
+ * Below `md` the whole frame is hidden: the motif is drawn for a wide fixed
+ * viewBox and, cropped onto a phone, its sheet/door line-art ran straight
+ * through the form fields and password toggles. Phones get clean paper from
+ * `body`; desktop keeps the same motif, scale and crop as before.
  */
 export function PageScene({ motif }: { motif: MotifId }) {
   return (
@@ -17,7 +22,7 @@ export function PageScene({ motif }: { motif: MotifId }) {
       aria-hidden="true"
       data-testid="page-scene"
       data-motif={motif}
-      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-paper"
+      className="pointer-events-none fixed inset-0 -z-10 hidden overflow-hidden bg-paper md:block"
     >
       <svg
         viewBox="0 0 1440 900"

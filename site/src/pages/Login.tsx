@@ -115,7 +115,7 @@ export default function Login() {
   const signin = mode === 'signin';
 
   return (
-    <section className="wrap py-14 md:py-20">
+    <section className="wrap py-10 md:py-20">
       <div className="max-w-xl">
         {/* Dossier line: the page states its purpose before it asks for anything. */}
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
@@ -123,21 +123,25 @@ export default function Login() {
           <p className="mono text-quiet">NSDC · Members</p>
         </div>
 
-        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+        <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
           {signin ? 'Sign in' : 'Reset your password'}
         </h1>
-        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
           {signin
             ? 'Sign in to reach registrations, club media and member resources.'
             : 'Enter your email and we will send a reset link if the address is registered.'}
         </p>
 
-        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+        <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
 
         {signin ? (
-          <form className="mt-8 max-w-md space-y-6" onSubmit={handleSignIn} aria-busy={busy}>
+          <form
+            className="mt-6 max-w-md space-y-5 sm:mt-8 sm:space-y-6"
+            onSubmit={handleSignIn}
+            aria-busy={busy}
+          >
             <div>
-              <label htmlFor="login-email" className="mono mb-2 block text-ink/80">
+              <label htmlFor="login-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                 Email
               </label>
               <input
@@ -149,43 +153,47 @@ export default function Login() {
                 disabled={busy}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="field"
+                className="field min-h-11 text-base sm:text-sm"
                 placeholder="you@bl.students.amrita.edu"
               />
             </div>
 
             <div>
-              <label htmlFor="login-password" className="mono mb-2 block text-ink/80">
+              <label htmlFor="login-password" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                 Password
               </label>
-              <PasswordField
-                id="login-password"
-                name="password"
-                label="password"
-                value={password}
-                onChange={setPassword}
-                autoComplete="current-password"
-                disabled={busy}
-              />
+              <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+                <PasswordField
+                  id="login-password"
+                  name="password"
+                  label="password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="current-password"
+                  disabled={busy}
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="login-admin-code" className="mono mb-2 block text-ink/80">
+              <label htmlFor="login-admin-code" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                 Office bearer code (if applicable)
               </label>
-              <PasswordField
-                id="login-admin-code"
-                name="admin_code"
-                label="office bearer code"
-                value={adminCode}
-                onChange={setAdminCode}
-                autoComplete="off"
-                disabled={busy}
-                required={false}
-              />
+              <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+                <PasswordField
+                  id="login-admin-code"
+                  name="admin_code"
+                  label="office bearer code"
+                  value={adminCode}
+                  onChange={setAdminCode}
+                  autoComplete="off"
+                  disabled={busy}
+                  required={false}
+                />
+              </div>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink/75">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 py-2 text-sm text-ink/75">
               <input
                 type="checkbox"
                 name="remember"
@@ -204,12 +212,16 @@ export default function Login() {
               </p>
             )}
 
-            <button type="submit" disabled={busy} className="btn-primary w-full">
+            <button type="submit" disabled={busy} className="btn-primary min-h-11 w-full">
               {busy ? 'Signing in...' : 'Sign in'}
             </button>
 
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 pt-2 text-sm">
-              <button type="button" onClick={() => switchMode('forgot')} className="link">
+            <div className="flex flex-col items-start gap-1 pt-1 text-sm sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-4 sm:gap-y-2 sm:pt-2">
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                className="link inline-flex min-h-11 items-center"
+              >
                 Forgot password?
               </button>
               <span className="text-quiet">
@@ -221,9 +233,13 @@ export default function Login() {
             </div>
           </form>
         ) : (
-          <form className="mt-8 max-w-md space-y-6" onSubmit={handleForgot} aria-busy={busy}>
+          <form
+            className="mt-6 max-w-md space-y-5 sm:mt-8 sm:space-y-6"
+            onSubmit={handleForgot}
+            aria-busy={busy}
+          >
             <div>
-              <label htmlFor="forgot-email" className="mono mb-2 block text-ink/80">
+              <label htmlFor="forgot-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                 Email
               </label>
               <input
@@ -235,7 +251,7 @@ export default function Login() {
                 disabled={busy}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="field"
+                className="field min-h-11 text-base sm:text-sm"
                 placeholder="you@bl.students.amrita.edu"
               />
             </div>
@@ -252,11 +268,15 @@ export default function Login() {
               </p>
             )}
 
-            <button type="submit" disabled={busy} className="btn-primary w-full">
+            <button type="submit" disabled={busy} className="btn-primary min-h-11 w-full">
               {busy ? 'Sending...' : 'Send reset link'}
             </button>
 
-            <button type="button" onClick={() => switchMode('signin')} className="link text-sm">
+            <button
+              type="button"
+              onClick={() => switchMode('signin')}
+              className="link inline-flex min-h-11 items-center text-sm"
+            >
               Back to sign in
             </button>
           </form>

@@ -24,7 +24,7 @@ export default function VerifyEmail() {
   }, [token]);
 
   return (
-    <section className="wrap py-14 md:py-20">
+    <section className="wrap py-10 md:py-20">
       <div className="max-w-xl">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
           <p className="mono text-quiet">03 / Verify</p>
@@ -32,35 +32,35 @@ export default function VerifyEmail() {
         </div>
 
         {status === 'verifying' && (
-          <p role="status" aria-live="polite" className="mono mt-8 text-quiet">
+          <p role="status" aria-live="polite" className="mono mt-6 text-quiet sm:mt-8">
             Verifying your email...
           </p>
         )}
         {status === 'done' && (
           <>
-            <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+            <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
               Email verified
             </h1>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
               Your account is active. Sign in to continue.
             </p>
-            <div className="rule mt-8 max-w-md" aria-hidden="true" />
-            <p className="mt-8 max-w-md text-sm">
-              <Link to="/login" className="link">Sign in</Link>
+            <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
+            <p className="mt-4 max-w-md text-sm sm:mt-8">
+              <Link to="/login" className="link inline-flex min-h-11 items-center">Sign in</Link>
             </p>
           </>
         )}
         {(status === 'invalid' || status === 'missing') && (
           <>
-            <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+            <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
               Link invalid or expired
             </h1>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
               Verification links work once and expire after an hour. Request a fresh one below.
             </p>
-            <div className="rule mt-8 max-w-md" aria-hidden="true" />
-            <p className="mt-8 max-w-md text-sm">
-              <Link to="/verify-pending" className="link">Re-send verification link</Link>
+            <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
+            <p className="mt-4 max-w-md text-sm sm:mt-8">
+              <Link to="/verify-pending" className="link inline-flex min-h-11 items-center">Re-send verification link</Link>
             </p>
           </>
         )}

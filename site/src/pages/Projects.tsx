@@ -70,7 +70,7 @@ function FeaturedCard({
     : 'md:col-span-5 md:col-start-8';
   const cover = project.cover_url ? coverSources(project.cover_url) : null;
   return (
-    <div className="grid gap-8 border-t hairline py-10 md:grid-cols-12 md:gap-8 md:py-14">
+    <div className="grid gap-6 border-t hairline py-8 md:grid-cols-12 md:gap-8 md:py-14">
       <div className={textCols}>
         <p aria-hidden="true" className="mono flex flex-wrap items-baseline gap-x-4 gap-y-2 text-faint">
           <span>{pad(index + 1)}</span>
@@ -253,13 +253,13 @@ export default function Projects() {
     p.event_id && eventsById ? eventsById.get(p.event_id) : undefined;
 
   return (
-    <div className="wrap py-12 md:py-16">
+    <div className="wrap py-8 md:py-16">
       <Reveal>
-        <header className="border-b hairline pb-8 md:pb-10">
+        <header className="border-b hairline pb-6 md:pb-10">
           <div className="grid gap-8 md:grid-cols-12 md:items-end">
             <div className="md:col-span-8">
               <p className="mono text-quiet">Projects / 26—27</p>
-              <h1 className="mt-4 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink">
+              <h1 className="mt-3 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink md:mt-4">
                 Projects
               </h1>
             </div>
@@ -268,7 +268,7 @@ export default function Projects() {
             </div>
           </div>
           {projects !== null && (
-            <p aria-live="polite" className="mono mt-8 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-quiet">
+            <p aria-live="polite" className="mono mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-quiet md:mt-8">
               <span>
                 Active <span className="text-ink">{pad(counts.active)}</span>
               </span>
@@ -299,34 +299,41 @@ export default function Projects() {
       {!error && projects !== null && projects.length > 0 && (
         <>
           {stacks.length > 0 && (
-            <div className="mt-8 flex flex-wrap gap-2" role="group" aria-label="Filter by stack">
-              <button
-                type="button"
-                aria-pressed={activeStack === null}
-                onClick={() => setActiveStack(null)}
-                className={`mono rounded-[2px] border px-3 py-1.5 transition-colors duration-200 ${
-                  activeStack === null
-                    ? 'border-ink text-ink'
-                    : 'border-[color:var(--hairline)] text-quiet hover:border-ink/40 hover:text-ink'
-                }`}
+            <div className="mt-5 flex items-center gap-3 md:mt-8 md:block">
+              <p className="mono shrink-0 text-faint md:hidden">Filter</p>
+              <div
+                role="group"
+                aria-label="Filter by stack"
+                className="-my-2 flex min-w-0 flex-1 gap-2 overflow-x-auto py-2 [scrollbar-width:none] md:my-0 md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden"
               >
-                All
-              </button>
-              {stacks.map((s) => (
                 <button
-                  key={s}
                   type="button"
-                  aria-pressed={activeStack === s}
-                  onClick={() => setActiveStack((cur) => (cur === s ? null : s))}
-                  className={`mono rounded-[2px] border px-3 py-1.5 transition-colors duration-200 ${
-                    activeStack === s
+                  aria-pressed={activeStack === null}
+                  onClick={() => setActiveStack(null)}
+                  className={`mono min-h-11 shrink-0 whitespace-nowrap rounded-[2px] border px-3 py-2 transition-colors duration-200 md:min-h-0 md:py-1.5 ${
+                    activeStack === null
                       ? 'border-ink text-ink'
                       : 'border-[color:var(--hairline)] text-quiet hover:border-ink/40 hover:text-ink'
                   }`}
                 >
-                  {s}
+                  All
                 </button>
-              ))}
+                {stacks.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    aria-pressed={activeStack === s}
+                    onClick={() => setActiveStack((cur) => (cur === s ? null : s))}
+                    className={`mono min-h-11 shrink-0 whitespace-nowrap rounded-[2px] border px-3 py-2 transition-colors duration-200 md:min-h-0 md:py-1.5 ${
+                      activeStack === s
+                        ? 'border-ink text-ink'
+                        : 'border-[color:var(--hairline)] text-quiet hover:border-ink/40 hover:text-ink'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {filtered.length === 0 ? (
@@ -335,7 +342,7 @@ export default function Projects() {
             </p>
           ) : (
             <>
-              <ol className="mt-10" aria-label="Featured projects">
+              <ol className="mt-6 md:mt-10" aria-label="Featured projects">
                 {featured.map((project, i) => (
                   <Reveal as="li" key={project.id} delay={Math.min(i, 4) * 60}>
                     <FeaturedCard project={project} index={i} event={eventFor(project)} />
@@ -346,7 +353,7 @@ export default function Projects() {
               </ol>
               {remainder.length > 0 && (
                 <>
-                  <p className="mono mt-14 text-quiet">More work</p>
+                  <p className="mono mt-10 text-quiet md:mt-14">More work</p>
                   <ol className="mt-4" aria-label="More projects">
                     {remainder.map((project, i) => (
                       <Reveal as="li" key={project.id} delay={Math.min(i, 4) * 60}>

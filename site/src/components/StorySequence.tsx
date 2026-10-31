@@ -151,25 +151,25 @@ export default function StorySequence({ title, body }: StorySequenceProps) {
   }, [staticMode]);
 
   return (
-    <div className="wrap py-20 sm:py-28">
-      <div className="grid grid-cols-12 gap-x-6 gap-y-10">
+    <div className="wrap py-14 sm:py-28">
+      <div className="grid grid-cols-12 gap-x-6 gap-y-6 sm:gap-y-10">
         {/* Dossier margin: the filing mark and the CMS stage title. */}
         <div className="col-span-12 md:col-span-4">
           <h2 className="mono flex items-center gap-2.5 text-quiet">
             <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 bg-seal" />
             02 / THE ORIGIN
           </h2>
-          {title ? <p className="mono mt-3 pl-[18px] text-faint">{title}</p> : null}
+          {title ? <p className="mono mt-2 pl-[18px] text-faint sm:mt-3">{title}</p> : null}
         </div>
 
         <div ref={trackRef} className="col-span-12 md:col-span-8 md:col-start-5">
-          <div data-band className="max-w-[58ch] border-t hairline pt-8">
+          <div data-band className="max-w-[58ch] border-t hairline pt-6 sm:pt-8">
             {blocks.length === 0 ? (
               <p className="text-[17px] leading-[1.65] text-quiet">
                 This section has not been written yet.
               </p>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4 sm:space-y-5">
                 {blocks.map((block, i) => (
                   <p
                     key={`${i}-${block.slice(0, 32)}`}

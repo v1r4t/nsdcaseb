@@ -74,7 +74,7 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-x-6 gap-y-12">
+    <div className="grid grid-cols-12 gap-x-6 gap-y-8 md:gap-y-12">
       {/* Roster first in the DOM: on a phone the list leads and the preview
           follows it. On desktop the plate is placed in the right column and
           sticks, so the visual arrangement is unchanged. */}
@@ -166,9 +166,7 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
         </ol>
 
         <p id={hintId} className="mono mt-4 text-faint">
-          <span className="md:hidden">
-            Tap a row to preview the next bearer; tap Next to advance.
-          </span>
+          <span className="md:hidden">Tap a row to preview. Tap NEXT to advance.</span>
           <span className="hidden md:inline">
             Focus a row, or use the arrow keys, to preview the next bearer. Enter or space advances.
           </span>

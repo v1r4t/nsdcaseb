@@ -45,26 +45,32 @@ export default function VerifyPending() {
   }
 
   return (
-    <section className="wrap py-14 md:py-20">
+    <section className="wrap py-10 md:py-20">
       <div className="max-w-xl">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
           <p className="mono text-quiet">03 / Verify</p>
           <p className="mono text-quiet">NSDC · Members</p>
         </div>
 
-        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+        <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
           Check your inbox
         </h1>
-        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
           We sent a verification link to your email. Open it within an hour to activate your account,
           then sign in.
         </p>
 
-        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+        <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
 
-        <form className="mt-8 max-w-md space-y-6" onSubmit={handleResend} aria-busy={pending}>
+        <form
+          className="mt-6 max-w-md space-y-5 sm:mt-8 sm:space-y-6"
+          onSubmit={handleResend}
+          aria-busy={pending}
+        >
           <div>
-            <label htmlFor="pending-email" className="mono mb-2 block text-ink/80">Email</label>
+            <label htmlFor="pending-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
+              Email
+            </label>
             <input
               id="pending-email"
               name="email"
@@ -74,7 +80,7 @@ export default function VerifyPending() {
               disabled={pending}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="field"
+              className="field min-h-11 text-base sm:text-sm"
               placeholder="you@bl.students.amrita.edu"
             />
           </div>
@@ -89,11 +95,11 @@ export default function VerifyPending() {
               {notice}
             </p>
           )}
-          <button type="submit" disabled={pending} className="btn-primary w-full">
+          <button type="submit" disabled={pending} className="btn-primary min-h-11 w-full">
             {pending ? 'Sending...' : 'Re-send verification link'}
           </button>
 
-          <p className="pt-2 text-sm text-quiet">
+          <p className="pt-1 text-sm text-quiet sm:pt-2">
             Verified already?{' '}
             <Link to="/login" className="link">Sign in</Link>
           </p>

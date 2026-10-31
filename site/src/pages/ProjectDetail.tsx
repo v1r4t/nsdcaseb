@@ -62,7 +62,7 @@ export default function ProjectDetail() {
   }, [id]);
 
   return (
-    <div className="wrap py-10 md:py-14">
+    <div className="wrap py-8 md:py-14">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <Link
           to="/projects"
@@ -103,10 +103,10 @@ export default function ProjectDetail() {
         </div>
       )}
       {!error && project && (
-        <article className="mt-10">
+        <article className="mt-8 md:mt-10">
           <Reveal>
-            <header className="grid gap-8 md:grid-cols-12 md:gap-8">
-              <div className="md:col-span-8 lg:col-span-9">
+            <header className="grid gap-6 md:grid-cols-12 md:gap-8">
+              <div className="min-w-0 md:col-span-8 lg:col-span-9">
                 <p className="mono flex flex-wrap items-center gap-x-3 gap-y-1 text-quiet">
                   <span>Project</span>
                   {project.featured && (
@@ -116,7 +116,7 @@ export default function ProjectDetail() {
                     </span>
                   )}
                 </p>
-                <h1 className="mt-4 max-w-4xl text-balance font-display text-[clamp(2.75rem,7vw,5.5rem)] font-normal leading-[0.98] tracking-[-0.02em] text-ink">
+                <h1 className="mt-3 max-w-4xl break-words text-balance font-display text-[clamp(2.75rem,7vw,5.5rem)] font-normal leading-[0.98] tracking-[-0.02em] text-ink md:mt-4">
                   {project.title}
                 </h1>
               </div>
@@ -127,14 +127,14 @@ export default function ProjectDetail() {
             </header>
           </Reveal>
 
-          <dl className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6 border-y hairline py-5 md:grid-cols-4">
+          <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-5 border-y hairline py-5 md:mt-10 md:grid md:grid-cols-4 md:gap-y-6">
             {project.author && (
-              <div>
+              <div className="min-w-[7rem] flex-1 md:min-w-0">
                 <dt className="mono text-faint">Credit</dt>
-                <dd className="mt-1 text-sm text-ink">{project.author}</dd>
+                <dd className="mt-1 break-words text-sm text-ink">{project.author}</dd>
               </div>
             )}
-            <div>
+            <div className="min-w-[7rem] flex-1 md:min-w-0">
               <dt className="mono text-faint">Stack</dt>
               <dd className="mt-1 text-sm text-ink">
                 {project.stack.length > 0
@@ -142,18 +142,18 @@ export default function ProjectDetail() {
                   : 'Not listed'}
               </dd>
             </div>
-            <div>
+            <div className="min-w-[7rem] flex-1 md:min-w-0">
               <dt className="mono text-faint">Record</dt>
               <dd className="mono-sm mt-1 break-all text-ink">{project.id}</dd>
             </div>
-            <div>
+            <div className="min-w-[7rem] flex-1 md:min-w-0">
               <dt className="mono text-faint">Filed</dt>
               <dd className="mt-1 text-sm text-ink">Projects / 26—27</dd>
             </div>
           </dl>
 
-          <div className="mt-10 grid gap-10 md:grid-cols-12 md:gap-8">
-            <div className="md:col-span-8 md:col-start-5 lg:col-span-7 lg:col-start-6">
+          <div className="mt-8 grid gap-8 md:mt-10 md:grid-cols-12 md:gap-8">
+            <div className="min-w-0 md:col-span-8 md:col-start-5 lg:col-span-7 lg:col-start-6">
               <Reveal>
                 {project.cover_url && (
                   <figure>
@@ -171,7 +171,7 @@ export default function ProjectDetail() {
                 {project.summary && (
                   <p
                     className={[
-                      'max-w-2xl text-xl leading-[1.5] text-ink md:text-2xl md:leading-[1.4]',
+                      'max-w-2xl break-words text-xl leading-[1.5] text-ink md:text-2xl md:leading-[1.4]',
                       project.cover_url ? 'mt-8' : '',
                     ].join(' ')}
                   >
@@ -179,13 +179,13 @@ export default function ProjectDetail() {
                   </p>
                 )}
                 {project.description && project.description !== project.summary && (
-                  <p className="mt-5 max-w-2xl whitespace-pre-wrap text-[17px] leading-[1.7] text-ink/80">
+                  <p className="mt-5 max-w-2xl whitespace-pre-wrap break-words text-[17px] leading-[1.7] text-ink/80">
                     {project.description}
                   </p>
                 )}
               </Reveal>
 
-              <p className="mono mt-10 flex flex-wrap gap-x-8 gap-y-3 border-t hairline pt-5">
+              <p className="mono mt-8 flex min-w-0 flex-wrap gap-x-8 gap-y-3 break-words border-t hairline pt-5 md:mt-10">
                 {project.url && (
                   <a
                     href={project.url}
@@ -215,7 +215,7 @@ export default function ProjectDetail() {
                 {project.stack.length > 0 ? (
                   <ul aria-label="Tech stack" className="mt-3 flex flex-wrap gap-2">
                     {project.stack.map((s) => (
-                      <li key={s} className="border hairline px-2.5 py-1 mono text-quiet">
+                      <li key={s} className="border hairline px-2.5 py-1 mono break-words text-quiet">
                         {s}
                       </li>
                     ))}

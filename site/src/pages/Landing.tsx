@@ -127,39 +127,45 @@ export default function Landing() {
 
       {/* 1. WHAT WE DO ---------------------------------------------------- */}
       <section id="about" aria-label="About" data-folio="01 / About" className="border-t hairline">
-        <div className="wrap pt-20 sm:pt-28">
+        <div className="wrap pt-14 sm:pt-28">
           <SectionHead index="01" name="About" />
         </div>
 
         {/* The question leads: the page's only h1. ZoomIn is the entrance;
-            the restored CinematicOrigin sequence slides the lines on scroll. */}
+            the restored CinematicOrigin sequence slides the lines on scroll.
+            Its own top/bottom padding is tightened on phones and restored at
+            sm, so the question and the prose below read as one sheet. */}
         <ZoomIn>
-          <CinematicOrigin />
+          <CinematicOrigin className="!pt-8 !pb-5 sm:!pt-20 sm:!pb-20" />
         </ZoomIn>
 
-        {/* The CMS mission prose, two columns, after the question. */}
-        <Swoop from="up" className="wrap pb-20 sm:pb-28">
-          <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-            <div className="col-span-12 md:col-span-3">
-              <SectionIndex value="01" className="hidden md:block" />
-            </div>
-            <div className="col-span-12 md:col-span-9">
-              {aboutBlocks.length === 0 ? (
-                <p className="text-[17px] leading-[1.65] text-quiet">
-                  This section has not been written yet.
-                </p>
-              ) : (
-                <div className="md:columns-2 md:gap-x-10">
-                  {aboutBlocks.map((block) => (
-                    <p
-                      key={block.slice(0, 48)}
-                      className="mb-5 break-inside-avoid text-[17px] leading-[1.65] text-ink/80"
-                    >
-                      {block}
-                    </p>
-                  ))}
-                </div>
-              )}
+        {/* The CMS mission prose: one column on a phone, two only when the
+            measure can hold them. The filing index is a real grid item on
+            desktop, not an empty first row on mobile. */}
+        <Swoop from="up" className="wrap pb-14 sm:pb-28">
+          <div className="border-t hairline pt-7 sm:pt-10">
+            <div className="grid grid-cols-12 gap-x-6">
+              <div className="hidden md:col-span-3 md:block">
+                <SectionIndex value="01" />
+              </div>
+              <div className="col-span-12 md:col-span-9">
+                {aboutBlocks.length === 0 ? (
+                  <p className="text-[17px] leading-[1.65] text-quiet">
+                    This section has not been written yet.
+                  </p>
+                ) : (
+                  <div className="lg:columns-2 lg:gap-x-12">
+                    {aboutBlocks.map((block) => (
+                      <p
+                        key={block.slice(0, 48)}
+                        className="mb-5 break-inside-avoid text-[17px] leading-[1.65] text-ink/80"
+                      >
+                        {block}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Swoop>
@@ -172,12 +178,12 @@ export default function Landing() {
 
       {/* 3. PROJECTS -------------------------------------------------------- */}
       <section aria-label="Projects" data-folio="03 / Projects" className="border-t hairline">
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="03" name="Projects" meta="12.894702° N, 77.675574° E" />
-          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
             Selected work.
           </Reveal>
-          <div className="mt-10">
+          <div className="mt-7 sm:mt-10">
             <LandingProjects />
           </div>
         </div>
@@ -185,77 +191,81 @@ export default function Landing() {
 
       {/* 4. EVENTS ----------------------------------------------------------- */}
       <section aria-label="Events" data-folio="04 / Events" className="border-t hairline">
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="04" name="Events" />
-          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
             Upcoming dates.
           </Reveal>
-          <div className="mt-8 md:ml-[8.333%] md:max-w-[83.333%]">
-            <LandingEvents />
+          <div className="mt-6 grid grid-cols-12 gap-x-6 sm:mt-8">
+            <div className="col-span-12 md:col-span-10 md:col-start-2">
+              <LandingEvents />
+            </div>
           </div>
         </div>
       </section>
 
       {/* 5. NOW / 2026 ----------------------------------------------------- */}
       <section aria-label="Now" data-folio="05 / Now" className="border-t hairline">
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="05" name="Now / 2026" meta="System.status · Online" />
-          <Reveal as="h2" className="mt-6 statement-sm max-w-2xl text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm max-w-2xl text-ink sm:mt-6">
             What is happening now.
           </Reveal>
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <NowSection events={events} mediaCount={photos.length} />
           </div>
-          <div className="mt-14 border-t hairline pt-8 md:ml-[8.333%] md:max-w-[66.666%]">
-            <p className="mono text-quiet">Recruitment</p>
-            <h3 className="mt-3 font-display text-[clamp(1.5rem,2.6vw,2rem)] leading-tight tracking-tight text-ink">
-              Join the corps.
-            </h3>
-            <p role="status" className="mono mt-3 text-faint">
-              {recruitmentOpen === true
-                ? 'Recruitment is open now.'
-                : recruitmentOpen === false
-                  ? 'Recruitment is currently closed.'
-                  : 'Checking recruitment status…'}
-            </p>
-            <div className="mt-6 grid gap-6 sm:grid-cols-2">
-              <div>
-                <p className="mono text-faint">Who can apply</p>
-                <p className="mt-2 text-[17px] leading-[1.6] text-ink/80">
-                  Open to 1st, 2nd and 3rd-year students of all branches at Amrita Bengaluru.
-                </p>
+          <div className="mt-10 grid grid-cols-12 gap-x-6 sm:mt-14">
+            <div className="col-span-12 border-t hairline pt-6 sm:pt-8 md:col-span-8 md:col-start-2">
+              <p className="mono text-quiet">Recruitment</p>
+              <h3 className="mt-2 font-display text-[clamp(1.5rem,2.6vw,2rem)] leading-tight tracking-tight text-ink sm:mt-3">
+                Join the corps.
+              </h3>
+              <p role="status" className="mono mt-3 text-faint">
+                {recruitmentOpen === true
+                  ? 'Recruitment is open now.'
+                  : recruitmentOpen === false
+                    ? 'Recruitment is currently closed.'
+                    : 'Checking recruitment status…'}
+              </p>
+              <div className="mt-5 grid gap-5 sm:mt-6 sm:grid-cols-2 sm:gap-6">
+                <div>
+                  <p className="mono text-faint">Who can apply</p>
+                  <p className="mt-2 text-[17px] leading-[1.6] text-ink/80">
+                    Open to 1st, 2nd and 3rd-year students of all branches at Amrita Bengaluru.
+                  </p>
+                </div>
+                <div>
+                  <p className="mono text-faint">How to apply</p>
+                  <p className="mt-2 text-[17px] leading-[1.6] text-ink/80">
+                    Submit the application form. Every application is reviewed and you will be
+                    notified whether you are selected or not.
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="mono text-faint">How to apply</p>
-                <p className="mt-2 text-[17px] leading-[1.6] text-ink/80">
-                  Submit the application form. Every application is reviewed and you will be
-                  notified whether you are selected or not.
-                </p>
-              </div>
+              <p className="mt-6 flex flex-wrap gap-3 sm:mt-8">
+                {recruitmentOpen === true ? (
+                  <Link to="/recruit" className="btn-primary">
+                    Apply now
+                  </Link>
+                ) : recruitmentOpen === false ? (
+                  <Link to="/recruit" className="btn-ghost">
+                    Check application status
+                  </Link>
+                ) : null}
+              </p>
             </div>
-            <p className="mt-8 flex flex-wrap gap-3">
-              {recruitmentOpen === true ? (
-                <Link to="/recruit" className="btn-primary">
-                  Apply now
-                </Link>
-              ) : recruitmentOpen === false ? (
-                <Link to="/recruit" className="btn-ghost">
-                  Check application status
-                </Link>
-              ) : null}
-            </p>
           </div>
         </div>
       </section>
 
       {/* 6. PEOPLE ------------------------------------------------------------ */}
       <section id="people" aria-label="People" data-folio="06 / People" className="border-t hairline">
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="06" name="People" meta="EST. 2024" />
-          <Reveal as="h2" className="mt-6 statement-sm max-w-2xl text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm max-w-2xl text-ink sm:mt-6">
             The people holding it together.
           </Reveal>
-          <div className="mt-10">
+          <div className="mt-7 sm:mt-10">
             <PeopleList bearers={content.bearers} />
           </div>
         </div>
@@ -263,12 +273,12 @@ export default function Landing() {
 
       {/* 7. ARCHIVE ---------------------------------------------------------- */}
       <section aria-label="Archive" data-folio="07 / Archive" className="border-t hairline">
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="07" name="Archive" meta="Filed frames" />
-          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
             From the room.
           </Reveal>
-          <div className="mt-10">
+          <div className="mt-7 sm:mt-10">
             <LandingArchive />
           </div>
         </div>
@@ -281,39 +291,41 @@ export default function Landing() {
         data-folio="08 / Achievements"
         className="border-t hairline"
       >
-        <div className="wrap py-20 sm:py-28">
+        <div className="wrap py-14 sm:py-28">
           <SectionHead index="08" name="Achievements" meta="System.status · Online" />
-          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+          <Reveal as="h2" className="mt-4 statement-sm text-ink sm:mt-6">
             Logged, not claimed.
           </Reveal>
-          <div className="mt-10 md:ml-[16.666%] md:max-w-[75%]">
-            {content.achievements.length === 0 ? (
-              <p className="border-t hairline pt-5 text-[17px] leading-[1.65] text-quiet">
-                Nothing logged yet — the first entry is on its way.
-              </p>
-            ) : (
-              <ol className="border-t hairline">
-                {content.achievements.map((item) => (
-                  <li key={item.id} className="border-b hairline">
-                    <div className="grid grid-cols-12 gap-x-6 gap-y-2 py-6">
-                      <div className="col-span-12 md:col-span-2">
-                        {item.date ? (
-                          <p className="mono text-faint">
-                            <time dateTime={item.date}>{readableDate(item.date)}</time>
-                          </p>
-                        ) : null}
+          <div className="mt-7 grid grid-cols-12 gap-x-6 sm:mt-10">
+            <div className="col-span-12 md:col-span-9 md:col-start-3">
+              {content.achievements.length === 0 ? (
+                <p className="border-t hairline pt-5 text-[17px] leading-[1.65] text-quiet">
+                  Nothing logged yet — the first entry is on its way.
+                </p>
+              ) : (
+                <ol className="border-t hairline">
+                  {content.achievements.map((item) => (
+                    <li key={item.id} className="border-b hairline">
+                      <div className="grid grid-cols-12 gap-x-6 gap-y-2 py-5 sm:py-6">
+                        <div className="col-span-12 md:col-span-2">
+                          {item.date ? (
+                            <p className="mono text-faint">
+                              <time dateTime={item.date}>{readableDate(item.date)}</time>
+                            </p>
+                          ) : null}
+                        </div>
+                        <h3 className="col-span-12 font-display text-xl leading-snug tracking-tight text-ink md:col-span-4">
+                          {item.title}
+                        </h3>
+                        <p className="col-span-12 max-w-[60ch] text-[17px] leading-[1.6] text-ink/80 md:col-span-6">
+                          {item.description}
+                        </p>
                       </div>
-                      <h3 className="col-span-12 font-display text-xl leading-snug tracking-tight text-ink md:col-span-4">
-                        {item.title}
-                      </h3>
-                      <p className="col-span-12 max-w-[60ch] text-[17px] leading-[1.6] text-ink/80 md:col-span-6">
-                        {item.description}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </div>
         </div>
       </section>

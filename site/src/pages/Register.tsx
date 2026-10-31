@@ -98,7 +98,7 @@ export default function Register() {
   }
 
   return (
-    <section className="wrap py-14 md:py-20">
+    <section className="wrap py-10 md:py-20">
       <div className="max-w-xl">
         {/* Dossier line: the page states its purpose before it asks for anything. */}
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
@@ -106,18 +106,23 @@ export default function Register() {
           <p className="mono text-quiet">NSDC · Members</p>
         </div>
 
-        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+        <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
           Create your account
         </h1>
-        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+        <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
           Members use this to register for events and access club media.
         </p>
 
-        <div className="rule mt-8 max-w-md" aria-hidden="true" />
+        <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
 
-        <form className="mt-8 max-w-md space-y-6" onSubmit={handleSubmit} aria-busy={pending} noValidate>
+        <form
+          className="mt-6 max-w-md space-y-5 sm:mt-8 sm:space-y-6"
+          onSubmit={handleSubmit}
+          aria-busy={pending}
+          noValidate
+        >
           <div>
-            <label htmlFor="register-name" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-name" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Name
             </label>
             <input
@@ -131,7 +136,7 @@ export default function Register() {
               onChange={(event) => setName(event.target.value)}
               aria-invalid={errors.name ? true : undefined}
               aria-describedby={errors.name ? 'register-name-error' : undefined}
-              className={`field ${errors.name ? 'field-invalid' : ''}`}
+              className={`field min-h-11 text-base sm:text-sm ${errors.name ? 'field-invalid' : ''}`}
               placeholder="Your full name"
             />
             {errors.name && (
@@ -143,7 +148,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-mobile" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-mobile" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Mobile number
             </label>
             <input
@@ -157,7 +162,7 @@ export default function Register() {
               onChange={(event) => setMobile(event.target.value)}
               aria-invalid={errors.mobile ? true : undefined}
               aria-describedby={errors.mobile ? 'register-mobile-error' : undefined}
-              className={`field ${errors.mobile ? 'field-invalid' : ''}`}
+              className={`field min-h-11 text-base sm:text-sm ${errors.mobile ? 'field-invalid' : ''}`}
               placeholder="+91..."
             />
             {errors.mobile && (
@@ -169,7 +174,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-email" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Email
             </label>
             <input
@@ -183,7 +188,7 @@ export default function Register() {
               onChange={(event) => setEmail(event.target.value)}
               aria-invalid={errors.email ? true : undefined}
               aria-describedby={errors.email ? 'register-email-error' : undefined}
-              className={`field ${errors.email ? 'field-invalid' : ''}`}
+              className={`field min-h-11 text-base sm:text-sm ${errors.email ? 'field-invalid' : ''}`}
               placeholder="you@bl.students.amrita.edu"
             />
             {errors.email && (
@@ -195,20 +200,22 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-password" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-password" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Password
             </label>
-            <PasswordField
-              id="register-password"
-              name="password"
-              label="password"
-              value={password}
-              onChange={setPassword}
-              autoComplete="new-password"
-              disabled={pending}
-              describedBy={`register-password-hint${errors.password ? ' register-password-error' : ''}`}
-              invalid={!!errors.password}
-            />
+            <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+              <PasswordField
+                id="register-password"
+                name="password"
+                label="password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+                disabled={pending}
+                describedBy={`register-password-hint${errors.password ? ' register-password-error' : ''}`}
+                invalid={!!errors.password}
+              />
+            </div>
             <p id="register-password-hint" className="hint">
               At least 10 characters, including a letter and a number.
             </p>
@@ -221,20 +228,22 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-confirm" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-confirm" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Confirm password
             </label>
-            <PasswordField
-              id="register-confirm"
-              name="confirm"
-              label="password confirmation"
-              value={confirm}
-              onChange={setConfirm}
-              autoComplete="new-password"
-              disabled={pending}
-              describedBy={errors.confirm ? 'register-confirm-error' : undefined}
-              invalid={!!errors.confirm}
-            />
+            <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+              <PasswordField
+                id="register-confirm"
+                name="confirm"
+                label="password confirmation"
+                value={confirm}
+                onChange={setConfirm}
+                autoComplete="new-password"
+                disabled={pending}
+                describedBy={errors.confirm ? 'register-confirm-error' : undefined}
+                invalid={!!errors.confirm}
+              />
+            </div>
             {errors.confirm && (
               <p id="register-confirm-error" className="error-text">
                 <span aria-hidden="true">! </span>
@@ -244,19 +253,21 @@ export default function Register() {
           </div>
 
           <div>
-            <label htmlFor="register-ob-code" className="mono mb-2 block text-ink/80">
+            <label htmlFor="register-ob-code" className="mono mb-1.5 block text-ink/80 sm:mb-2">
               Office bearer code (if you have one)
             </label>
-            <PasswordField
-              id="register-ob-code"
-              name="admin_code"
-              label="office bearer code"
-              value={adminCode}
-              onChange={setAdminCode}
-              autoComplete="off"
-              disabled={pending}
-              required={false}
-            />
+            <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+              <PasswordField
+                id="register-ob-code"
+                name="admin_code"
+                label="office bearer code"
+                value={adminCode}
+                onChange={setAdminCode}
+                autoComplete="off"
+                disabled={pending}
+                required={false}
+              />
+            </div>
             <p className="hint">Leave empty unless you were given an office bearer code.</p>
           </div>
 
@@ -267,11 +278,11 @@ export default function Register() {
             </p>
           )}
 
-          <button type="submit" disabled={pending} className="btn-primary w-full">
+          <button type="submit" disabled={pending} className="btn-primary min-h-11 w-full">
             {pending ? 'Creating account...' : 'Create account'}
           </button>
 
-          <p className="pt-2 text-sm text-quiet">
+          <p className="pt-1 text-sm text-quiet sm:pt-2">
             Already a member?{' '}
             <Link to="/login" className="link">
               Sign in

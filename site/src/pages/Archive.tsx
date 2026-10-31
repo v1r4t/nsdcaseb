@@ -35,39 +35,42 @@ const pad = (value: number) => String(value).padStart(2, '0');
 
 function chipClass(on: boolean): string {
   return on
-    ? 'rounded-[2px] border border-seal px-3.5 py-1.5 mono text-seal'
-    : 'rounded-[2px] border hairline px-3.5 py-1.5 mono text-quiet transition-colors duration-200 hover:border-ink/40 hover:text-ink';
+    ? 'min-h-11 shrink-0 whitespace-nowrap rounded-[2px] border border-seal px-3.5 py-2 mono text-seal md:min-h-0 md:py-1.5'
+    : 'min-h-11 shrink-0 whitespace-nowrap rounded-[2px] border hairline px-3.5 py-2 mono text-quiet transition-colors duration-200 hover:border-ink/40 hover:text-ink md:min-h-0 md:py-1.5';
 }
 
-// The archive is a contact sheet, not a uniform card grid: four repeating
-// spans lay two tiles per desktop row (7+5, 4+8) and alternate full- and
-// half-width plates on phones. `sizes` mirrors each span so srcset stays honest.
+// The archive is a contact sheet, not a uniform card grid. Phones get one
+// full-width plate per row (so nothing is cropped into a sliver and captions
+// stay readable), small tablets two, and desktop repeats spans of 7+5 / 4+8.
+// `sizes` mirrors each breakpoint so srcset stays honest.
 interface TileLayout {
   span: string;
   ratio: string;
   sizes: string;
 }
 
+const PHONE_SIZES = 'calc(100vw - 3rem)';
+
 const TILE_LAYOUT: readonly TileLayout[] = [
   {
-    span: 'col-span-2 md:col-span-7',
+    span: 'md:col-span-7',
     ratio: 'aspect-[16/9]',
-    sizes: '(max-width: 768px) 100vw, 58vw',
+    sizes: `(max-width: 639px) ${PHONE_SIZES}, (max-width: 767px) 50vw, 58vw`,
   },
   {
-    span: 'col-span-1 md:col-span-5',
-    ratio: 'aspect-[4/3]',
-    sizes: '(max-width: 768px) 50vw, 42vw',
+    span: 'md:col-span-5',
+    ratio: 'aspect-[16/9] sm:aspect-[4/3]',
+    sizes: `(max-width: 639px) ${PHONE_SIZES}, (max-width: 767px) 50vw, 42vw`,
   },
   {
-    span: 'col-span-1 md:col-span-4',
-    ratio: 'aspect-square',
-    sizes: '(max-width: 768px) 50vw, 33vw',
+    span: 'md:col-span-4',
+    ratio: 'aspect-[16/9] sm:aspect-square',
+    sizes: `(max-width: 639px) ${PHONE_SIZES}, (max-width: 767px) 50vw, 33vw`,
   },
   {
-    span: 'col-span-2 md:col-span-8',
+    span: 'md:col-span-8',
     ratio: 'aspect-[16/9]',
-    sizes: '(max-width: 768px) 100vw, 67vw',
+    sizes: `(max-width: 639px) ${PHONE_SIZES}, (max-width: 767px) 50vw, 67vw`,
   },
 ];
 
@@ -111,7 +114,7 @@ function Tile({
           </div>
         )}
         {(item.title || item.caption) && (
-          <figcaption className="mono-sm border-t hairline px-3 py-2 text-quiet">
+          <figcaption className="mono-sm border-t hairline px-3 py-2.5 text-quiet md:py-2">
             {item.title || item.caption}
           </figcaption>
         )}
@@ -147,7 +150,7 @@ function Tile({
         className={`w-full object-cover transition-transform duration-700 ease-ink group-hover:scale-[1.03] motion-reduce:transform-none ${layout.ratio}`}
       />
       {item.caption && (
-        <span className="mono-sm block border-t hairline px-3 py-2 text-quiet transition-colors duration-200 group-hover:text-ink">
+        <span className="mono-sm block border-t hairline px-3 py-2.5 text-quiet transition-colors duration-200 group-hover:text-ink md:py-2">
           {item.caption}
         </span>
       )}
@@ -285,14 +288,14 @@ export default function Archive() {
   const currentSources = current ? galleryFullSources(current.url, current.variants) : null;
 
   return (
-    <div className="wrap py-12 md:py-16">
-      <header className="grid gap-8 border-b hairline pb-8 md:grid-cols-12 md:items-end md:gap-6 md:pb-10">
+    <div className="wrap py-8 md:py-16">
+      <header className="grid gap-6 border-b hairline pb-6 md:grid-cols-12 md:items-end md:gap-6 md:pb-10">
         <div className="md:col-span-7">
           <p className="mono text-quiet">The record · contact sheet</p>
-          <h1 className="mt-4 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink">
+          <h1 className="mt-3 font-display text-[clamp(3.25rem,9vw,7rem)] leading-[0.9] tracking-tight text-ink md:mt-4">
             Archive
           </h1>
-          <p className="mt-5 max-w-md text-pretty text-[17px] leading-[1.7] text-quiet">
+          <p className="mt-4 max-w-md text-pretty text-[17px] leading-[1.7] text-quiet md:mt-5">
             Every frame kept on the record — browse the archive by album and event.
           </p>
         </div>
@@ -334,9 +337,13 @@ export default function Archive() {
       {albums !== null && albums.length > 0 && (
         <>
           <Reveal>
-            <div className="mt-8 flex flex-wrap items-baseline gap-x-2 gap-y-3 md:mt-10">
-              <span aria-hidden="true" className="mono mr-2 text-faint">Filter</span>
-              <div role="group" aria-label="Filter by album" className="flex flex-wrap gap-2">
+            <div className="mt-6 flex items-center gap-3 md:mt-10 md:flex-wrap md:items-baseline md:gap-x-2 md:gap-y-3">
+              <span aria-hidden="true" className="mono shrink-0 text-faint md:mr-2">Filter</span>
+              <div
+                role="group"
+                aria-label="Filter by album"
+                className="-my-2 flex min-w-0 flex-1 gap-2 overflow-x-auto py-2 [scrollbar-width:none] md:my-0 md:flex-none md:flex-wrap md:overflow-visible md:py-0 [&::-webkit-scrollbar]:hidden"
+              >
                 <button type="button" onClick={() => setActive(ALL)} aria-pressed={active === ALL} className={chipClass(active === ALL)}>
                   All
                 </button>
@@ -362,7 +369,7 @@ export default function Archive() {
             const event = album.event_id ? eventsById?.get(album.event_id) : undefined;
             return (
               <Reveal key={album.id} delay={index * 60}>
-                <section aria-label={album.title} className="mt-16 border-t hairline pt-6 md:mt-20 md:pt-8">
+                <section aria-label={album.title} className="mt-10 border-t hairline pt-6 md:mt-20 md:pt-8">
                   <div className="grid gap-x-6 gap-y-3 md:grid-cols-12 md:items-baseline">
                     <span aria-hidden="true" className="mono text-faint md:col-span-1">
                       {pad(index + 1)}
@@ -388,7 +395,7 @@ export default function Archive() {
                       )}
                     </div>
                   </div>
-                  <div className="mt-6 grid grid-cols-2 gap-4 md:mt-8 md:grid-cols-12 md:gap-x-6 md:gap-y-8">
+                  <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4 md:mt-8 md:grid-cols-12 md:gap-x-6 md:gap-y-8">
                     {album.items.map((item, i) => (
                       <Tile
                         key={item.id}
@@ -419,12 +426,12 @@ export default function Archive() {
           className="fixed inset-0 z-50 flex flex-col bg-paper text-ink"
         >
           <div className="wrap flex items-center justify-between gap-4 border-b hairline py-3">
-            <p className="mono text-quiet">Archive · photo viewer</p>
+            <p className="mono min-w-0 text-quiet">Archive · photo viewer</p>
             <button
               type="button"
               onClick={close}
               aria-label="Close photo viewer"
-              className="flex h-11 w-11 items-center justify-center rounded-[2px] border hairline font-mono text-lg text-quiet transition-colors duration-200 hover:border-ink/40 hover:text-ink"
+              className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-[2px] border hairline font-mono text-lg text-quiet transition-colors duration-200 hover:border-ink/40 hover:text-ink"
             >
               ✕
             </button>
@@ -435,7 +442,7 @@ export default function Archive() {
               type="button"
               onClick={() => step(-1)}
               aria-label="Previous photo"
-              className="absolute left-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-[2px] border hairline bg-paper/90 font-mono text-xl text-ink transition-colors duration-200 hover:bg-ink hover:text-paper sm:left-6"
+              className="absolute left-3 top-1/2 flex h-12 w-12 -translate-y-1/2 touch-manipulation items-center justify-center rounded-[2px] border hairline bg-paper/90 font-mono text-xl text-ink transition-colors duration-200 hover:bg-ink hover:text-paper sm:left-6"
             >
               ‹
             </button>
@@ -443,7 +450,7 @@ export default function Archive() {
               type="button"
               onClick={() => step(1)}
               aria-label="Next photo"
-              className="absolute right-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-[2px] border hairline bg-paper/90 font-mono text-xl text-ink transition-colors duration-200 hover:bg-ink hover:text-paper sm:right-6"
+              className="absolute right-3 top-1/2 flex h-12 w-12 -translate-y-1/2 touch-manipulation items-center justify-center rounded-[2px] border hairline bg-paper/90 font-mono text-xl text-ink transition-colors duration-200 hover:bg-ink hover:text-paper sm:right-6"
             >
               ›
             </button>

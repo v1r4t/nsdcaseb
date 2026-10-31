@@ -47,16 +47,16 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <section className="wrap py-14 md:py-20">
+      <section className="wrap py-10 md:py-20">
         <div className="max-w-xl">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
             <p className="mono text-quiet">02 / Recovery</p>
             <p className="mono text-quiet">NSDC · Members</p>
           </div>
-          <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
             Reset link missing
           </h1>
-          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
             Open the link from your reset email to set a new password.
           </p>
         </div>
@@ -65,56 +65,64 @@ export default function ResetPassword() {
   }
 
   return (
-    <section className="wrap py-14 md:py-20">
+    <section className="wrap py-10 md:py-20">
       <div className="max-w-xl">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
           <p className="mono text-quiet">02 / Recovery</p>
           <p className="mono text-quiet">NSDC · Members</p>
         </div>
-        <h1 className="mt-8 max-w-md font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+        <h1 className="mt-6 max-w-md font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
           Set a new password
         </h1>
         {done ? (
-          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-quiet">
+          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-quiet sm:mt-4">
             Done — sign in with your new password.{' '}
             <Link to="/login" className="link">Sign in</Link>
           </p>
         ) : (
           <>
-            <div className="rule mt-8 max-w-md" aria-hidden="true" />
+            <div className="rule mt-6 max-w-md sm:mt-8" aria-hidden="true" />
 
-            <form className="mt-8 max-w-md space-y-6" onSubmit={handleSubmit} aria-busy={pending}>
+            <form
+              className="mt-6 max-w-md space-y-5 sm:mt-8 sm:space-y-6"
+              onSubmit={handleSubmit}
+              aria-busy={pending}
+            >
               <div>
-                <label htmlFor="reset-password" className="mono mb-2 block text-ink/80">
+                <label htmlFor="reset-password" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                   New password
                 </label>
-                <PasswordField
-                  id="reset-password"
-                  name="password"
-                  label="new password"
-                  value={password}
-                  onChange={setPassword}
-                  autoComplete="new-password"
-                  disabled={pending}
-                  describedBy="reset-password-hint"
-                />
+                <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+                  <PasswordField
+                    id="reset-password"
+                    name="password"
+                    label="new password"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="new-password"
+                    disabled={pending}
+                    describedBy="reset-password-hint"
+                  />
+                </div>
                 <p id="reset-password-hint" className="hint">
                   At least 10 characters, including a letter and a number.
                 </p>
               </div>
               <div>
-                <label htmlFor="reset-confirm" className="mono mb-2 block text-ink/80">
+                <label htmlFor="reset-confirm" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                   Confirm password
                 </label>
-                <PasswordField
-                  id="reset-confirm"
-                  name="confirm"
-                  label="password confirmation"
-                  value={confirm}
-                  onChange={setConfirm}
-                  autoComplete="new-password"
-                  disabled={pending}
-                />
+                <div className="[&_button]:flex [&_button]:h-11 [&_button]:items-center [&_input]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
+                  <PasswordField
+                    id="reset-confirm"
+                    name="confirm"
+                    label="password confirmation"
+                    value={confirm}
+                    onChange={setConfirm}
+                    autoComplete="new-password"
+                    disabled={pending}
+                  />
+                </div>
               </div>
               {error && (
                 <p role="alert" aria-live="assertive" className="error-text">
@@ -122,7 +130,7 @@ export default function ResetPassword() {
                   {error}
                 </p>
               )}
-              <button type="submit" disabled={pending} className="btn-primary w-full">
+              <button type="submit" disabled={pending} className="btn-primary min-h-11 w-full">
                 {pending ? 'Saving...' : 'Set new password'}
               </button>
             </form>

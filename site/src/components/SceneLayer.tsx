@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { useDeviceTier } from '../../../design/lib/motion';
+import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
 
 /**
  * Route-only and device-only furniture, split out of the entry chunk.
@@ -24,8 +25,18 @@ const Cursor = lazy(() =>
 /**
  * The landing page's room dolly and its margin readout. Both are only ever
  * mounted on `/`, so they stay out of every other route's first paint.
+ *
+ * Phones get no room at all: the canvas paints a fixed perspective grid behind
+ * every section, and on a narrow single column its hairlines read straight
+ * through the copy. Nothing is mounted below 768px, so no chunk is requested
+ * and no rAF loop can keep drawing a hidden scene. `useMediaQuery` reads
+ * `matchMedia` before the first render, and a resize across the breakpoint
+ * unmounts the canvas (its effect cleanup cancels the loop).
  */
 export function RoomLayer() {
+  const desktop = useMediaQuery('(min-width: 768px)');
+  if (!desktop) return null;
+
   return (
     <Suspense fallback={null}>
       <RoomScene />

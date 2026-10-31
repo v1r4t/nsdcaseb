@@ -249,17 +249,17 @@ export default function Recruit() {
     // and is pushed down when the form mounts (mobile /recruit CLS 0, desktop
     // 0.36 — the footer shift). No visible content is added; the space is
     // simply the page's minimum height.
-    <div className="wrap min-h-[100svh] py-12 md:py-16">
+    <div className="wrap min-h-[100svh] py-10 md:py-16">
       <div className="max-w-xl md:max-w-2xl">
         <header>
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b hairline pb-4">
             <p className="mono text-quiet">Recruitment</p>
             <p className="mono text-quiet">NSDC · Apply</p>
           </div>
-          <h1 className="mt-8 font-display text-4xl font-normal leading-[1.05] tracking-tight text-ink sm:text-5xl">
+          <h1 className="mt-6 font-display text-3xl font-normal leading-[1.05] tracking-tight text-ink sm:mt-8 sm:text-5xl">
             Join the corps.
           </h1>
-          <p role="status" className="mono mt-5 flex items-start gap-2 text-quiet">
+          <p role="status" className="mono mt-4 flex items-start gap-2 text-quiet sm:mt-5">
             <span
               aria-hidden="true"
               className={`mt-[0.5em] inline-block h-1.5 w-1.5 shrink-0 ${statusMark}`}
@@ -271,7 +271,7 @@ export default function Recruit() {
         {recruitmentOpen === null && (
           <section
             aria-label="Recruitment status"
-            className="mt-10 min-h-[8.5rem] border-t hairline pt-5"
+            className="mt-8 min-h-[8.5rem] border-t hairline pt-5 sm:mt-10"
           >
             <p className="text-[15px] leading-relaxed text-quiet">
               {siteLoaded
@@ -284,7 +284,7 @@ export default function Recruit() {
         {recruitmentOpen === false && (
           <section
             aria-label="Recruitment closed"
-            className="mt-10 min-h-[8.5rem] border-t hairline pt-5"
+            className="mt-8 min-h-[8.5rem] border-t hairline pt-5 sm:mt-10"
           >
             <h2 className="font-display text-2xl tracking-tight text-ink">
               Applications are closed.
@@ -300,7 +300,7 @@ export default function Recruit() {
         {recruitmentOpen === true && receipt && (
           <section
             aria-labelledby="recruit-success-title"
-            className="mt-10 border-t-2 border-seal pt-6"
+            className="mt-8 border-t-2 border-seal pt-6 sm:mt-10"
           >
             <h2
               id="recruit-success-title"
@@ -312,8 +312,8 @@ export default function Recruit() {
             </h2>
             <p className="mt-3 text-[15px] leading-relaxed text-quiet">
               Your reference ID is{' '}
-              <span className="mono-sm text-ink">{receipt.id}</span>. Keep it — you can use the
-              status check below at any time.
+              <span className="mono-sm break-all text-ink">{receipt.id}</span>. Keep it — you can use
+              the status check below at any time.
             </p>
             <p className="mt-3 text-[15px] leading-relaxed text-quiet">
               Every application is reviewed, and you will be notified whether you are selected or
@@ -327,12 +327,12 @@ export default function Recruit() {
 
         {recruitmentOpen === true && !receipt && (
           <form
-            className="mt-10 border-t hairline pt-6"
+            className="mt-8 border-t hairline pt-6 sm:mt-10"
             onSubmit={handleSubmit}
             aria-busy={pending}
             noValidate
           >
-            <h2 className="flex items-baseline gap-4 font-display text-2xl tracking-tight text-ink">
+            <h2 className="flex items-baseline gap-3 font-display text-xl tracking-tight text-ink sm:gap-4 sm:text-2xl">
               <Folio>01</Folio>
               Application form
             </h2>
@@ -340,9 +340,9 @@ export default function Recruit() {
             <fieldset className="mt-6" disabled={pending}>
               <legend className="sr-only">Application form</legend>
 
-              <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 sm:gap-y-6">
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-name" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-name" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Full name
                   </label>
                   <input
@@ -355,14 +355,14 @@ export default function Recruit() {
                     onChange={(event) => update('name', event.target.value)}
                     aria-invalid={errors.name ? true : undefined}
                     aria-describedby={errors.name ? 'recruit-name-error' : undefined}
-                    className={`field ${errors.name ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.name ? 'field-invalid' : ''}`}
                     placeholder="Your full name"
                   />
                   <FieldError id="recruit-name-error" message={errors.name} />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-email" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     College email
                   </label>
                   <input
@@ -375,14 +375,14 @@ export default function Recruit() {
                     onChange={(event) => update('email', event.target.value)}
                     aria-invalid={errors.email ? true : undefined}
                     aria-describedby={errors.email ? 'recruit-email-error' : undefined}
-                    className={`field ${errors.email ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.email ? 'field-invalid' : ''}`}
                     placeholder="you@bl.students.amrita.edu"
                   />
                   <FieldError id="recruit-email-error" message={errors.email} />
                 </div>
 
                 <div>
-                  <label htmlFor="recruit-reg_number" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-reg_number" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Register ID
                   </label>
                   <input
@@ -395,14 +395,14 @@ export default function Recruit() {
                     onChange={(event) => update('reg_number', event.target.value)}
                     aria-invalid={errors.reg_number ? true : undefined}
                     aria-describedby={errors.reg_number ? 'recruit-reg_number-error' : undefined}
-                    className={`field ${errors.reg_number ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.reg_number ? 'field-invalid' : ''}`}
                     placeholder="BL.SC.U4CSE24001"
                   />
                   <FieldError id="recruit-reg_number-error" message={errors.reg_number} />
                 </div>
 
                 <div>
-                  <label htmlFor="recruit-phone" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-phone" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Phone number
                   </label>
                   <input
@@ -415,14 +415,14 @@ export default function Recruit() {
                     onChange={(event) => update('phone', event.target.value)}
                     aria-invalid={errors.phone ? true : undefined}
                     aria-describedby={errors.phone ? 'recruit-phone-error' : undefined}
-                    className={`field ${errors.phone ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.phone ? 'field-invalid' : ''}`}
                     placeholder="+91 98765 43210"
                   />
                   <FieldError id="recruit-phone-error" message={errors.phone} />
                 </div>
 
                 <div>
-                  <label htmlFor="recruit-year" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-year" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Year of study
                   </label>
                   <select
@@ -433,7 +433,7 @@ export default function Recruit() {
                     onChange={(event) => update('year', event.target.value)}
                     aria-invalid={errors.year ? true : undefined}
                     aria-describedby={errors.year ? 'recruit-year-error' : undefined}
-                    className={`field ${errors.year ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.year ? 'field-invalid' : ''}`}
                   >
                     <option value="">Select year</option>
                     {ELIGIBLE_YEARS.map((year) => (
@@ -446,7 +446,7 @@ export default function Recruit() {
                 </div>
 
                 <div>
-                  <label htmlFor="recruit-branch" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-branch" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Branch
                   </label>
                   <input
@@ -459,14 +459,14 @@ export default function Recruit() {
                     onChange={(event) => update('branch', event.target.value)}
                     aria-invalid={errors.branch ? true : undefined}
                     aria-describedby={errors.branch ? 'recruit-branch-error' : undefined}
-                    className={`field ${errors.branch ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.branch ? 'field-invalid' : ''}`}
                     placeholder="Computer Science"
                   />
                   <FieldError id="recruit-branch-error" message={errors.branch} />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-why_join" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-why_join" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Why do you want to join?
                   </label>
                   <textarea
@@ -480,7 +480,7 @@ export default function Recruit() {
                     aria-describedby={
                       errors.why_join ? 'recruit-why_join-hint recruit-why_join-error' : 'recruit-why_join-hint'
                     }
-                    className={`field ${errors.why_join ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.why_join ? 'field-invalid' : ''}`}
                     placeholder="What draws you to data, AI and this community?"
                   />
                   <p id="recruit-why_join-hint" className="hint">
@@ -490,7 +490,7 @@ export default function Recruit() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-contribute" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-contribute" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     What can you contribute?
                   </label>
                   <textarea
@@ -506,7 +506,7 @@ export default function Recruit() {
                         ? 'recruit-contribute-hint recruit-contribute-error'
                         : 'recruit-contribute-hint'
                     }
-                    className={`field ${errors.contribute ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.contribute ? 'field-invalid' : ''}`}
                     placeholder="Skills, interests or time you can bring to the team"
                   />
                   <p id="recruit-contribute-hint" className="hint">
@@ -516,7 +516,7 @@ export default function Recruit() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-time_commitment" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-time_commitment" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Time commitment
                   </label>
                   <input
@@ -531,14 +531,14 @@ export default function Recruit() {
                     aria-describedby={
                       errors.time_commitment ? 'recruit-time_commitment-error' : undefined
                     }
-                    className={`field ${errors.time_commitment ? 'field-invalid' : ''}`}
+                    className={`field min-h-11 text-base sm:text-sm ${errors.time_commitment ? 'field-invalid' : ''}`}
                     placeholder="e.g. 4–6 hours a week"
                   />
                   <FieldError id="recruit-time_commitment-error" message={errors.time_commitment} />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="recruit-remarks" className="mono mb-2 block text-ink/80">
+                  <label htmlFor="recruit-remarks" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                     Remarks (optional)
                   </label>
                   <textarea
@@ -547,7 +547,7 @@ export default function Recruit() {
                     rows={3}
                     value={form.remarks ?? ''}
                     onChange={(event) => update('remarks', event.target.value)}
-                    className="field"
+                    className="field min-h-11 text-base sm:text-sm"
                     placeholder="Anything else we should know?"
                   />
                 </div>
@@ -566,8 +566,8 @@ export default function Recruit() {
                 </p>
               )}
 
-              <div className="mt-8 border-t hairline pt-6">
-                <button type="submit" className="btn-primary w-full sm:w-auto">
+              <div className="mt-6 border-t hairline pt-6 sm:mt-8">
+                <button type="submit" className="btn-primary min-h-11 w-full sm:w-auto">
                   {pending ? 'Submitting…' : 'Submit application'}
                 </button>
               </div>
@@ -575,10 +575,10 @@ export default function Recruit() {
           </form>
         )}
 
-        <section aria-labelledby="lookup-title" className="mt-14 border-t hairline pt-6">
+        <section aria-labelledby="lookup-title" className="mt-10 border-t hairline pt-6 sm:mt-14">
           <h2
             id="lookup-title"
-            className="flex items-baseline gap-4 font-display text-2xl tracking-tight text-ink"
+            className="flex items-baseline gap-3 font-display text-xl tracking-tight text-ink sm:gap-4 sm:text-2xl"
           >
             <Folio>02</Folio>
             Check your application status
@@ -588,9 +588,9 @@ export default function Recruit() {
           </p>
 
           <form className="mt-6" onSubmit={handleLookup} aria-busy={lookupPending} noValidate>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 sm:gap-y-6">
               <div>
-                <label htmlFor="lookup-email" className="mono mb-2 block text-ink/80">
+                <label htmlFor="lookup-email" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                   College email
                 </label>
                 <input
@@ -607,7 +607,7 @@ export default function Recruit() {
                   }}
                   aria-invalid={lookupErrors.email ? true : undefined}
                   aria-describedby={lookupErrors.email ? 'lookup-email-error' : undefined}
-                  className={`field ${lookupErrors.email ? 'field-invalid' : ''}`}
+                  className={`field min-h-11 text-base sm:text-sm ${lookupErrors.email ? 'field-invalid' : ''}`}
                   placeholder="you@bl.students.amrita.edu"
                 />
                 {lookupErrors.email && (
@@ -619,7 +619,7 @@ export default function Recruit() {
               </div>
 
               <div>
-                <label htmlFor="lookup-reg" className="mono mb-2 block text-ink/80">
+                <label htmlFor="lookup-reg" className="mono mb-1.5 block text-ink/80 sm:mb-2">
                   Register ID
                 </label>
                 <input
@@ -636,7 +636,7 @@ export default function Recruit() {
                   }}
                   aria-invalid={lookupErrors.reg_number ? true : undefined}
                   aria-describedby={lookupErrors.reg_number ? 'lookup-reg-error' : undefined}
-                  className={`field ${lookupErrors.reg_number ? 'field-invalid' : ''}`}
+                  className={`field min-h-11 text-base sm:text-sm ${lookupErrors.reg_number ? 'field-invalid' : ''}`}
                   placeholder="BL.SC.U4CSE24001"
                 />
                 {lookupErrors.reg_number && (
@@ -649,7 +649,7 @@ export default function Recruit() {
             </div>
 
             <div className="mt-6 border-t hairline pt-6">
-              <button type="submit" className="btn-ghost w-full sm:w-auto">
+              <button type="submit" className="btn-ghost min-h-11 w-full sm:w-auto">
                 {lookupPending ? 'Checking…' : 'Check status'}
               </button>
             </div>
@@ -673,7 +673,7 @@ export default function Recruit() {
               </p>
             )}
             {lookupResult?.kind === 'found' && (
-              <div className="border hairline p-5">
+              <div className="border hairline p-4 sm:p-5">
                 <p className="mono text-quiet">
                   {applicationStatusCopy(lookupResult.application.status).label}
                 </p>
