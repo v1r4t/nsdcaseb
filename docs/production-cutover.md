@@ -864,8 +864,8 @@ Acceptance vs the staging table in `docs/baseline.md` (2026-10-31, ink-on-paper)
 - No route regresses below staging; mobile `/registrations` CLS < 0.1.
 - **Visual parity with `preview.nsdcaseb.xyz`:** paper `#F2EEE3` ground, ink
   `#111110` type, kit header/footer, seal accent ≈10% of a viewport, no
-  cream-on-cream admin tables, text-only StoryStages 01/02/03 with no globe or
-  canvas, and reduced motion serving a static stack. A production page that looks like
+  cream-on-cream admin tables, StoryStages 01/02/03 with the SVG bearer plate
+  (no globe or canvas), and reduced motion serving a static stack. A production page that looks like
   the old dark editorial site means the wrong build shipped — stop and redeploy.
 - **SEO should rise to 1.00 on every route.** Staging's 0.92 came from the
   shell's hardcoded `preview.` canonical, which `worker/meta.ts` now rewrites. A

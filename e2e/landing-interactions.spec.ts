@@ -52,6 +52,13 @@ async function expectStoryStages(page: Page): Promise<void> {
   // The retired globe painted through a <canvas>; StoryStages is paper only.
   await expect(story.locator('canvas')).toHaveCount(0);
 
+  // The bearer plate is decorative: a fixed dial plus the figure that turns
+  // on desktop. Neither belongs in the accessibility tree.
+  await expect(story.locator('[data-story-plate]')).toHaveCount(1);
+  const figure = story.locator('[data-story-figure]');
+  await expect(figure).toHaveCount(1);
+  await expect(figure).toHaveAttribute('aria-hidden', 'true');
+
   for (const stage of STORY_STAGES) {
     const mark = story.getByText(stage, { exact: true });
     await expect(mark, `stage "${stage}" should render exactly once`).toHaveCount(1);
@@ -66,6 +73,40 @@ test.describe('story stages under normal motion', () => {
   test('keeps 01/02/03 in the paper story', async ({ page }) => {
     await page.goto('/');
     await expectStoryStages(page);
+  });
+
+  test('turns the bearer and clears the plate before About', async ({ page }) => {
+    await page.goto('/');
+    const story = landingSection(page, 'Our story');
+    await story.scrollIntoViewIfNeeded();
+
+    const geometry = await story.evaluate((el) => {
+      const node = el as HTMLElement;
+      const stage = node.firstElementChild as HTMLElement;
+      return { top: node.offsetTop, span: node.offsetHeight - stage.offsetHeight };
+    });
+    const turn = async (frac: number) => {
+      await page.evaluate(
+        ({ top, span, frac: f }) => window.scrollTo(0, top + span * f),
+        { ...geometry, frac },
+      );
+      await page.waitForTimeout(650);
+    };
+
+    const rotating = story.locator('[data-story-figure]').locator('..');
+    const plate = story.locator('[data-story-plate]').locator('..');
+
+    await turn(0.05);
+    expect(await rotating.getAttribute('style')).toMatch(/rotateY\((1[0-9]|2[0-9])(\.\d+)?deg\)/);
+    expect(await plate.evaluate((el) => Number((el as HTMLElement).style.opacity || 1))).toBe(1);
+
+    await turn(0.55);
+    expect(await rotating.getAttribute('style')).toMatch(/rotateY\((19[0-9]|20[0-9])(\.\d+)?deg\)/);
+
+    // The plate leaves before the story unpins, so About arrives clean.
+    await turn(0.98);
+    const leaving = await plate.evaluate((el) => Number((el as HTMLElement).style.opacity));
+    expect(leaving).toBeLessThan(0.25);
   });
 });
 
