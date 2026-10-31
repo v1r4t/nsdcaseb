@@ -1,4 +1,4 @@
-import { Reveal } from '../../../design/motion/Reveal';
+import Reveal from './Reveal';
 
 /**
  * THE NETWORK — a three-part dossier over the room.
@@ -6,7 +6,8 @@ import { Reveal } from '../../../design/motion/Reveal';
  * The globe narrative retypeset as filed notes: a mono index, a serif
  * statement, body copy in Switzer. Stages alternate left / right / indented
  * left, separated by hairlines rather than boxes. Nothing is sticky and there
- * is no scroll-jack; each statement enters with the kit's line-mask `Reveal`.
+ * is no scroll-jack; each statement enters with the site's lightweight `Reveal`
+ * (a plain fade/lift, so the wrapper never receives an aria-label on a div).
  *
  * The copy is preserved verbatim from the retired globe sequence, including the
  * Bengaluru coordinate line — now a seal mark under stage 02, used once.
@@ -75,7 +76,7 @@ export default function DossierStages() {
             <div className={`col-span-12 ${stage.placement}`}>
               <p className="mono text-seal">{stage.index}</p>
 
-              <Reveal className="mt-4" delay={Math.min(i, 2) * 0.08}>
+              <Reveal className="mt-4" delay={Math.min(i, 2) * 80}>
                 <p className="statement-sm text-ink">{stage.title}</p>
               </Reveal>
 

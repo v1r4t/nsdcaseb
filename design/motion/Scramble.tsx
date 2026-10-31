@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { registerGsap, ScrollTrigger } from "../lib/gsap";
+import { gsap, registerGsap, ScrollTrigger } from "../lib/gsap";
 import { prefersReducedMotion } from "../lib/motion";
 import { cn } from "../lib/cn";
 
@@ -89,6 +89,7 @@ export function Scramble({
 
     try {
       registerGsap();
+      gsap.registerPlugin(ScrollTrigger);
       trigger = ScrollTrigger.create({
         trigger: el,
         start: "top 90%",

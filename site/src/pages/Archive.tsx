@@ -85,10 +85,13 @@ function tileLayout(index: number): TileLayout {
 function Tile({
   item,
   layout,
+  priority = false,
   onOpen,
 }: {
   item: MediaItem;
   layout: TileLayout;
+  /** True only for the lead plate — the page's LCP element. */
+  priority?: boolean;
   onOpen: (item: MediaItem) => void;
 }) {
   if (item.type === 'video') {
@@ -121,6 +124,10 @@ function Tile({
   // intrinsic width/height mirror the common 16:9 tile. object-cover crops
   // off-ratio originals into the contact-sheet plate.
   const sources = galleryTileSources(item.url, item.variants);
+  // The lead plate is the LCP element, so it loads eagerly and at high
+  // priority. Keep the full responsive srcset: `sizes` already selects the
+  // thumb for small columns, while retina displays can still pick a larger
+  // candidate instead of being capped at 640w.
   return (
     <button
       type="button"
@@ -134,7 +141,8 @@ function Tile({
         srcSet={sources.srcSet}
         sizes={layout.sizes}
         alt={photoAlt(item)}
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : undefined}
         decoding="async"
         width={640}
         height={360}
@@ -217,6 +225,13 @@ export default function Archive() {
   const frameTotal = albums
     ? albums.reduce((total, album) => total + album.items.filter((item) => item.type === 'image').length, 0)
     : 0;
+
+  // The first photo of the first rendered album sits right below the header
+  // and is the LCP element on the unfiltered archive; it alone loads eagerly.
+  const leadImageId = useMemo(() => {
+    const lead = sections[0]?.items.find((item) => item.type !== 'video');
+    return lead?.id ?? null;
+  }, [sections]);
 
   const step = useCallback(
     (delta: number) =>
@@ -377,7 +392,13 @@ export default function Archive() {
                   </div>
                   <div className="mt-6 grid grid-cols-2 gap-4 md:mt-8 md:grid-cols-12 md:gap-x-6 md:gap-y-8">
                     {album.items.map((item, i) => (
-                      <Tile key={item.id} item={item} layout={tileLayout(i)} onOpen={open} />
+                      <Tile
+                        key={item.id}
+                        item={item}
+                        layout={tileLayout(i)}
+                        priority={index === 0 && item.id === leadImageId}
+                        onOpen={open}
+                      />
                     ))}
                   </div>
                 </section>

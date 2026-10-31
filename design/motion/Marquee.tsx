@@ -43,6 +43,7 @@ export function Marquee({
 
     try {
       registerGsap();
+      gsap.registerPlugin(ScrollTrigger);
 
       const firstRow = track.firstElementChild as HTMLElement | null;
       const distance = firstRow?.offsetWidth || track.scrollWidth / 2 || 600;

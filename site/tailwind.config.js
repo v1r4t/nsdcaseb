@@ -23,7 +23,7 @@ export default {
       fontFamily: {
         display: ['"Bespoke Serif"', '"Iowan Old Style"', 'Georgia', 'serif'],
         serif: ['"Bespoke Serif"', '"Iowan Old Style"', 'Georgia', 'serif'],
-        sans: ['Switzer', 'system-ui', '-apple-system', '"Segoe UI"', 'Arial', 'sans-serif'],
+        sans: ['Switzer', '"Switzer Fallback"', 'system-ui', '-apple-system', '"Segoe UI"', 'Arial', 'sans-serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       letterSpacing: {

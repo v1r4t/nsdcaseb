@@ -59,6 +59,14 @@ function Shell() {
   const { pathname } = useLocation();
   const admin = pathname.startsWith('/admin');
   const motif = motifFor(pathname);
+  // Only data-loading routes need the viewport floor. Auth and 404 pages are
+  // complete on first paint, so forcing 100svh there just adds empty scroll.
+  const floor =
+    pathname === '/' ||
+    pathname.startsWith('/registrations') ||
+    pathname.startsWith('/projects') ||
+    pathname === '/archive' ||
+    pathname === '/recruit';
 
   return (
     <>
@@ -77,7 +85,16 @@ function Shell() {
           linkComponent={RouterLink}
         />
         <AnnouncementBanner />
-        <main id="main" tabIndex={-1} className="flex-1">
+        {/* A viewport floor on the content column keeps the footer below the
+            fold while a route's data (or its chunk) loads. Without it the
+            footer sits at the viewport bottom and is pushed down when the
+            route resolves — the header/footer jump measured as CLS on
+            /archive and /projects. `flex-1` still lets longer routes grow it. */}
+        <main
+          id="main"
+          tabIndex={-1}
+          className={`${floor ? 'min-h-[100svh] ' : ''}flex-1`}
+        >
           <ErrorBoundary>
             {/* Reserve a viewport of height while a lazy route loads. A
                 one-line fallback puts the footer at the viewport bottom, and

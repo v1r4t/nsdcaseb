@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, forgotPassword } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import PasswordField from '../components/PasswordField';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 type Mode = 'signin' | 'forgot';
 
@@ -45,6 +46,11 @@ export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useDocumentMeta({
+    title: 'Sign in — NSDC',
+    description: 'Sign in to your NSDC member account to register for events and reach club media.',
+  });
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');

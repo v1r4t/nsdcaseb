@@ -16,6 +16,15 @@ const ASSET_DIR_RE = /^\/(assets|static|images|fonts)\//;
 const FILE_LIKE_RE = /\/[^/]+\.[A-Za-z0-9]{1,8}$/;
 
 /**
+ * Hosts that are previews of the site and must never be indexed. Production
+ * (`nsdcaseb.xyz`, `www.nsdcaseb.xyz` -> apex) is deliberately absent.
+ */
+const PREVIEW_HOSTNAMES = new Set(['preview.nsdcaseb.xyz']);
+const STAGING_WORKERS_DEV_RE = /^nsdcaseb-staging\.[a-z0-9.-]+\.workers\.dev$/;
+/** The production worker's workers.dev host is public but not the canonical site. */
+const PRODUCTION_WORKERS_DEV_RE = /^nsdcaseb-site\.[a-z0-9.-]+\.workers\.dev$/;
+
+/**
  * Site worker env: the shared auth Env plus the launch-list binding declared in
  * wrangler.staging.jsonc. Typed here (rather than in auth-helpers) so the
  * shared Env stays untouched; the binding is optional only so a local dev run
@@ -33,6 +42,34 @@ async function fetchShell(request: Request, env: Env): Promise<Response | null> 
   } catch (err) {
     console.error('[staging] ASSETS.fetch failed', err);
     return null;
+  }
+}
+
+function isPreviewHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    PREVIEW_HOSTNAMES.has(host) ||
+    STAGING_WORKERS_DEV_RE.test(host) ||
+    PRODUCTION_WORKERS_DEV_RE.test(host)
+  );
+}
+
+/**
+ * Keep preview deployments out of search results. Only HTML responses on a
+ * preview host get the header; assets, JSON, XML (robots.txt/sitemap) and all
+ * production hosts keep their exact headers. Never throws.
+ */
+function withPreviewNoindex(request: Request, res: Response): Response {
+  try {
+    if (!isPreviewHost(new URL(request.url).hostname)) return res;
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('text/html')) return res;
+    const headers = new Headers(res.headers);
+    headers.set('x-robots-tag', 'noindex, nofollow');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  } catch (err) {
+    console.error('[staging] preview noindex header failed, serving unmodified response', err);
+    return res;
   }
 }
 
@@ -130,88 +167,94 @@ async function serveAppRoute(request: Request, env: Env, pathname: string): Prom
   return applySecurityHeaders(withDefaultMeta(request, base), env);
 }
 
-export default {
-  async fetch(request: Request, env: SiteEnv): Promise<Response> {
-    const url = new URL(request.url);
-    const { pathname } = url;
+async function handleRequest(request: Request, env: SiteEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const { pathname } = url;
 
-    // One canonical origin: www permanently redirects to the apex. Applies only
-    // to the production hostname; preview/workers.dev are untouched.
-    if (url.hostname === 'www.nsdcaseb.xyz') {
-      return Response.redirect(`https://nsdcaseb.xyz${pathname}${url.search}`, 301);
-    }
+  // One canonical origin: www permanently redirects to the apex. Applies only
+  // to the production hostname; preview/workers.dev are untouched.
+  if (url.hostname === 'www.nsdcaseb.xyz') {
+    return Response.redirect(`https://nsdcaseb.xyz${pathname}${url.search}`, 301);
+  }
 
-    // Media merged into the archive; keep old links working.
-    if (pathname === '/media' || pathname === '/media/') {
-      return Response.redirect('https://' + url.host + '/archive', 301);
-    }
+  // Media merged into the archive; keep old links working.
+  if (pathname === '/media' || pathname === '/media/') {
+    return Response.redirect('https://' + url.host + '/archive', 301);
+  }
 
-    if (pathname.startsWith('/api/')) {
-      if (pathname === '/api/notify') return handleNotify(request, env);
-      return (
-        (await handleContentApi(request, env)) ??
-        (await handleEventsApi(request, env)) ??
-        (await handleMediaApi(request, env)) ??
-        (await handleProjectsApi(request, env)) ??
-        (await handleRecruitmentApi(request, env)) ??
-        (await handleAdminApi(request, env)) ??
-        handleApi(request, env)
-      );
-    }
+  if (pathname.startsWith('/api/')) {
+    if (pathname === '/api/notify') return handleNotify(request, env);
+    return (
+      (await handleContentApi(request, env)) ??
+      (await handleEventsApi(request, env)) ??
+      (await handleMediaApi(request, env)) ??
+      (await handleProjectsApi(request, env)) ??
+      (await handleRecruitmentApi(request, env)) ??
+      (await handleAdminApi(request, env)) ??
+      handleApi(request, env)
+    );
+  }
 
-    if (pathname === '/robots.txt') {
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        return new Response('Method not allowed', {
-          status: 405,
-          headers: { Allow: 'GET, HEAD', 'cache-control': 'no-store' },
-        });
-      }
-      // Origin-aware: staging advertises staging, production advertises apex.
-      const origin = new URL(request.url).origin;
-      const body =
-        `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`;
-      return new Response(request.method === 'HEAD' ? null : body, {
-        status: 200,
-        headers: {
-          'content-type': 'text/plain; charset=utf-8',
-          'cache-control': 'public, max-age=3600',
-        },
+  if (pathname === '/robots.txt') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: { Allow: 'GET, HEAD', 'cache-control': 'no-store' },
       });
     }
+    // Origin-aware: staging advertises staging, production advertises apex.
+    const origin = new URL(request.url).origin;
+    const body =
+      `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`;
+    return new Response(request.method === 'HEAD' ? null : body, {
+      status: 200,
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'public, max-age=3600',
+      },
+    });
+  }
 
-    if (pathname === '/sitemap.xml') {
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        return new Response('Method not allowed', {
-          status: 405,
-          headers: { Allow: 'GET, HEAD', 'cache-control': 'no-store' },
-        });
-      }
-      return serveSitemap(request, env);
-    }
-
+  if (pathname === '/sitemap.xml') {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      // Non-reads of pages/assets: pass through to static handling untouched.
-      const shell = await fetchShell(request, env);
-      return shell ?? serviceUnavailable();
+      return new Response('Method not allowed', {
+        status: 405,
+        headers: { Allow: 'GET, HEAD', 'cache-control': 'no-store' },
+      });
     }
+    return serveSitemap(request, env);
+  }
 
-    if (isAssetPath(pathname)) {
-      const res = await fetchShell(request, env);
-      if (!res) return serviceUnavailable();
-      // A real file keeps its exact status/headers (streaming intact). An
-      // HTML content-type here means the SPA fallback shell answered for a
-      // missing file -> surface a real 404 instead of a disguised 200.
-      const contentType = res.headers.get('content-type') ?? '';
-      if (contentType.includes('text/html') && !isKnownRoute(pathname)) {
-        return applySecurityHeaders(withDefaultMeta(request, toNotFound(res)), env);
-      }
-      return res;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    // Non-reads of pages/assets: pass through to static handling untouched.
+    const shell = await fetchShell(request, env);
+    return shell ?? serviceUnavailable();
+  }
+
+  if (isAssetPath(pathname)) {
+    const res = await fetchShell(request, env);
+    if (!res) return serviceUnavailable();
+    // A real file keeps its exact status/headers (streaming intact). An
+    // HTML content-type here means the SPA fallback shell answered for a
+    // missing file -> surface a real 404 instead of a disguised 200.
+    const contentType = res.headers.get('content-type') ?? '';
+    if (contentType.includes('text/html') && !isKnownRoute(pathname)) {
+      return applySecurityHeaders(withDefaultMeta(request, toNotFound(res)), env);
     }
+    return res;
+  }
 
-    const eventId = matchEventRoute(pathname);
-    if (eventId !== null) return serveEventPage(request, env, eventId);
+  const eventId = matchEventRoute(pathname);
+  if (eventId !== null) return serveEventPage(request, env, eventId);
 
-    return serveAppRoute(request, env, pathname);
+  return serveAppRoute(request, env, pathname);
+}
+
+export default {
+  async fetch(request: Request, env: SiteEnv): Promise<Response> {
+    // Preview hosts get `X-Robots-Tag: noindex, nofollow` on HTML so the
+    // staging surface is never indexed; production hosts pass through.
+    return withPreviewNoindex(request, await handleRequest(request, env));
   },
 
   async scheduled(_controller: ScheduledController, env: SiteEnv): Promise<void> {

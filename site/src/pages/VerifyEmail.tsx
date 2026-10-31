@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { verifyEmail } from '../lib/api';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 type Status = 'missing' | 'verifying' | 'done' | 'invalid';
 
 export default function VerifyEmail() {
+  useDocumentMeta({
+    title: 'Verify your email — NSDC',
+    description: 'Confirm your NSDC account email address to activate your membership and sign in.',
+  });
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [status, setStatus] = useState<Status>(token ? 'verifying' : 'missing');

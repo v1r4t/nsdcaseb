@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, resetPassword } from '../lib/api';
 import PasswordField from '../components/PasswordField';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 function passwordProblem(password: string): string | null {
   if (password.length < 10) return 'Use at least 10 characters.';
@@ -12,6 +13,11 @@ function passwordProblem(password: string): string | null {
 }
 
 export default function ResetPassword() {
+  useDocumentMeta({
+    title: 'Reset your password — NSDC',
+    description:
+      'Request a password reset link for your NSDC account, or set a new password from your reset email.',
+  });
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [password, setPassword] = useState('');

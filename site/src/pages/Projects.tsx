@@ -70,7 +70,7 @@ function FeaturedCard({
     : 'md:col-span-5 md:col-start-8';
   const cover = project.cover_url ? coverSources(project.cover_url) : null;
   return (
-    <li className="grid gap-8 border-t hairline py-10 md:grid-cols-12 md:gap-8 md:py-14">
+    <div className="grid gap-8 border-t hairline py-10 md:grid-cols-12 md:gap-8 md:py-14">
       <div className={textCols}>
         <p aria-hidden="true" className="mono flex flex-wrap items-baseline gap-x-4 gap-y-2 text-faint">
           <span>{pad(index + 1)}</span>
@@ -126,7 +126,7 @@ function FeaturedCard({
           </Link>
         </div>
       )}
-    </li>
+    </div>
   );
 }
 
@@ -141,7 +141,7 @@ function TextRow({
   event: EventSummary | undefined;
 }) {
   return (
-    <li className="border-b hairline">
+    <div className="border-b hairline">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 py-5 md:grid-cols-[3rem_minmax(0,1fr)_auto] md:items-baseline md:gap-x-6">
         <span aria-hidden="true" className="mono pt-1 text-faint">
           {pad(index + 1)}
@@ -172,7 +172,7 @@ function TextRow({
           <EventLink event={event} />
         </p>
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -337,7 +337,7 @@ export default function Projects() {
             <>
               <ol className="mt-10" aria-label="Featured projects">
                 {featured.map((project, i) => (
-                  <Reveal key={project.id} delay={Math.min(i, 4) * 60}>
+                  <Reveal as="li" key={project.id} delay={Math.min(i, 4) * 60}>
                     <FeaturedCard project={project} index={i} event={eventFor(project)} />
                   </Reveal>
                 ))}
@@ -349,7 +349,7 @@ export default function Projects() {
                   <p className="mono mt-14 text-quiet">More work</p>
                   <ol className="mt-4" aria-label="More projects">
                     {remainder.map((project, i) => (
-                      <Reveal key={project.id} delay={Math.min(i, 4) * 60}>
+                      <Reveal as="li" key={project.id} delay={Math.min(i, 4) * 60}>
                         <TextRow
                           project={project}
                           index={featured.length + i}

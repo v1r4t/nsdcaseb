@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import PasswordField from '../components/PasswordField';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,6 +48,11 @@ function registerMessage(error: ApiError): string {
 }
 
 export default function Register() {
+  useDocumentMeta({
+    title: 'Create your account — NSDC',
+    description:
+      'Create an NSDC member account with your Amrita Bengaluru college email to register for events and access club media.',
+  });
   const { user, register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');

@@ -128,11 +128,9 @@ export default function Landing() {
         <div className="wrap grid grid-cols-12 gap-x-6 gap-y-10 py-20 sm:py-28">
           <div className="col-span-12 md:col-span-7">
             <SectionHead index="01" name="About" />
-            <Reveal className="mt-8">
-              <h1 className="statement-sm text-ink">
-                We bring students together to learn, build, experiment and compete across data, AI
-                and emerging technology.
-              </h1>
+            <Reveal as="h1" className="mt-8 statement-sm text-ink">
+              We bring students together to learn, build, experiment and compete across data, AI
+              and emerging technology.
             </Reveal>
             <SectionIndex value="01" className="mt-10 hidden md:block" />
           </div>
@@ -174,8 +172,8 @@ export default function Landing() {
       <section aria-label="Projects" data-folio="03 / Projects" className="border-t hairline">
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="03" name="Projects" meta="12.894702° N, 77.675574° E" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm text-ink">Selected work.</h2>
+          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+            Selected work.
           </Reveal>
           <div className="mt-10">
             <ProjectStrip />
@@ -187,8 +185,8 @@ export default function Landing() {
       <section aria-label="Events" data-folio="04 / Events" className="border-t hairline">
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="04" name="Events" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm text-ink">Upcoming dates.</h2>
+          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+            Upcoming dates.
           </Reveal>
           <div className="mt-8 md:ml-[8.333%] md:max-w-[83.333%]">
             <EventRows events={events} />
@@ -200,8 +198,8 @@ export default function Landing() {
       <section aria-label="Now" data-folio="05 / Now" className="border-t hairline">
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="05" name="Now / 2026" meta="System.status · Online" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm max-w-2xl text-ink">What is happening now.</h2>
+          <Reveal as="h2" className="mt-6 statement-sm max-w-2xl text-ink">
+            What is happening now.
           </Reveal>
           <div className="mt-8">
             <NowSection events={events} mediaCount={photos.length} />
@@ -252,10 +250,8 @@ export default function Landing() {
       <section id="people" aria-label="People" data-folio="06 / People" className="border-t hairline">
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="06" name="People" meta="EST. 2024" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm max-w-2xl text-ink">
-              The people holding it together.
-            </h2>
+          <Reveal as="h2" className="mt-6 statement-sm max-w-2xl text-ink">
+            The people holding it together.
           </Reveal>
           <div className="mt-10">
             <PeopleList bearers={content.bearers} />
@@ -267,8 +263,8 @@ export default function Landing() {
       <section aria-label="Archive" data-folio="07 / Archive" className="border-t hairline">
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="07" name="Archive" meta="Filed frames" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm text-ink">From the room.</h2>
+          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+            From the room.
           </Reveal>
           <div className="mt-10">
             <ArchiveTeaser slides={photos} />
@@ -285,8 +281,8 @@ export default function Landing() {
       >
         <div className="wrap py-20 sm:py-28">
           <SectionHead index="08" name="Achievements" meta="System.status · Online" />
-          <Reveal className="mt-6">
-            <h2 className="statement-sm text-ink">Logged, not claimed.</h2>
+          <Reveal as="h2" className="mt-6 statement-sm text-ink">
+            Logged, not claimed.
           </Reveal>
           <div className="mt-10 md:ml-[16.666%] md:max-w-[75%]">
             {content.achievements.length === 0 ? (

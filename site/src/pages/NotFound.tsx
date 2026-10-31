@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 interface NotFoundProps {
   onZero?: () => void;
@@ -25,6 +26,11 @@ const digitStroke = { WebkitTextStroke: '1px var(--color-faint)' } as const;
  * left-hand column, and the open door reads in the right-hand margin.
  */
 export default function NotFound({ onZero, zeroLabel }: NotFoundProps) {
+  useDocumentMeta({
+    title: 'Page not found — NSDC',
+    description: 'The page you are looking for does not exist. Head back to the NSDC home page.',
+    robots: 'noindex',
+  });
   const location = useLocation();
   const [note, setNote] = useState(0);
 

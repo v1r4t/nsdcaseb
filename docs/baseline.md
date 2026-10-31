@@ -105,37 +105,41 @@ sizes below used `esbuild --minify` + zlib level 9.
 
 | | Entry JS raw | Entry JS gzip |
 | --- | --- | --- |
-| Before (pre-split build, eager scenes + cursor) | 617.72 kB | 206.42 kB |
-| **After (split scenes + cursor)** | **601.97 kB** | **201.34 kB** |
-| Delta | **−15.75 kB (−2.5%)** | **−5.08 kB (−2.5%)** |
+| Before (eager scenes + cursor + all GSAP plugins) | 617.72 kB | 206.42 kB |
+| **After (split scenes/cursor + pruned GSAP)** | **407.99 kB** | **126.58 kB** |
+| Delta | **−209.73 kB (−34%)** | **−79.84 kB (−39%)** |
 
-The change: `RoomScene` + `RoomInstrument` moved behind `React.lazy`, and
-`Cursor` moved behind a device-gated `React.lazy`. `PreloaderGate` and
+The change: `RoomScene` + `RoomInstrument` and the device-gated `Cursor` moved
+behind `React.lazy`; the unused GSAP plugins were removed; `Reveal` now loads
+ScrollTrigger + SplitText on demand through `design/lib/gsap-reveal.ts`, while
+the four ScrollTrigger consumers register it themselves. `PreloaderGate` and
 `PageScene` remain eager.
 
-CSS is **44.83 kB raw / 9.65 kB gzip** in the final build. This task is
-JS-only; `site/src/index.css` was edited concurrently by another agent, so the
-45.35 → 44.83 kB difference belongs to that CSS cleanup, not to this split.
+CSS is **45.25 kB raw / 9.77 kB gzip** in the final build.
 
 ### Current entry assets
 
 | Asset | Raw | Gzip |
 | --- | --- | --- |
-| `assets/index-p7rRXd4V.js` (entry) | 601.97 kB | 201.34 kB |
-| `assets/index-C0h0vEZK.css` | 44.83 kB | 9.65 kB |
+| `assets/index-Ca67FsrO.js` (entry) | 407.99 kB | 126.58 kB |
+| `assets/index-tjIW4VjQ.css` | 45.25 kB | 9.77 kB |
 | `index.html` | 3.08 kB | 1.03 kB |
+| `assets/gsap-CvDoa17S.js` (shared core/ease, preloaded) | 69.58 kB | 27.29 kB |
+| `assets/gsap-reveal-DOioXd74.js` (on-demand) | 50.03 kB | 20.57 kB |
 
 ### Chunks added by this split
 
-| Chunk | Role | Raw | Gzip |
-| --- | --- | --- | --- |
-| `RoomScene-DeraLp-u.js` | landing canvas | 5.26 kB | 2.35 kB |
-| `RoomInstrument-DLfaTi5g.js` | landing readout | 1.45 kB | 0.80 kB |
-| `room-Cj39FGGE.js` | shared room geometry/projection | 1.50 kB | 0.65 kB |
-| `Cursor-ClMQQEMs.js` | fine-pointer cursor | 8.56 kB | 3.32 kB |
+| Chunk | Role | Raw |
+| --- | --- | --- |
+| `RoomScene-CKbqy0BK.js` | landing canvas | 5.30 kB |
+| `RoomInstrument-DPnu4MX5.js` | landing readout | 1.49 kB |
+| `room-Cj39FGGE.js` | shared room geometry/projection | 1.50 kB |
+| `Cursor-7nZ7DuWm.js` | fine-pointer cursor | 8.64 kB |
+| `gsap-reveal-DOioXd74.js` | SplitText + ScrollTrigger for Reveal | 50.03 kB |
 
-These four sum to 16.77 kB raw / 7.12 kB gzip, all loaded on demand (the room
-group only on `/`, the cursor only on non-touch, non-reduced-motion devices).
+All are loaded on demand (the room group only on `/`, the cursor only on
+non-touch, non-reduced-motion devices, and the reveal chunk only when a reveal
+actually runs with motion enabled).
 
 ### Current lazy route/admin chunks
 
@@ -159,24 +163,18 @@ group only on `/`, the cursor only on non-touch, non-reduced-motion devices).
 
 ## Remaining large chunks and why
 
-- **Entry — 601.97 kB raw / 201.34 kB gzip.** The largest single contributor is
-  GSAP 3.15 plus the plugins registered by `design/lib/gsap.ts` (`ScrollTrigger`,
-  `SplitText`, `Flip`, `Observer`, `Draggable`, `MotionPathPlugin`,
-  `CustomEase`). A standalone minified esbuild probe of that module is
-  **198.4 kB raw / 77.2 kB gzip**. `Landing` imports the kit `Reveal`
-  (`design/motion/Reveal.tsx`) eagerly, so GSAP stays in the entry even though
-  `Cursor` now lazy-loads — splitting the cursor alone cannot remove GSAP. The
-  rest is React 19 + React Router DOM, the eager route components and the
-  `PageScene` motifs. Further wins require lazy-loading the landing motion
-  layer (or registering only the plugins actually used), which is a separate,
-  higher-risk change.
-- **`AdminEmail` — 415.94 kB raw / 131.65 kB gzip.** TipTap + ProseMirror rich
+- **Entry — 407.99 kB raw / 126.58 kB gzip.** The largest single contributor is
+  GSAP 3.15 core + `CustomEase`, pulled in by `RisingText` (used by the landing
+  story sequence). ScrollTrigger and SplitText are no longer in the entry:
+  `Reveal` loads `gsap-reveal` on demand, and the other ScrollTrigger consumers
+  register it themselves. Flip, Observer, Draggable and MotionPathPlugin were
+  removed entirely. The rest is React 19 + React Router DOM, the eager route
+  components and the `PageScene` motifs.
+- **`AdminEmail` — 415.99 kB raw / 131.65 kB gzip.** TipTap + ProseMirror rich
   text editor (verified by string search: both names are in this chunk only).
   It is lazy and only fetched when an admin opens the Email tab.
-- Build warning: Vite reports **"Some chunks are larger than 500 kB"** for the
-  entry and `AdminEmail`. This is expected at the current split; the >500 kB
-  threshold is not a regression from this change (the entry was 617.72 kB
-  before).
+- Build warning: none. Both the entry (407.99 kB) and `AdminEmail` (415.99 kB)
+  are under Vite's 500 kB threshold.
 
 ## Retired architecture (do not use as a baseline)
 

@@ -93,7 +93,7 @@ export function RoomInstrument({
       data-testid="room-instrument"
       aria-hidden="true"
       className={[
-        "pointer-events-none fixed bottom-6 left-6 z-30 hidden flex-col gap-0.5 border-l hairline pl-3 md:flex mono text-faint",
+        "pointer-events-none fixed bottom-6 left-6 z-0 hidden flex-col gap-0.5 border-l hairline pl-3 md:flex mono text-faint",
         className ?? "",
       ].join(" ")}
     >

@@ -60,13 +60,15 @@ export function Header({
         Skip to content
       </a>
 
-      {/* The dossier line belongs to the top of the document, not to the sticky bar. */}
+      {/* The dossier line belongs to the top of the document, not to the sticky bar.
+          It stays outside `<header>` so it scrolls away, so it needs its own
+          landmark to keep page content inside one (axe `region`). */}
       {dossier ? (
-        <div className="border-b hairline bg-paper">
+        <aside aria-label="Club dossier" className="border-b hairline bg-paper">
           <p className="wrap mono flex h-7 items-center overflow-hidden whitespace-nowrap text-[10px] tracking-[0.14em] text-quiet">
             {dossier}
           </p>
-        </div>
+        </aside>
       ) : null}
 
       <header className={["sticky top-0 z-40 bg-paper", className ?? ""].join(" ")}>

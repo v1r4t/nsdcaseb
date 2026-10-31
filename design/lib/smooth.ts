@@ -18,6 +18,7 @@ export function initSmoothScroll(): Lenis | null {
   if (lenis) return lenis;
 
   registerGsap();
+  gsap.registerPlugin(ScrollTrigger);
   lenis = new Lenis({ duration: 1.05, wheelMultiplier: 0.9, touchMultiplier: 1.6 });
 
   lenis.on("scroll", ScrollTrigger.update);

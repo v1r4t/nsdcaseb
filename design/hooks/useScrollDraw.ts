@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
-import { registerGsap, ScrollTrigger } from "../lib/gsap";
+import { gsap, registerGsap, ScrollTrigger } from "../lib/gsap";
 import { useReducedMotion } from "./useReducedMotion";
 
 /**
@@ -20,6 +20,7 @@ export function useScrollDraw(ref: RefObject<HTMLElement | null>): number {
     if (!node) return;
 
     registerGsap();
+    gsap.registerPlugin(ScrollTrigger);
     const trigger = ScrollTrigger.create({
       trigger: node,
       start: "top 84%",

@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { posterSources } from '../lib/image-variants';
 import StatusDot from '../components/StatusDot';
 import Reveal from '../components/Reveal';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { SectionIndex } from '../../../design/primitives/SectionIndex';
 
 function dateParts(iso: string): { day: string; mon: string; year: string } | null {
@@ -158,6 +159,11 @@ function Group({
 }
 
 export default function Registrations() {
+  useDocumentMeta({
+    title: 'Events — NSDC',
+    description:
+      'Talks, workshops and competitions from NSDC at Amrita Bengaluru. See what is upcoming, register, or check your registration status.',
+  });
   const { user } = useAuth();
   const location = useLocation();
   const [events, setEvents] = useState<EventSummary[] | null>(null);

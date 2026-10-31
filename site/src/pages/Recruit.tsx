@@ -268,17 +268,24 @@ export default function Recruit() {
           </p>
         </header>
 
-        {siteLoaded && recruitmentOpen === null && (
-          <section aria-label="Recruitment status" className="mt-10 border-t hairline pt-5">
+        {recruitmentOpen === null && (
+          <section
+            aria-label="Recruitment status"
+            className="mt-10 min-h-[8.5rem] border-t hairline pt-5"
+          >
             <p className="text-[15px] leading-relaxed text-quiet">
-              We could not confirm recruitment status right now. Refresh the page in a moment, or
-              check an existing application below.
+              {siteLoaded
+                ? 'We could not confirm recruitment status right now. Refresh the page in a moment, or check an existing application below.'
+                : 'Checking recruitment status…'}
             </p>
           </section>
         )}
 
         {recruitmentOpen === false && (
-          <section aria-label="Recruitment closed" className="mt-10 border-t hairline pt-5">
+          <section
+            aria-label="Recruitment closed"
+            className="mt-10 min-h-[8.5rem] border-t hairline pt-5"
+          >
             <h2 className="font-display text-2xl tracking-tight text-ink">
               Applications are closed.
             </h2>

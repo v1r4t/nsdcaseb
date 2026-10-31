@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ApiError, resendVerification } from '../lib/api';
+import { useDocumentMeta } from '../lib/useDocumentMeta';
 
 function presetEmail(state: unknown): string {
   if (state && typeof state === 'object') {
@@ -12,6 +13,11 @@ function presetEmail(state: unknown): string {
 }
 
 export default function VerifyPending() {
+  useDocumentMeta({
+    title: 'Check your inbox — NSDC',
+    description:
+      'We sent a verification link to your email. Open it within an hour to activate your account, or request a new one.',
+  });
   const location = useLocation();
   const [email, setEmail] = useState(() => presetEmail(location.state));
   const [pending, setPending] = useState(false);

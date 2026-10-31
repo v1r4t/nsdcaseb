@@ -7,6 +7,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Metric-matched fallback for Switzer, so the `font-display: swap` swap does
+   not reflow text (and move the header/footer) on first paint.
+   Values are derived from the shipped Switzer woff2 (unitsPerEm 1000):
+   - size-adjust: 100%. Frequency-weighted average advance width of Switzer is
+     0.454em vs 0.450em for Segoe UI (and 0.449em for Arial) — Switzer is only
+     ~1% wider, so 1:1 is the closest match; shrinking to 96% would under-size
+     the fallback by ~4% and cause the reflow this is meant to prevent.
+   - ascent-override 98%, descent-override 25%, line-gap-override 9%: Switzer's
+     own hhea/OS/2 metrics (980 / -250 / 90 per 1000 upm). Segoe UI's default
+     box is 107.9% / 25.1% / 0%, so pinning to Switzer's ratios keeps any
+     line-height:normal text the same height before and after the swap.
+   Segoe UI is the local face that wins on Windows; Arial is the portable
+   second choice. */
+@font-face {
+  font-family: "Switzer Fallback";
+  font-style: normal;
+  /* Cover regular, medium and semibold UI so weight changes do not reflow. */
+  font-weight: 400 600;
+  src: local("Segoe UI"), local("Arial");
+  size-adjust: 100%;
+  ascent-override: 98%;
+  descent-override: 25%;
+  line-gap-override: 9%;
+}
+
+/* design/tokens.css keeps the canonical stack; append the metric-matched face
+   here (site/ must not edit design/**). Left unlayered so it wins over the
+   imported token value. */
+:root {
+  --font-sans: "Switzer", "Switzer Fallback", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
 @layer base {
   [id] {
     scroll-margin-top: 5rem;
