@@ -52,9 +52,8 @@ async function expectStoryStages(page: Page): Promise<void> {
   // The retired globe painted through a <canvas>; StoryStages is paper only.
   await expect(story.locator('canvas')).toHaveCount(0);
 
-  // The bearer plate is decorative: a fixed dial plus the figure that turns
-  // on desktop. Neither belongs in the accessibility tree.
-  await expect(story.locator('[data-story-plate]')).toHaveCount(1);
+  // The bearer is decorative: a single halftone figure that turns on desktop.
+  // It does not belong in the accessibility tree.
   const figure = story.locator('[data-story-figure]');
   await expect(figure).toHaveCount(1);
   await expect(figure).toHaveAttribute('aria-hidden', 'true');
@@ -94,18 +93,18 @@ test.describe('story stages under normal motion', () => {
     };
 
     const rotating = story.locator('[data-story-figure]').locator('..');
-    const plate = story.locator('[data-story-plate]').locator('..');
+    const bearer = story.locator('[data-story-figure]').locator('..').locator('..');
 
     await turn(0.05);
     expect(await rotating.getAttribute('style')).toMatch(/rotateY\((1[0-9]|2[0-9])(\.\d+)?deg\)/);
-    expect(await plate.evaluate((el) => Number((el as HTMLElement).style.opacity || 1))).toBe(1);
+    expect(await bearer.evaluate((el) => Number((el as HTMLElement).style.opacity || 1))).toBe(1);
 
     await turn(0.55);
     expect(await rotating.getAttribute('style')).toMatch(/rotateY\((19[0-9]|20[0-9])(\.\d+)?deg\)/);
 
-    // The plate leaves before the story unpins, so About arrives clean.
+    // The bearer leaves before the story unpins, so About arrives clean.
     await turn(0.98);
-    const leaving = await plate.evaluate((el) => Number((el as HTMLElement).style.opacity));
+    const leaving = await bearer.evaluate((el) => Number((el as HTMLElement).style.opacity));
     expect(leaving).toBeLessThan(0.25);
   });
 });

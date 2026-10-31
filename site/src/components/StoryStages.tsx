@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
 import StoryFigure from './StoryFigure';
-import StoryPlate from './StoryPlate';
 import Swoop from './Swoop';
 
 /**
@@ -15,7 +14,7 @@ import Swoop from './Swoop';
  * clean by the time About arrives. The section releases exactly when stage 03
  * is settled, so About follows with no extra pinned scroll.
  *
- * Below 768px — and whenever motion is reduced — the figure is a still plate
+ * Below 768px — and whenever motion is reduced — the figure is a still image
  * above the same copy, which renders as a static stack with lighter
  * directional swoops.
  */
@@ -127,7 +126,7 @@ function StoryHeader({ counter }: { counter?: string }) {
 function PinnedStory() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const plateRef = useRef<HTMLDivElement | null>(null);
+  const bearerRef = useRef<HTMLDivElement | null>(null);
   const figureRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
   const [entered, setEntered] = useState(false);
@@ -162,12 +161,12 @@ function PinnedStory() {
         figure.style.transform = `perspective(1200px) rotateY(${progress * 360}deg)`;
       }
 
-      const plate = plateRef.current;
-      if (plate) {
-        // Over the last tenth the whole plate turns away, so About arrives clean.
+      const bearer = bearerRef.current;
+      if (bearer) {
+        // Over the last tenth the bearer turns away, so About arrives clean.
         const leave = clamp01((progress - 0.9) / 0.1);
-        plate.style.transform = `translate(-50%, -50%) scale(${1 - leave * 0.14})`;
-        plate.style.opacity = String(1 - leave);
+        bearer.style.transform = `translate(-50%, -50%) scale(${1 - leave * 0.14})`;
+        bearer.style.opacity = String(1 - leave);
       }
     };
 
@@ -196,22 +195,17 @@ function PinnedStory() {
           <div className="relative flex-1">
             {/* The bearer holds the centre while the chapters pass it. */}
             <div
-              ref={plateRef}
+              ref={bearerRef}
               aria-hidden="true"
-              className="pointer-events-none absolute left-1/2 top-1/2 aspect-[400/440] w-[clamp(11rem,24vw,26rem)]"
+              className="pointer-events-none absolute left-1/2 top-1/2 w-[clamp(10rem,22vw,20rem)]"
               style={{
                 transform: 'translate(-50%, -50%)',
                 transformOrigin: '50% 50%',
                 willChange: 'transform, opacity',
               }}
             >
-              <StoryPlate className="absolute inset-0 h-full w-full" />
-              <div
-                ref={figureRef}
-                className="absolute inset-0"
-                style={{ willChange: 'transform' }}
-              >
-                <StoryFigure className="h-full w-full" />
+              <div ref={figureRef} className="w-full" style={{ willChange: 'transform' }}>
+                <StoryFigure className="block h-auto w-full select-none" />
               </div>
             </div>
 
@@ -270,12 +264,9 @@ function StaticStory() {
       <div className="wrap pb-12 pt-6 md:pb-20 md:pt-10">
         <StoryHeader />
 
-        {/* Still plate on phones and under reduced motion: no turn, no vanish. */}
+        {/* Still figure on phones and under reduced motion: no turn, no vanish. */}
         <div className="mt-8 flex justify-center">
-          <div className="relative aspect-[400/440] w-[clamp(9rem,38vw,14rem)]">
-            <StoryPlate className="absolute inset-0 h-full w-full" />
-            <StoryFigure className="absolute inset-0 h-full w-full" />
-          </div>
+          <StoryFigure className="h-auto w-[clamp(8rem,40vw,12rem)] select-none" />
         </div>
 
         <div className="mt-10 space-y-10 sm:space-y-12">

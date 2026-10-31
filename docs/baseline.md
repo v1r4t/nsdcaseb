@@ -48,10 +48,10 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
 
 - **Landing `/` — `StoryStages`.** Three chapters (01/02/03) on a 220svh
   section; the desktop stage is sticky and scroll-driven, with 01 entering from
-  the left, 02 from the right and 03 from the left. At the centre, an inline
-  SVG bearer (`StoryFigure`) turns one clockwise revolution on its vertical
-  axis against a fixed hairline dial (`StoryPlate`), then fades and scales out
-  over the last tenth of the section so About arrives clean. There is no globe,
+  the left, 02 from the right and 03 from the left. At the centre, the
+  halftone bearer (`/story/figure.svg`, the supplied vector trace) turns one
+  clockwise revolution on its vertical axis, then fades and scales out over the
+  last tenth of the section so About arrives clean. There is no globe,
   no canvas and no `three` request. Mobile and reduced motion show the plate
   still, above a static stack of the same chapters with the lightweight `Swoop`
   entrance.
