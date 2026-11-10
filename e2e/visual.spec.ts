@@ -106,7 +106,7 @@ test.describe('landing at desktop width', () => {
     });
   });
 
-  test('People shows the active bearer and the Next control', async ({ page }) => {
+  test('People shows the card deck', async ({ page }) => {
     await page.goto('/');
     await settle(page);
 
@@ -117,13 +117,7 @@ test.describe('landing at desktop width', () => {
     ).toBeVisible();
 
     await people.scrollIntoViewIfNeeded();
-    // At rest the plate belongs to the first bearer; make sure it painted.
-    const portrait = people.getByRole('img').first();
-    test.skip(
-      (await people.getByRole('img').count()) === 0,
-      'People baseline needs at least one published bearer',
-    );
-    await expect(portrait).toBeVisible();
+    await expect(people.locator('[data-deck-grid]')).toHaveCount(1);
     await page.waitForTimeout(250);
 
     await expect(people).toHaveScreenshot('landing-people.png', SHOT);

@@ -642,7 +642,7 @@ the production cutover. Use `-H 'cache-control: no-cache'` for the first
       footer and announcement banner).
 - [ ] Header/Footer render the kit chrome; seal is an accent only (≈10% of a
       viewport, never body copy).
-- [ ] Landing StoryStages 01/02/03 render with the ink bearer plate and no
+- [ ] Landing StoryStages 01/02/03 render with the typed record panel and no
       globe/canvas; reduced motion leaves a readable static stack, and mobile
       uses the paper composition with no room line-art behind copy.
 - [ ] No layout jump on `/recruit` desktop or `/registrations` mobile

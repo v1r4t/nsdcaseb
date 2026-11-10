@@ -1,182 +1,116 @@
 # Office-bearer deck — design
 
 > Status: shipped.
-> Scope: the People section on the landing (`PeopleList` / `PeoplePreview`).
-> Chosen approach: A, the restrained 3D paper deck.
 
 ## Intent
 
-The office bearers are currently an editorial index paired with a sticky portrait
-plate: readable, but static. The reference is `@cuedesign_space`'s card deck — a
-fan of portrait cards tilted in isometric perspective; hovering lifts a card,
-selecting rotates it flat and opens a small detail block.
-
-The brief is that interaction, translated into ink-on-paper: a folio of portrait
-plates you can pick from, not a game. It should make the board feel like people
-you can meet, while keeping the section's existing factual register.
+The board is a deck of portrait cards, and nothing else. There is no roster list
+underneath: the cards are real buttons, so every bearer is reachable by Tab, and
+selecting one enlarges it over a dimmed page. The reference is
+`@cuedesign_space`'s card deck, translated into ink-on-paper.
 
 ## Goals
 
-- Make the six bearers the visual centre of the section, not a side plate.
-- One card per bearer: portrait when one is on file, the drawn monogram when not.
-- Pointer: hover lifts, click selects, detail block updates.
-- Keyboard and screen readers keep a first-class path.
-- No new runtime dependency, no canvas, no WebGL. Tests use the existing
-  Vitest setup; no `@testing-library/react` is added.
-- Mobile and reduced motion get a complete, calm version of the same content.
+- One card per bearer, with the deck as the whole section.
+- Click/tap or Enter/Space opens the card enlarged, front and centre, with the
+  page dulled behind it.
+- Clicking outside the card, pressing Escape, or Close returns to the deck and
+  restores focus to the card that opened it.
+- No new runtime dependency, no canvas, no WebGL.
+- Mobile and reduced motion keep the same content and the same dialog.
 
 ## Non-goals
 
-- No Randomize/Shuffle. The order is the published roster.
-- No card back/flip reveal with hidden content; the detail block is always the
-  source of truth.
+- No randomize/shuffle.
+- No roster or separate detail panel; the enlarged card carries the facts.
 - No change to the content model, admin upload, or API.
 - No new photography.
 
-## Anti-goals
+## Composition
 
-- A 3D effect that reads as a game or a gimmick.
-- A fan that only works with exactly six cards or at 1440px.
-- A pointer-only interaction that hides links from keyboard users.
-- Hover as the only way to see a role or link.
+After the section heading and statement:
 
-## Constraints
-
-- Ink-on-paper: paper fills, hairline borders, no shadows, three tones, one
-  easing curve (`--ease-ink`).
-- CSS 3D transforms only (`perspective`, `rotateX/Y/Z`, `translate`, `scale`).
-- Portraits are optional; the monogram is the fallback and already exists in
-  `PeoplePreview.tsx`.
-- `prefers-reduced-motion` removes tilt and transitions; touch removes tilt.
-- The detail block must show all links as real anchors.
-
-## The design
-
-### Composition (desktop ≥1024, motion allowed)
-
-After the section heading and statement, the section becomes three stacked bands:
-
-1. **The deck.** Full-width band, ~`clamp(340px, 38vw, 520px)` tall, centred.
-   Six cards, each ~`190×270`, arranged around a centre point. The deck is
-   tilted `rotateX(14deg) rotateZ(-8deg)` inside a `perspective: 1200px`
-   container. Each card additionally rotates around its own z-axis by
-   `spread = clamp(4, 16, 60 / n)` degrees, with x offsets stepping outward.
-2. **The detail block.** A mono/serif block under the deck, aligned to the
-   section's text column: `Viewing 03 / 05`, name, role · class, links. On
-   ≥1024 it sits to the right of the deck, vertically centred, so the deck and
-   the person's facts read as one composition.
-3. **The roster.** The existing index, compacted to a two-column list below:
-   number, name, role. It is the keyboard and screen-reader control set.
+1. **The deck.** A tilted fan of portrait cards on a fine-pointer desktop
+   (≥1024px), a horizontal scroll-snap rail on touch/narrow screens, and a flat
+   grid under `prefers-reduced-motion`.
+2. **The caption.** One mono line: `Select a card`.
+3. **The dialog.** Only while a card is open: a dimmed full-viewport backdrop
+   and one enlarged card, with the index, portrait, name, role/class, links and
+   a Close control.
 
 ```
         ╭────╮
-   ╭────╮│ 02 │╭────╮          deck (tilted paper cards)
-   │ 01 │╰────╯│ 03 │
-   ╰────╯      ╰────╯          ┌──────────────────────────┐
-                               │ VIEWING 02 / 06          │
-                               │ Aluvala Sai Vinya        │
-                               │ Vice President · 2024    │
-                               │ ↗ LinkedIn               │
-                               └──────────────────────────┘
-
-   01  Balcha V. Parswanadh   President
-   02  Aluvala Sai Vinya      Vice President
-   03  Dhruva Vura            Vice President
+   ╭────╮│ 02 │╭────╮          click 02
+   │ 01 │╰────╯│ 03 │   ──►    ┌──────────────────┐
+   ╰────╯      ╰────╯          │ 02 / 06          │
+                               │ [ portrait ]     │
+                               │ Aluvala Sai V.   │
+                               │ Vice President   │
+                               │ ↗ LinkedIn Close │
+                               └──────────────────┘
 ```
 
 ### Card anatomy
 
-- Paper ground, 1px hairline border, no shadow.
-- Top-left: mono ordinal (`01`). Top-right: a 6px seal square on the active card.
-- Face: portrait (`object-cover`, `loading="lazy"`) or `MonogramPortrait`.
-- Foot: name in Besler/serif, role in mono, truncated to two lines.
-- Active card: bordered seal, lifted 12px, its fan slot unchanged (so hovering
-  never reflows a neighbour under the pointer). Inactive: the portrait fades to
-  70%; the name and role stay at full ink for contrast.
-- Cards are rendered in roster order, so DOM order is reading order.
+- A `<button>`; the visual card is an inner layer, so hover/focus styling never
+  changes the hit area.
+- Paper ground, hairline border, no shadow. Top-left mono ordinal; a seal
+  square appears on hover/focus.
+- Face: portrait (`object-cover`, `loading="lazy"`) or the drawn monogram.
+- Foot: name in the serif face, role in mono.
+- The fan slot is fixed: opening or focusing a card never moves a neighbour.
 
-### Interaction
+### Dialog
 
-- **Pointer:** click/tap selects a card, updates the detail block and announces
-  the change. Hover is a border affordance only — it never changes the active
-  bearer, so the detail cannot switch under a moving pointer.
-- **Keyboard:** the roster buttons are the controls. Arrow keys move the active
-  bearer and focus follows; Enter/Space keep today's behaviour (advance to the
-  next bearer), so the existing wrap-around and its tests survive. The deck
-  mirrors the active bearer and is not a second tab stop (`aria-hidden`
-  container, cards `tabIndex={-1}`); the roster is the accessible equivalent.
-- **Status:** a polite `role="status"` line announces the viewed bearer only
-  for focus/keyboard and click changes — never on pointer hover, so sweeping
-  across the deck does not chatter.
-- **Links:** the detail block's links are real anchors with the existing
-  `aria-label="… (opens in a new tab)"` pattern.
+- `role="dialog"`, `aria-modal="true"`, labelled by the bearer's name and role.
+- Backdrop: `bg-ink/45` over the whole viewport; clicking it closes.
+- The panel stops click propagation, so clicking the card, links or Close does
+  not dismiss it.
+- Close is the initial focus; `useFocusTrap` keeps Tab inside the panel.
+- Escape closes. Body scroll is locked while open.
+- A 300ms opacity/scale entrance; removed under `prefers-reduced-motion`.
 
-### Responsive and motion
+## Accessibility
+
+- Cards are real buttons with `aria-label="<name> — <role>"` and
+  `aria-haspopup="dialog"`; Tab reaches every card, Enter/Space opens.
+- The dialog is the reading surface: portrait, name, role, class and links are
+  plain text/anchors, not images of text.
+- Closing restores focus to the opener. The backdrop click is a pointer
+  convenience; Escape and Close are the accessible paths.
+- Card names/roles use ink/quiet on paper; the dimmed backdrop never sits over
+  the dialog panel.
+
+## Responsive
 
 | Viewport | Behaviour |
 |---|---|
-| ≥1024, motion allowed | Tilted deck + detail block beside it + roster below |
-| 768–1023 | Tilted deck, detail block below, roster below |
-| <768 or touch | No tilt: horizontal scroll-snap rail of flat cards; tap selects; detail below |
-| `prefers-reduced-motion` | No tilt, no transitions: a flat 2/3-column grid of cards; detail block below; roster unchanged |
+| ≥1024, fine pointer, motion allowed | Tilted fan; click opens the dialog |
+| <1024 or coarse pointer | Horizontal snap rail; tap opens the dialog |
+| `prefers-reduced-motion` | Flat 2/3-column grid; click opens the dialog with no entrance animation |
 
-The rail uses `overflow-x-auto`, `snap-x snap-mandatory`, each card
-`snap-center shrink-0 w-[72vw] max-w-[280px]`. No horizontal page overflow.
+## Data
 
-### Data and fallbacks
+`bearers` comes from `PeopleList`'s prop (the landing content fetch). An empty
+roster keeps the "board has not been published yet" line. A missing portrait
+renders the monogram; a broken image falls back to it. All bearers render, so
+no one is hidden behind a fan cap.
 
-`bearers` comes from the existing `PeopleList` prop. An empty roster keeps the
-current "board has not been published yet" line. A missing `photo_url` renders
-the monogram; a broken image (`onError`) falls back to it, as today.
+## Files
 
-The fan shows at most **eight** cards. If the active bearer is outside the first
-eight, it replaces the last visible slot, so the selected person is always on
-the deck; the roster below always lists everyone. `visibleCards(bearers,
-active, 8)` owns that rule and is unit-tested.
-
-### Accessibility
-
-- The roster is the only focusable control set; deck cards are pointer shortcuts.
-- The active change is announced once via the existing polite status line.
-- Colour is never the only signal: the active card also changes border and
-  lift; the detail block names the viewed person.
-- Reduced motion and touch users never see a tilted or animated deck.
-- Contrast: card foot text uses `text-ink` on paper; role uses `text-quiet`.
-
-### Files
-
-- `site/src/components/BearerDeck.tsx` (new) — deck, cards, detail block;
-  exports `fanTransform()` and `visibleCards()`.
-- `site/src/components/BearerDeck.test.ts` (new) — unit tests for those two
-  helpers; no render tests, since rendering is covered by e2e.
-- `site/src/components/PeopleList.tsx` — keep the roster/keyboard logic, mount
-  the deck, drop the old plate column.
-- `site/src/components/PeoplePreview.tsx` — becomes `BearerDetail`, exports
-  `MonogramPortrait`; the "Next" button moves to the roster (or stays in the
-  detail block as a secondary control).
-
-## What is left to the builder
-
-- Exact card size and spread at 1024/1280/1440; the transform helper owns the
-  numbers.
-- Whether the detail block sits right of the deck or below it at 1024–1279.
-- The card foot's type sizes, within the existing scale.
-- Micro-copy for the "Viewing" line.
+- `site/src/components/PeopleList.tsx` — open index, opener ref, focus restore.
+- `site/src/components/BearerDeck.tsx` — fan/rail/grid of buttons,
+  `fanSpread`/`fanTransform`.
+- `site/src/components/BearerDialog.tsx` — backdrop, enlarged card, links,
+  Close, focus trap, Escape, scroll lock.
+- `site/src/components/BearerPortrait.tsx` — real photo or monogram fallback.
+- `site/src/lib/focus-trap.ts` — existing shared Tab trap.
 
 ## Verification
 
-- Unit: `fanTransform(index, active, total)` — spread shrinks as `n` grows, the
-  active card is flat and lifted, inactive cards keep their angle.
-- Unit: `visibleCards(bearers, active, 8)` — eight or fewer returns all; a
-  ninth active bearer replaces the last slot; the returned list keeps roster
-  order.
-- E2E (1440): hover/click card 02 updates the detail name; keyboard arrows on
-  the roster update the deck; no horizontal overflow.
-- E2E (390): rail scrolls, tap selects, no page overflow.
-- Reduced motion: no `rotateX`/`rotateZ` in the computed transform.
-- `axe`: zero new critical/serious violations on `/`.
-
-## Rollout
-
-One commit for the transform helper + tests, one for the component and the
-PeopleList integration. No API, migration or admin changes.
+- Unit: `fanSpread`/`fanTransform` (angle shrinks with count, slot is stable).
+- E2E: no `<ol>` roster; every card exposes a clickable point; click opens the
+  dialog with that bearer; backdrop click closes and restores focus; keyboard
+  Enter opens, Escape closes, focus returns; phone rail opens a card; reduced
+  motion grid opens a card; no horizontal overflow; axe on the open dialog has
+  no critical/serious findings.
