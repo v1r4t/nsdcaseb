@@ -132,7 +132,7 @@ broadcast`); the scheduled sweep drains the queue every 15 minutes. On a worker
 without `RESEND_API_KEY` the rows simply stay pending (and eventually move to
 `failed` after five attempts), which is the normal local/CI state.
 
-## Migration 0020 and deploy order
+## Migration 0020/0021 and deploy order
 
 `worker/db/migrations/0020_email_kind.sql` adds `email_outbox.kind` (default
 `other`) and backfills history by subject: `verification`, `waitlist` for
@@ -144,7 +144,9 @@ the policy change.
 
 The worker selects `kind`, so apply the migration **before** deploying the new
 worker. Never the other way round: an old database without the column makes
-every outbox query fail.
+every outbox query fail. The same ordering applies to `0021_event_venue.sql`,
+which adds `events.venue`: the worker writes that column on event create, so a
+worker deployed ahead of it returns 500 on `POST`/`PATCH /api/events`.
 
 ```bash
 # Local (what e2e/CI use)
@@ -155,10 +157,11 @@ npm run migrate:staging
 npm run deploy:staging
 ```
 
-Production follows the same ordering: apply `0020` to `nsdc-auth-prod`
+Production follows the same ordering: apply `0020` **and** `0021` to
+`nsdc-auth-prod`
 (`npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc`)
 **before** deploying the production site worker (`nsdcaseb-site`). The apex
-teaser worker has no `AUTH_DB` binding and ignores the new column, so it is not
+teaser worker has no `AUTH_DB` binding and ignores the new columns, so it is not
 part of this flow. See `docs/production-cutover.md` §2.1.
 
 
@@ -423,7 +426,7 @@ the public form (the API floor is 10). Public submissions are limited to
 
 **Order matters.** Back up first, then apply migrations, then deploy the worker
 that reads them (notably `0020_email_kind.sql`, which adds
-`email_outbox.kind`):
+`email_outbox.kind`, and `0021_event_venue.sql`, which adds `events.venue`):
 
 ```bash
 node scripts/backup-d1.mjs --env staging --label pre-deploy   # restore point

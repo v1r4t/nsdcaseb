@@ -19,12 +19,12 @@ Backups, Monitoring).
 | Resource | Value |
 | --- | --- |
 | Worker | `nsdcaseb-site` (deployed, workers.dev only, `preview_urls: false`) |
-| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0019 applied at the 2026-10-25 audit; **0020 still required before the site-worker deploy** — see §2.1) |
+| Production D1 | `nsdc-auth-prod` = `1cf53797-43f7-4516-966d-47c09a9d870a` (migrations 0001–0019 applied at the 2026-10-25 audit; **0020 and 0021 still required before the site-worker deploy** — see §2.1) |
 | Production RATELIMIT_KV | `bb4737aa246446258181b22f666ff8e3` |
 | NOTIFY_KV | shared teaser namespace `9b54a4a0…` |
 | Secrets | `ADMIN_ENTRY_CODE`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (generated/set by owner; never recorded here) |
 | Missing secret | **`RESEND_API_KEY`** — production email queues but cannot deliver until set |
-| Content | 4 events, 6 projects, real copy; `[SAMPLE]` album deleted; 0 users |
+| Content | 4 events, 6 projects, real copy; `[SAMPLE]` album still present — delete after cutover (§2.1); 0 users |
 | Verified on workers.dev | `/` + `/recruit` 200 with CSP/HSTS; `/nope` + `/admin` 404; sitemap XML; notify 405/400; poster upload + variants 200 |
 
 Remaining before flip: apply `0020_email_kind.sql` **and**
@@ -116,7 +116,7 @@ runs for HTML (§0.4). Do not baseline production HTML headers against the tease
 | `POST /api/notify {"email":"nope"}` | `400 invalid_email` | `400 invalid_email` |
 | `GET /registrations` | `200 text/html` (teaser shell; the route does not exist) | `200` full site |
 | canonical on `/registrations` | n/a (teaser shell) | `https://preview.nsdcaseb.xyz/registrations` |
-| `GET /robots.txt` | `200 text/plain` from `dist/robots.txt`, `Sitemap: /sitemap.xml` (relative) | `200`, absolute staging origin |
+| `GET /robots.txt` | `200 text/plain` from `dist/robots.txt`, no `Sitemap` line (the teaser has no sitemap) | `200`, origin-aware body with an absolute staging origin |
 | `GET /sitemap.xml` | `200 text/html` (SPA fallback — **not XML**) | `200 application/xml`, origin-aware |
 
 The staging CSP currently includes `https://zgsecmkbfaqrzfuzfzdj.supabase.co`
@@ -190,6 +190,8 @@ git rev-parse HEAD        # record this SHA in the cutover notes
 npm ci
 npx tsc -b
 npm run typecheck:site
+npx tsc -p worker --noEmit   # `tsc -b` only covers ./src; CI runs this too
+npx tsc -p e2e --noEmit
 npm run build          # teaser -> dist/
 npm run build:site     # site   -> dist-site/
 npm test               # vitest
@@ -233,12 +235,19 @@ npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.
 ```
 
 **If production already exists at `0001`–`0019`** (§0.5), apply the newest
-migration to `nsdc-auth-prod` **before** deploying the production site worker:
+migrations to `nsdc-auth-prod` **before** deploying the production site worker:
 
 ```bash
-npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
+# 1. `migrations list` shows UNAPPLIED files, so run it first.
 npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.jsonc
-# expect: 0020_email_kind.sql and 0021_event_venue.sql listed as applied, then "No migrations to apply!"
+# expect: 0020_email_kind.sql and 0021_event_venue.sql (and nothing else)
+
+# 2. apply them
+npx wrangler d1 migrations apply nsdc-auth-prod --remote -c wrangler.production.jsonc
+
+# 3. confirm the queue is empty
+npx wrangler d1 migrations list  nsdc-auth-prod --remote -c wrangler.production.jsonc
+# expect: no unapplied migrations
 ```
 
 Order is not optional: `0020_email_kind.sql` adds `email_outbox.kind`, and the
@@ -336,8 +345,9 @@ Resend sending domain is live — DNS currently has
 `send.mail.nsdcaseb.xyz` SPF (`v=spf1 ip4:… ~all`) and a DKIM key at
 `resend._domainkey.mail.nsdcaseb.xyz`. Actual proof is a real send
 (Admin → Email → Send test email, or `/api/admin/email/test`), not an outbox row.
-Without `RESEND_API_KEY` the mailer no-ops (`{ delivered: false }`) and the
-outbox queues forever.
+Without `RESEND_API_KEY` the mailer no-ops (`{ delivered: false }`); rows stay
+`pending` and are retried by each 15-minute sweep, then move to `failed` after
+5 attempts (~75 minutes). Retry them from Admin → Email once the key is set.
 
 ### 2.5 Cron and rate-limit safety
 
@@ -373,8 +383,9 @@ curl -sS -X POST https://nsdcaseb-site.dhruvav0308.workers.dev/api/auth/register
 ```
 
 Rules enforced by `worker/auth.ts`: email must end `@bl.students.amrita.edu`,
-`name` + `mobile` required, password min 10, rate limit 5 registrations/hour/IP
-(all attempts count, including failures).
+`name` + `mobile` required, password 10–200 characters with at least one letter
+and one digit, rate limit 5 registrations/hour/IP (all attempts count, including
+failures).
 
 If Resend is not live yet, mark the account verified directly (the verification
 link would otherwise arrive by mail):
@@ -390,13 +401,11 @@ before cutover; links issued after cutover use the apex.
 
 ### 2.7 Content decisions before the flip
 
-- **`www` vs apex canonicalisation (open decision).** The worker derives
-  `canonical`/`og:url` from the request origin, so after the flip
-  `https://www.nsdcaseb.xyz/registrations` canonicalises to **www**, while the
-  apex canonicalises to the apex. Two hostnames with self-canonicals = duplicate
-  SEO surface. Either accept it for launch or add a `www` → apex 301 in
-  `worker/staging.ts` before attaching domains (a code change not present today).
-  Do not use a Page Rule.
+- **`www` vs apex canonicalisation — resolved in code.** `worker/staging.ts:220-224`
+  permanently redirects `www.nsdcaseb.xyz` to the apex (301) before any routing,
+  so `www` never serves a self-canonical page. Verify after the flip:
+  `curl -sSI https://www.nsdcaseb.xyz/` → `301` with
+  `location: https://nsdcaseb.xyz/`. Do not use a Page Rule.
 - `/api/events`, `/api/projects`, `/api/content`, `/api/media`, `/api/site` must
   be non-empty and must not show the 0006 demo copy.
 - Delete the `[SAMPLE]` media album.
@@ -461,8 +470,8 @@ State as of 2026-10-31; verify each before flipping, even the checked ones.
 
 - [x] `wrangler.production.jsonc` exists (§1.1), ids filled in
 - [x] production D1 `nsdc-auth-prod` created (`1cf53797-…`); migrations
-      `0001`–`0019` applied — **`0020` still required before the site-worker
-      deploy**, content verified
+      `0001`–`0019` applied — **`0020` and `0021` still required before the
+      site-worker deploy**, content verified
 - [x] production `RATELIMIT_KV` created (`bb4737aa…`) and bound
 - [x] `nsdcaseb-site` deployed on workers.dev (2026-10-25)
 - [ ] `npx wrangler deploy -c wrangler.production.jsonc --dry-run` passes on
@@ -474,7 +483,8 @@ State as of 2026-10-31; verify each before flipping, even the checked ones.
 - [ ] first `ob` account bootstrapped and email verified
 - [ ] `recruitment_open` set intentionally (`0008` defaults to `'1'`)
 - [ ] `[SAMPLE]` media album deleted
-- [ ] `www` canonical/redirect decision made
+- [x] `www` → apex 301 implemented (`worker/staging.ts:220-224`); verify after
+      the flip
 - [ ] fresh D1 export **and** Storage manifest taken (§2.8)
 - [ ] CI `quality`, `audit` + `e2e` green on the exact commit
 - [ ] production build matches the ink-on-paper preview (`docs/baseline.md`,
@@ -629,7 +639,8 @@ Event page (use a real id):
 ```bash
 EVENT_ID=$(curl -sS "$BASE/api/events" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);const e=j.events??j;console.log(e[0].id)})")
 curl -sS "$BASE/registrations/$EVENT_ID" | grep -oE '(<title>[^<]*</title>|property="og:(title|image)" content="[^"]*")'
-# exactly one canonical, event title in <title>, og:image an absolute https apex URL
+# exactly one canonical, event title in <title>, og:image an absolute https URL:
+# the Supabase poster when the event has one, else https://nsdcaseb.xyz/og-default.png
 ```
 
 ### 4.3 `/api/notify` **[writes]** (shared launch list)
@@ -680,8 +691,10 @@ npx wrangler d1 execute nsdc-auth-prod --remote -c wrangler.production.jsonc \
 ```bash
 curl -sS -D - -o /dev/null -X POST "$BASE/api/auth/login" \
   -H 'content-type: application/json' \
-  -d '{"email":"ops@bl.students.amrita.edu","password":"<password>"}' | grep -i 'set-cookie'
+  -d '{"email":"ops@bl.students.amrita.edu","password":"<password>","admin_code":"<ADMIN_ENTRY_CODE>"}' \
+  | grep -i 'set-cookie'
 # nsdc_session=...; HttpOnly; Secure; SameSite=Lax; Path=/
+# `ob` logins require admin_code (auth.ts:191-196); without it: 403 invalid_admin_code.
 ```
 
 - [ ] Forgot-password → reset link → new password works, old one fails.
@@ -738,11 +751,11 @@ npx wrangler d1 execute nsdc-auth-prod --remote -c wrangler.production.jsonc \
 ### 5.1 Fastest: move the domains back to the teaser (<2 min, no deploy)
 
 The teaser worker is left deployed and untouched precisely for this. Nothing in
-D1 needs undoing: `0017`–`0020` are additive, and the teaser ignores the site
+D1 needs undoing: `0017`–`0021` are additive, and the teaser ignores the site
 schema entirely (it has no `AUTH_DB` binding), including the new
 `email_outbox.kind` column. The site worker is the opposite: it **requires**
-`0020`, so never point it at a database that has not applied the migration —
-apply `0020` first, then deploy the worker.
+`0020` and `0021`, so never point it at a database that has not applied them —
+apply both first, then deploy the worker.
 
 ```bash
 ACC=71c1c94f025bff6aaacce3cd9ab795b5
@@ -822,9 +835,10 @@ There is **no** `npm run deploy` script (corrected); `wrangler deploy` without
 ### 5.4 Data
 
 - Do not run destructive SQL during an incident.
-- Do not roll back schema. `0020` is additive and the teaser ignores
-  `email_outbox.kind`, but the **site worker requires it** — keep the column in
-  place across both domain rollback and site-worker version rollback.
+- Do not roll back schema. `0020` and `0021` are additive and the teaser
+  ignores `email_outbox.kind` and `events.venue`, but the **site worker requires
+  both** — keep those columns in place across both domain rollback and
+  site-worker version rollback.
 - If a bad write is suspected, export first and restore into a **new** DB:
 
   ```bash
@@ -859,21 +873,24 @@ npx -y lighthouse@latest https://nsdcaseb.xyz/registrations --preset=desktop \
 # repeat for /, /recruit, /archive, /projects/<id>
 ```
 
-Acceptance vs the staging table in `docs/baseline.md` (2026-10-31, ink-on-paper):
+Acceptance vs the pre-cutover measurement recorded in `docs/baseline.md`:
 
-- No route regresses below staging; mobile `/registrations` CLS < 0.1.
+- No route regresses below the recorded pre-cutover build on the same hardware.
 - **Visual parity with `preview.nsdcaseb.xyz`:** paper `#F2EEE3` ground, ink
   `#111110` type, kit header/footer, seal accent ≈10% of a viewport, no
-  cream-on-cream admin tables, StoryStages 01/02/03 with the SVG bearer plate
-  (no globe or canvas), and reduced motion serving a static stack. A production page that looks like
-  the old dark editorial site means the wrong build shipped — stop and redeploy.
-- **SEO should rise to 1.00 on every route.** Staging's 0.92 came from the
-  shell's hardcoded `preview.` canonical, which `worker/meta.ts` now rewrites. A
-  0.92 on production means meta injection did not ship (or the canonical/sitemap
-  check in §4.2 failed) — investigate before announcing.
-- `/recruit` desktop must be CLS < 0.01 and perf >= 0.94 (local post-fix:
-  1.00 / 0.0006); `/archive` and `/projects/:id` mobile should be ~0.01. If
-  `/recruit` desktop is still ~0.36, the deploy predates the `App.tsx` fallback.
+  cream-on-cream admin tables, StoryStages 01/02/03 with the stage centre as
+  shipped in `StoryStages.tsx` (empty until the new centrepiece lands; no globe
+  or canvas), and reduced motion serving a static stack. A production page that
+  looks like the old dark editorial site means the wrong build shipped — stop
+  and redeploy.
+- **SEO should be 1.00 on every route.** The staging 0.92 measured before
+  `worker/meta.ts` rewrote the shell's hard-coded `preview.` canonical is
+  retired history (`docs/baseline.md`). A sub-1.00 SEO score on production means
+  meta injection did not ship (or the canonical/sitemap check in §4.2 failed) —
+  investigate before announcing.
+- Re-measure CLS and performance with the Lighthouse commands above and record
+  the numbers in `docs/baseline.md`; do not accept against the retired
+  2026-10-23/25 figures.
 
 ```bash
 BASE_URL=https://nsdcaseb.xyz npx playwright test -c e2e/playwright.config.ts axe --project=chromium
