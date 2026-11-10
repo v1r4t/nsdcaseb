@@ -878,9 +878,8 @@ Acceptance vs the pre-cutover measurement recorded in `docs/baseline.md`:
 - No route regresses below the recorded pre-cutover build on the same hardware.
 - **Visual parity with `preview.nsdcaseb.xyz`:** paper `#F2EEE3` ground, ink
   `#111110` type, kit header/footer, seal accent ≈10% of a viewport, no
-  cream-on-cream admin tables, StoryStages 01/02/03 with the stage centre as
-  shipped in `StoryStages.tsx` (empty until the new centrepiece lands; no globe
-  or canvas), and reduced motion serving a static stack. A production page that
+  cream-on-cream admin tables, StoryStages 01/02/03 with the typed record panel
+  (no globe or canvas), and reduced motion serving a static stack. A production page that
   looks like the old dark editorial site means the wrong build shipped — stop
   and redeploy.
 - **SEO should be 1.00 on every route.** The staging 0.92 measured before

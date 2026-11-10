@@ -1,12 +1,25 @@
-import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import IndexStage from './IndexStage';
 import type { IndexStageItem } from './IndexStage';
-import { ApiError, listProjects } from '../lib/projects';
+import { ApiError } from '../lib/projects';
 import type { Project, ProjectStatus } from '../lib/projects';
 
 const pad = (n: number): string => String(n).padStart(2, '0');
+
+/** Shared with Landing, which owns the fetch and its error state. */
+export function projectsErrorMessage(err: unknown): string {
+  return err instanceof ApiError && err.error === 'network_error'
+    ? 'Could not reach the server. Check your connection and try again.'
+    : 'Could not load projects. Please try again.';
+}
+
+interface LandingProjectsProps {
+  /** `null` while the fetch is in flight or when it failed. */
+  projects: Project[] | null;
+  /** Pre-formatted failure copy; `null` on success. */
+  error: string | null;
+}
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   active: 'Active',
@@ -38,29 +51,7 @@ function StackTokens({ stack }: { stack: string[] }) {
  * are served as stored — this API exposes no cover derivatives, so no variant
  * URLs are invented. Empty and failed loads keep the strip's honest lines.
  */
-export default function LandingProjects() {
-  const [projects, setProjects] = useState<Project[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    listProjects()
-      .then((res) => {
-        if (active) setProjects(res.projects);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
-        setError(
-          err instanceof ApiError && err.error === 'network_error'
-            ? 'Could not reach the server. Check your connection and try again.'
-            : 'Could not load projects. Please try again.',
-        );
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
+export default function LandingProjects({ projects, error }: LandingProjectsProps) {
   if (error) {
     return (
       <div className="border-t hairline pt-6">

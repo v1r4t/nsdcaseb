@@ -1,30 +1,27 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMediaQuery } from '../../../design/hooks/useMediaQuery';
+import { buildRecord, type StoryFacts } from '../lib/story-record';
+import StoryRecord from './StoryRecord';
 import Swoop from './Swoop';
 
 /**
- * StoryStages — the three-chapter story.
+ * StoryStages — the three-chapter story over the club record.
  *
- * Desktop pins a 100vh stage for three viewports of scroll: the active chapter
- * enters from the left (01), the right (02) and the left again (03) with a
- * short fade, slide and scale. The section releases exactly when stage 03 is
+ * Desktop pins a 100vh stage for three viewports of scroll. The record holds
+ * the left column — three bands, one per chapter — while the active chapter
+ * enters from the right. The section releases exactly when chapter 03 is
  * settled, so About follows with no extra pinned scroll.
  *
- * Below 768px — and whenever motion is reduced — the same copy renders as a
- * static stack with lighter directional swoops.
- *
- * The centre of the stage is intentionally empty for now: a new centrepiece is
- * still to be designed.
+ * Below 1024px, on a short viewport, and whenever motion is reduced, the same
+ * chapters and the full record render as a static stack.
  */
 
 type Stage = {
   index: string;
   title: string;
   body: string;
-  /** Asymmetric placement inside the pinned desktop stage. Never centred. */
+  /** Asymmetric placement inside the pinned chapter column. Never centred. */
   placement: string;
-  /** Stage 02 sits on the right and aligns its copy to that edge. */
-  right?: boolean;
   /** Coordinates render as a seal mark, once, under stage 02. */
   coordinates?: boolean;
 };
@@ -41,7 +38,6 @@ const STAGES: Stage[] = [
     title: 'Members, mentors, projects — one network.',
     body: 'Every node is a person doing the work, linked to the people beside them.',
     placement: 'top-[32%]',
-    right: true,
     coordinates: true,
   },
   {
@@ -53,7 +49,7 @@ const STAGES: Stage[] = [
 ];
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
-const DESKTOP_QUERY = '(min-width: 768px)';
+const PINNED_QUERY = '(min-width: 1024px) and (min-height: 640px)';
 
 /** 64–96px of travel; the same amount returns a stage to its margin. */
 const ENTER_SHIFT = 84;
@@ -85,9 +81,9 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-function Coordinates({ align }: { align?: boolean }) {
+function Coordinates() {
   return (
-    <div className={`mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 ${align ? 'justify-end' : ''}`}>
+    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1">
       <span aria-hidden="true" className="inline-block h-1.5 w-1.5 shrink-0 bg-seal" />
       <p className="mono text-seal">12.894702° N, 77.675574° E</p>
       <p className="mono text-faint">BENGALURU</p>
@@ -121,11 +117,12 @@ function StoryHeader({ counter }: { counter?: string }) {
  * scroll, and React only re-renders when the active chapter changes; the
  * movement itself is a CSS transition on opacity and transform.
  */
-function PinnedStory() {
+function PinnedStory({ facts }: { facts: StoryFacts }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [active, setActive] = useState(0);
   const [entered, setEntered] = useState(false);
+  const bands = buildRecord(facts);
 
   // Let the first frame paint at the margin so 01 can slide in on arrival.
   useEffect(() => {
@@ -166,49 +163,38 @@ function PinnedStory() {
   const counter = String(active + 1).padStart(2, '0');
 
   return (
-    <section ref={sectionRef} aria-label="Our story" className="relative h-[220svh]">
+    <section ref={sectionRef} aria-label="Our story" data-layout="pinned" className="relative h-[220svh]">
       <div ref={stageRef} className="sticky top-0 h-[100svh] overflow-hidden">
         <div className="flex h-full flex-col pt-16 md:pt-[88px]">
           <StoryHeader counter={counter} />
 
-          <div className="relative flex-1">
-            {STAGES.map((stage, i) => {
-              const shown = entered && i === active;
-              const fromLeft = i !== 1;
-              const style: CSSProperties = {
-                opacity: shown ? 1 : 0,
-                transform: shown
-                  ? 'none'
-                  : `translate3d(${fromLeft ? -ENTER_SHIFT : ENTER_SHIFT}px, 0, 0) scale(0.985)`,
-                transition: `opacity ${DURATION}ms ${EASE_INK}, transform ${DURATION}ms ${EASE_INK}`,
-                willChange: 'transform, opacity',
-              };
+          <div className="wrap grid flex-1 grid-cols-12 gap-x-6">
+            <div className="col-span-5 self-start pt-6">
+              <StoryRecord bands={bands} active={active} />
+            </div>
 
-              return (
-                <article
-                  key={stage.index}
-                  className={`absolute inset-x-0 px-[var(--gutter)] ${stage.placement}`}
-                  style={style}
-                >
-                  <div
-                    className={`max-w-[34rem] border-t hairline pt-5 ${
-                      stage.right ? 'ml-auto text-right' : ''
-                    }`}
-                  >
-                    <p className="mono text-seal">{stage.index}</p>
-                    <h3 className="statement-sm mt-3 text-ink">{stage.title}</h3>
-                    <p
-                      className={`mt-4 max-w-[36ch] text-[17px] leading-[1.65] text-ink/80 ${
-                        stage.right ? 'ml-auto' : ''
-                      }`}
-                    >
-                      {stage.body}
-                    </p>
-                    {stage.coordinates ? <Coordinates align={stage.right} /> : null}
-                  </div>
-                </article>
-              );
-            })}
+            <div className="relative col-span-6 col-start-7 border-l hairline pl-6">
+              {STAGES.map((stage, i) => {
+                const shown = entered && i === active;
+                const style: CSSProperties = {
+                  opacity: shown ? 1 : 0,
+                  transform: shown ? 'none' : `translate3d(${ENTER_SHIFT}px, 0, 0) scale(0.985)`,
+                  transition: `opacity ${DURATION}ms ${EASE_INK}, transform ${DURATION}ms ${EASE_INK}`,
+                  willChange: 'transform, opacity',
+                };
+
+                return (
+                  <article key={stage.index} className={`absolute inset-x-0 ${stage.placement}`} style={style}>
+                    <div className="max-w-[34rem] border-t hairline pt-5">
+                      <p className="mono text-seal">{stage.index}</p>
+                      <h3 className="statement-sm mt-3 text-ink">{stage.title}</h3>
+                      <p className="mt-4 max-w-[36ch] text-[17px] leading-[1.65] text-ink/80">{stage.body}</p>
+                      {stage.coordinates ? <Coordinates /> : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -217,41 +203,41 @@ function PinnedStory() {
 }
 
 /**
- * The flow layout: phones, and any viewport where motion is reduced. Swoop
- * settles immediately under `prefers-reduced-motion`, so this doubles as the
- * static stack.
+ * The flow layout: phones, short viewports, and any viewport where motion is
+ * reduced. Swoop settles immediately under `prefers-reduced-motion`, so this
+ * doubles as the static stack. The full record follows the third chapter.
  */
-function StaticStory() {
+function StaticStory({ facts }: { facts: StoryFacts }) {
+  const bands = buildRecord(facts);
+
   return (
-    <section aria-label="Our story" className="relative">
+    <section aria-label="Our story" data-layout="static" className="relative">
       <div className="wrap pb-12 pt-6 md:pb-20 md:pt-10">
         <StoryHeader />
 
         <div className="mt-8 space-y-10 sm:space-y-12">
           {STAGES.map((stage, i) => (
-            <Swoop
-              key={stage.index}
-              from={i === 1 ? 'right' : 'left'}
-              className="border-t hairline pt-5"
-            >
+            <Swoop key={stage.index} from={i === 1 ? 'right' : 'left'} className="border-t hairline pt-5">
               <p className="mono text-seal">{stage.index}</p>
               <h3 className="statement-sm mt-3 text-ink">{stage.title}</h3>
-              <p className="mt-3 max-w-[46ch] text-[17px] leading-[1.65] text-ink/80">
-                {stage.body}
-              </p>
+              <p className="mt-3 max-w-[46ch] text-[17px] leading-[1.65] text-ink/80">{stage.body}</p>
               {stage.coordinates ? <Coordinates /> : null}
             </Swoop>
           ))}
+        </div>
+
+        <div className="mt-12">
+          <StoryRecord bands={bands} />
         </div>
       </div>
     </section>
   );
 }
 
-export default function StoryStages() {
-  const desktop = useMediaQuery(DESKTOP_QUERY);
+export default function StoryStages({ facts }: { facts: StoryFacts }) {
+  const pinned = useMediaQuery(PINNED_QUERY);
   const reduced = usePrefersReducedMotion();
 
-  if (!desktop || reduced) return <StaticStory />;
-  return <PinnedStory />;
+  if (!pinned || reduced) return <StaticStory facts={facts} />;
+  return <PinnedStory facts={facts} />;
 }

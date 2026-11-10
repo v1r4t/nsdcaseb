@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchContent, FALLBACK_CONTENT } from '../lib/content';
-import type { SiteContent } from '../lib/content';
+import { loadContent, FALLBACK_CONTENT } from '../lib/content';
+import type { ContentLoad } from '../lib/content';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { listEvents, type EventSummary } from '../lib/events';
 import { loadSiteState } from '../lib/site';
-import { archiveSlides, listMedia } from '../lib/media';
+import { listMedia } from '../lib/media';
 import type { MediaAlbum } from '../lib/media';
+import { imageItemCount, type StoryFacts } from '../lib/story-record';
+import { listProjects, type Project } from '../lib/projects';
+import { projectsErrorMessage } from '../components/LandingProjects';
 import { Reveal } from '../../../design/motion/Reveal';
 import { SectionIndex } from '../../../design/primitives/SectionIndex';
 import StorySequence from '../components/StorySequence';
@@ -58,7 +61,11 @@ export default function Landing() {
     description:
       'What happens when students stop waiting for the future and start building it? NSDC at Amrita Bengaluru — events, projects and research in the open.',
   });
-  const [content, setContent] = useState<SiteContent>(FALLBACK_CONTENT);
+  const [contentState, setContentState] = useState<ContentLoad>({
+    content: FALLBACK_CONTENT,
+    fallback: true,
+  });
+  const content = contentState.content;
   // null = in flight or failed; sections degrade to honest empty states.
   // `eventsError`/`mediaError` keep the failed state's copy, so the child
   // strips never need a second fetch just to render an error.
@@ -66,13 +73,15 @@ export default function Landing() {
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [albums, setAlbums] = useState<MediaAlbum[] | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[] | null>(null);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   // null = unknown (in flight or failed); mirrors NowSection's recruitment fetch.
   const [recruitmentOpen, setRecruitmentOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
     let active = true;
-    void fetchContent().then((data) => {
-      if (active) setContent(data);
+    void loadContent().then((result) => {
+      if (active) setContentState(result);
     });
     return () => {
       active = false;
@@ -92,6 +101,25 @@ export default function Landing() {
         if (!active) return;
         setEvents(null);
         setEventsError(eventsErrorMessage(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Single projects fetch shared by PROJECTS and the story record.
+  useEffect(() => {
+    let active = true;
+    listProjects()
+      .then(({ projects: list }) => {
+        if (!active) return;
+        setProjects(list);
+        setProjectsError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setProjects(null);
+        setProjectsError(projectsErrorMessage(err));
       });
     return () => {
       active = false;
@@ -129,8 +157,15 @@ export default function Landing() {
     };
   }, []);
 
-  // NOW's count and ARCHIVE's frames read the same album snapshot.
-  const photos = useMemo(() => (albums ? archiveSlides(albums, 6) : []), [albums]);
+  // One archive total shared by NOW and the story record.
+  const frames = useMemo(() => imageItemCount(albums), [albums]);
+
+  const facts: StoryFacts = {
+    bearers: contentState.fallback ? null : content.bearers,
+    events,
+    projects,
+    frames,
+  };
 
   const about = content.sections.find((section) => section.key === 'about');
   const origin = content.sections.find((section) => section.key === 'origin');
@@ -139,7 +174,7 @@ export default function Landing() {
   return (
     <div>
       {/* THE NETWORK — the story over the room ---------------------------- */}
-      <StoryStages />
+      <StoryStages facts={facts} />
 
       {/* 1. WHAT WE DO ---------------------------------------------------- */}
       <section id="about" aria-label="About" data-folio="01 / About" className="border-t hairline">
@@ -200,7 +235,7 @@ export default function Landing() {
             Selected work.
           </Reveal>
           <div className="mt-7 sm:mt-10">
-            <LandingProjects />
+            <LandingProjects projects={projects} error={projectsError} />
           </div>
         </div>
       </section>
@@ -230,7 +265,7 @@ export default function Landing() {
             What is happening now.
           </Reveal>
           <div className="mt-6 sm:mt-8">
-            <NowSection events={events} mediaCount={photos.length} />
+            <NowSection events={events} mediaCount={frames ?? 0} />
           </div>
           <div className="mt-10 grid grid-cols-12 gap-x-6 sm:mt-14">
             <div className="col-span-12 border-t hairline pt-6 sm:pt-8 md:col-span-8 md:col-start-2">

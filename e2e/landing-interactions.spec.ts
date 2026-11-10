@@ -57,6 +57,14 @@ async function expectStoryStages(page: Page): Promise<void> {
     await expect(mark, `stage "${stage}" should render exactly once`).toHaveCount(1);
     await expect(mark).toBeVisible();
   }
+
+  const record = story.getByRole('region', { name: 'The record' });
+  await expect(record).toBeVisible();
+  for (const band of ['founded', 'network', 'open']) {
+    await expect(record.locator(`[data-band="${band}"]`)).toHaveCount(1);
+  }
+  await expect(record.getByText('OFFICE BEARERS')).toBeVisible();
+  await expect(record.getByText('FRAMES FILED')).toBeVisible();
 }
 
 test.describe('story stages under normal motion', () => {
@@ -66,6 +74,44 @@ test.describe('story stages under normal motion', () => {
   test('keeps 01/02/03 in the paper story', async ({ page }) => {
     await page.goto('/');
     await expectStoryStages(page);
+  });
+
+  test('pins the record beside the chapters at a tall desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    await expect(landingSection(page, 'Our story')).toHaveAttribute('data-layout', 'pinned');
+  });
+
+  test('falls back to the static stack on a short desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 600 });
+    await page.goto('/');
+    const story = landingSection(page, 'Our story');
+    await expect(story).toHaveAttribute('data-layout', 'static');
+    await expect(story.getByRole('region', { name: 'The record' })).toBeVisible();
+  });
+
+  test('shows dashes, not fallback roster numbers, when content fails', async ({ page }) => {
+    await page.route('**/api/content', (route) => route.abort());
+    await page.goto('/');
+    const record = landingSection(page, 'Our story').getByRole('region', { name: 'The record' });
+    await expect(record.getByText('MENTOR').locator('..')).toContainText('—');
+    await expect(record.getByText('OFFICE BEARERS').locator('..')).toContainText('—');
+  });
+
+  test('the record and NOW report the same frame count', async ({ page }) => {
+    await page.goto('/');
+    const record = landingSection(page, 'Our story').getByRole('region', { name: 'The record' });
+    await record.scrollIntoViewIfNeeded();
+    const nowLine = page.getByText(/frames archived/);
+    test.skip((await nowLine.count()) === 0, 'archive empty — NOW hides the line');
+
+    const digits = (text: string | null) => {
+      const found = (text ?? '').match(/\d+/)?.[0];
+      return found === undefined ? undefined : String(Number(found));
+    };
+    expect(digits(await record.getByText('FRAMES FILED').locator('..').textContent())).toBe(
+      digits(await nowLine.textContent()),
+    );
   });
 });
 
@@ -180,9 +226,12 @@ function nextControl(region: Locator): Locator {
   return region.getByRole('button', { name: /^Next\b/i });
 }
 
-/** The plate's portrait: a real <img> or the drawn placeholder (role="img"). */
+/** The active card's portrait: a real <img> or the drawn placeholder. */
 function platePortrait(region: Locator): Locator {
-  return region.getByRole('img').first();
+  return region
+    .locator('[data-deck-card][data-active="true"]')
+    .locator('img, [role="img"]')
+    .first();
 }
 
 /** Accessible label of the portrait, for both <img alt> and role="img". */
@@ -243,7 +292,7 @@ test('people: the plate shows the active bearer and a separate Next advances', a
 
   await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
   test.skip(
-    (await people.getByRole('img').count()) === 0,
+    (await people.locator('[data-deck-card] img, [data-deck-card] [role="img"]').count()) === 0,
     'content API has no bearers — honest empty state only',
   );
 
@@ -282,7 +331,7 @@ test('people: focus and hover point the portrait at that bearer', async ({ page 
 
   await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
   test.skip(
-    (await people.getByRole('img').count()) === 0,
+    (await people.locator('[data-deck-card] img, [data-deck-card] [role="img"]').count()) === 0,
     'content API has no bearers — honest empty state only',
   );
 
@@ -321,7 +370,7 @@ test('people: the plate portrait is a real photo or a drawn placeholder', async 
 
   await expect(portrait.or(people.getByText(PEOPLE_EMPTY)).first()).toBeVisible();
   test.skip(
-    (await people.getByRole('img').count()) === 0,
+    (await people.locator('[data-deck-card] img, [data-deck-card] [role="img"]').count()) === 0,
     'content API has no bearers — honest empty state only',
   );
 
@@ -346,7 +395,7 @@ test('people: the plate portrait is a real photo or a drawn placeholder', async 
     expect(await portrait.getAttribute('src'), 'a real portrait needs a source').toBeTruthy();
   } else {
     await expect(portrait).toHaveAttribute('role', 'img');
-    await expect(portrait).toHaveAccessibleName(/portrait placeholder for \S+/i);
+    await expect(portrait).toHaveAttribute('aria-label', /portrait placeholder for \S+/i);
   }
 
   // Whichever shape it takes, it names the active bearer.

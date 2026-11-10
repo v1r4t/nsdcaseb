@@ -47,11 +47,13 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
 ### Scenes and motion
 
 - **Landing `/` — `StoryStages`.** Three chapters (01/02/03) on a 220svh
-  section; the desktop stage is sticky and scroll-driven, with 01 entering from
-  the left, 02 from the right and 03 from the left. The centre of the stage is
-  empty by design for now — a new centrepiece is still to be chosen. There is
-  no globe, no canvas and no `three` request. Mobile and reduced motion render
-  the chapters as a static stack with the lightweight `Swoop` entrance.
+  section; the desktop stage is sticky and scroll-driven, with the typed record
+  on the left and each chapter entering from the right. The record is three
+  bands (founded / network / output) fed by D1 content, events, projects and
+  media; the active band follows the chapter. Pinned only at ≥1024px wide and
+  ≥640px tall, with motion allowed; there is no globe, no canvas and no `three`
+  request. Mobile, short viewports and reduced motion render the chapters plus
+  the full record as a static stack with the lightweight `Swoop` entrance.
 - **Landing `/` — the room dolly.** `RoomScene` is a Canvas 2D corridor:
   hairline rails, ribs generated from the camera, objects at fixed depths, one
   far door, a light vignette. Scroll drives `cameraAtProgress`; the loop is
