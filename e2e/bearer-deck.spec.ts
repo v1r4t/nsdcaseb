@@ -82,6 +82,8 @@ test.describe('office-bearer deck', () => {
     await people.locator('[data-deck-card="0"]').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
+    // Let the 300ms entrance settle before measuring contrast.
+    await page.waitForTimeout(400);
 
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
     const blockers = results.violations

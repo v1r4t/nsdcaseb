@@ -43,7 +43,7 @@ function BearCard({ bearer, index, onOpen, className = '', style }: BearCardProp
       aria-haspopup="dialog"
       onClick={(event) => onOpen(index, event.currentTarget)}
       style={style}
-      className={`group cursor-pointer text-left focus-visible:z-40 ${className}`}
+      className={`group cursor-pointer text-left hover:z-40 focus-visible:z-40 ${className}`}
     >
       <div className="h-full overflow-hidden border border-[color:var(--hairline)] bg-paper p-2 transition-[border-color,transform] duration-300 group-hover:border-ink/40 group-focus-visible:border-seal">
         <div className="mono flex items-center justify-between text-faint">
@@ -128,7 +128,8 @@ export default function BearerDeck({ bearers, onOpen }: BearerDeckProps) {
             className="absolute left-1/2 top-1/2 h-[310px] w-[180px]"
             style={{
               transform: fanTransform(slot, bearers.length),
-              zIndex: 10 + slot,
+              // Roster order is the stack order: President on top, Mentor at the back.
+              zIndex: 10 + (bearers.length - slot),
             }}
           />
         ))}
