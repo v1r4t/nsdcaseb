@@ -7,23 +7,22 @@ describe('fanSpread', () => {
   });
 
   it('caps the spread', () => {
-    expect(fanSpread(2)).toBeLessThanOrEqual(12);
+    expect(fanSpread(2)).toBeLessThanOrEqual(8);
   });
 });
 
 describe('fanTransform', () => {
-  it('keeps outer cards angled and offset', () => {
-    const left = fanTransform(0, 6);
-    const right = fanTransform(5, 6);
-    expect(left).toMatch(/rotateZ\(-/);
+  it('fans outward around a shared centre', () => {
+    const right = fanTransform(0, 6);
+    const left = fanTransform(5, 6);
+    expect(right).toContain('translate(-50%, -50%)');
     expect(right).toMatch(/rotateZ\(\d/);
-    expect(left).toContain('calc(var(--fan-step) * -');
-    expect(right).toContain('calc(var(--fan-step) * ');
+    expect(left).toMatch(/rotateZ\(-/);
   });
 
   it('gives the two centre cards opposite angles', () => {
-    expect(fanTransform(1, 4)).toMatch(/rotateZ\(-/);
-    expect(fanTransform(2, 4)).toMatch(/rotateZ\(\d/);
+    expect(fanTransform(1, 4)).toMatch(/rotateZ\(\d/);
+    expect(fanTransform(2, 4)).toMatch(/rotateZ\(-/);
   });
 
   it('is fixed for a slot, so opening a card cannot reflow the fan', () => {
