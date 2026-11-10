@@ -83,19 +83,59 @@ test.describe('story stages under normal motion', () => {
   });
 
   test('falls back to the static stack on a short desktop', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 600 });
-    await page.goto('/');
-    const story = landingSection(page, 'Our story');
-    await expect(story).toHaveAttribute('data-layout', 'static');
-    await expect(story.getByRole('region', { name: 'The record' })).toBeVisible();
+    for (const height of [640, 720]) {
+      await page.setViewportSize({ width: 1024, height });
+      await page.goto('/');
+      const story = landingSection(page, 'Our story');
+      await expect(story).toHaveAttribute('data-layout', 'static');
+      await expect(story.getByRole('region', { name: 'The record' })).toBeVisible();
+    }
+  });
+
+  test('keeps the record and its last link inside the pinned stage', async ({ page }) => {
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 1024, height: 800 },
+    ]) {
+      await page.setViewportSize(size);
+      await page.goto('/');
+      const story = landingSection(page, 'Our story');
+      await expect(story).toHaveAttribute('data-layout', 'pinned');
+
+      const stage = await story.locator('[data-story-stage]').boundingBox();
+      const record = await story.getByRole('region', { name: 'The record' }).boundingBox();
+      const link = await story.getByRole('link', { name: 'Open the archive →' }).boundingBox();
+      expect(stage).not.toBeNull();
+      expect(record).not.toBeNull();
+      expect(link).not.toBeNull();
+
+      const stageBottom = stage!.y + stage!.height;
+      expect(record!.y + record!.height, 'record fits the pinned stage').toBeLessThanOrEqual(stageBottom);
+      expect(link!.y + link!.height, 'archive link fits the pinned stage').toBeLessThanOrEqual(stageBottom);
+    }
   });
 
   test('shows dashes, not fallback roster numbers, when content fails', async ({ page }) => {
     await page.route('**/api/content', (route) => route.abort());
     await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('data-content', 'fallback');
     const record = landingSection(page, 'Our story').getByRole('region', { name: 'The record' });
     await expect(record.getByText('MENTOR').locator('..')).toContainText('—');
     await expect(record.getByText('OFFICE BEARERS').locator('..')).toContainText('—');
+  });
+
+  test('renders zeros, not dashes, when content succeeds empty', async ({ page }) => {
+    await page.route('**/api/content', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ sections: [], bearers: [], achievements: [] }),
+      }),
+    );
+    await page.goto('/');
+    const record = landingSection(page, 'Our story').getByRole('region', { name: 'The record' });
+    await expect(record.getByText('MENTOR').locator('..')).toContainText('00');
+    await expect(record.getByText('OFFICE BEARERS').locator('..')).toContainText('00');
   });
 
   test('the record and NOW report the same frame count', async ({ page }) => {

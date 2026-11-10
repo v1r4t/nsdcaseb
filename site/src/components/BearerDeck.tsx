@@ -15,14 +15,12 @@ export function fanSpread(total: number): number {
 }
 
 /**
- * One card's transform inside the tilted deck. The active card is flat and
- * lifted; the others fan out from the centre. `index` is the slot in the
- * visible deck, not the roster index.
+ * One card's transform inside the tilted deck. The slot is fixed: selection
+ * never changes the card's position, so hovering cannot reflow a neighbour
+ * under the pointer. `index` is the slot in the visible deck, not the roster
+ * index.
  */
-export function fanTransform(index: number, active: number, total: number): string {
-  if (index === active) {
-    return 'translate(-50%, -50%) rotateZ(0deg) translate3d(0px, -24px, 0px) scale(1.06)';
-  }
+export function fanTransform(index: number, total: number): string {
   const center = (total - 1) / 2;
   const angle = (index - center) * fanSpread(total);
   const step = index - center;
@@ -75,7 +73,6 @@ interface BearCardProps {
   index: number;
   active: boolean;
   onSelect: (index: number) => void;
-  onHover: (index: number) => void;
   className?: string;
   style?: CSSProperties;
 }
@@ -85,33 +82,32 @@ interface BearCardProps {
  * and screen-reader control set, so the deck container is aria-hidden and the
  * cards never take focus.
  */
-function BearCard({ bearer, index, active, onSelect, onHover, className = '', style }: BearCardProps) {
+function BearCard({ bearer, index, active, onSelect, className = '', style }: BearCardProps) {
   return (
     <div
       data-deck-card={index}
       data-active={active ? 'true' : 'false'}
-      onPointerEnter={() => onHover(index)}
       onClick={() => onSelect(index)}
       style={style}
-      className={`cursor-pointer overflow-hidden border bg-paper p-2 transition-[transform,border-color] duration-300 ${
-        active
-          ? 'border-seal'
-          : 'border-[color:var(--hairline)] hover:border-ink/40'
-      } ${className}`}
+      className={`cursor-pointer ${className}`}
     >
-      <div className="mono flex items-center justify-between text-faint">
-        <span>{String(index + 1).padStart(2, '0')}</span>
-        {active ? <span aria-hidden="true" className="h-1.5 w-1.5 bg-seal" /> : null}
-      </div>
       <div
-        className={`mt-2 transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-70'}`}
+        className={`h-full overflow-hidden border bg-paper p-2 transition-[transform,border-color] duration-300 ${
+          active ? 'border-seal -translate-y-3' : 'border-[color:var(--hairline)] hover:border-ink/40'
+        }`}
       >
-        <CardFace bearer={bearer} />
+        <div className="mono flex items-center justify-between text-faint">
+          <span>{String(index + 1).padStart(2, '0')}</span>
+          {active ? <span aria-hidden="true" className="h-1.5 w-1.5 bg-seal" /> : null}
+        </div>
+        <div className={`mt-2 transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-70'}`}>
+          <CardFace bearer={bearer} />
+        </div>
+        <p className="mt-2 truncate font-serif text-base leading-tight tracking-tight text-ink sm:text-lg">
+          {bearer.name}
+        </p>
+        <p className="mono truncate text-quiet">{bearer.role}</p>
       </div>
-      <p className="mt-2 truncate font-serif text-base leading-tight tracking-tight text-ink sm:text-lg">
-        {bearer.name}
-      </p>
-      <p className="mono truncate text-quiet">{bearer.role}</p>
     </div>
   );
 }
@@ -119,14 +115,12 @@ function BearCard({ bearer, index, active, onSelect, onHover, className = '', st
 interface BearerDeckProps {
   bearers: OfficeBearer[];
   activeIndex: number;
-  /** Click/tap: selects and announces. */
+  /** Click/tap selects and announces. */
   onSelect: (index: number) => void;
-  /** Pointer hover: selects silently. */
-  onHover: (index: number) => void;
   onAdvance: () => void;
 }
 
-export default function BearerDeck({ bearers, activeIndex, onSelect, onHover, onAdvance }: BearerDeckProps) {
+export default function BearerDeck({ bearers, activeIndex, onSelect, onAdvance }: BearerDeckProps) {
   const tilted = useMediaQuery('(min-width: 1024px) and (pointer: fine)');
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
 
@@ -156,7 +150,6 @@ export default function BearerDeck({ bearers, activeIndex, onSelect, onHover, on
               index={index}
               active={index === activeIndex}
               onSelect={onSelect}
-              onHover={onHover}
             />
           ))}
         </div>
@@ -180,7 +173,6 @@ export default function BearerDeck({ bearers, activeIndex, onSelect, onHover, on
               index={index}
               active={index === activeIndex}
               onSelect={onSelect}
-              onHover={onHover}
               className="w-[72vw] max-w-[280px] shrink-0 snap-center"
             />
           ))}
@@ -217,10 +209,9 @@ export default function BearerDeck({ bearers, activeIndex, onSelect, onHover, on
                 index={index}
                 active={slot === activeSlot}
                 onSelect={onSelect}
-                onHover={onHover}
                 className="absolute left-1/2 top-1/2 h-[310px] w-[180px]"
                 style={{
-                  transform: fanTransform(slot, activeSlot, visible.length),
+                  transform: fanTransform(slot, visible.length),
                   // Natural stack: every card keeps its left strip reachable.
                   zIndex: 10 + slot,
                 }}

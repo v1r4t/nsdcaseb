@@ -1,6 +1,6 @@
 # Story centrepiece — design
 
-> Status: proposed, awaiting approval.
+> Status: shipped.
 > Scope: the centre of the landing story stage (`site/src/components/StoryStages.tsx`)
 > plus the data hoist it needs. No other page changes.
 
@@ -185,11 +185,12 @@ below `lg`.
 
 Because the two-column layout needs width and the record needs height, the
 pinned stage moves from `min-width: 768px` to
-`(min-width: 1024px) and (min-height: 640px)`. A short desktop (1024×600, or
-1280×720 with browser chrome) cannot hold three bands plus links inside
-`100svh`; below either threshold the static stack is used. The stage keeps its
-existing `overflow-hidden`, so the height rule is the only overflow policy —
-nothing clips.
+`(min-width: 1024px) and (min-height: 760px)`. The measured record needs a
+707px stage bottom, and 760px leaves room for the serif swap; a short desktop
+(1024×640, or 1280×720 with browser chrome) cannot hold three bands plus links
+inside `100svh`, so below either threshold the static stack is used. The stage
+keeps its existing `overflow-hidden`; the height rule is the only overflow
+policy — nothing clips.
 
 ### Motion
 

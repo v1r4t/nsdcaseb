@@ -4,7 +4,7 @@
 
 **Goal:** Fill the landing story stage with a typed record of the club (founded / network / output) that explains it and proves it is serious, without adding photography or runtime.
 
-**Architecture:** A pure `buildRecord(facts)` helper maps D1-backed data to three record bands; a presentational `StoryRecord` renders them. `Landing` hoists the projects fetch, computes the archive frame count once, and passes a `StoryFacts` object to `StoryStages`, which pins a two-column stage at ≥1024×640 and falls back to the static stack otherwise.
+**Architecture:** A pure `buildRecord(facts)` helper maps D1-backed data to three record bands; a presentational `StoryRecord` renders them. `Landing` hoists the projects fetch, computes the archive frame count once, and passes a `StoryFacts` object to `StoryStages`, which pins a two-column stage at ≥1024×760 and falls back to the static stack otherwise.
 
 **Tech Stack:** React 19, TypeScript strict, Tailwind 3, Vitest + jsdom, Playwright.
 
@@ -14,7 +14,7 @@
 
 - No new dependencies; no `three`, canvas or WebGL in the story.
 - Ink-on-paper tokens only (`text-ink`, `text-quiet`, `text-faint`, `text-seal`, `hairline`, `mono`, `font-display`); no shadows.
-- Pinned layout only at `(min-width: 1024px) and (min-height: 640px)` and `prefers-reduced-motion: no-preference`; every other case renders the static stack.
+- Pinned layout only at `(min-width: 1024px) and (min-height: 760px)` and `prefers-reduced-motion: no-preference`; every other case renders the static stack.
 - Counts are all-time rows from the API; `null` renders `—`, a present empty array renders `0`. Never invent a number.
 - `FRAMES FILED` counts `type === 'image'` items with a non-empty `url`, and must equal the number the NOW section shows.
 - Office-bearer count excludes anyone whose `role` matches `/mentor/i`; that person is counted once in band 01.
@@ -414,7 +414,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 5: Rewire `StoryStages`**
 
 - Add `facts: StoryFacts` to props; pass it to both layouts.
-- Replace `DESKTOP_QUERY` with `const PINNED_QUERY = '(min-width: 1024px) and (min-height: 640px)'`.
+- Replace `DESKTOP_QUERY` with `const PINNED_QUERY = '(min-width: 1024px) and (min-height: 760px)'`.
 - `PinnedStory`: inside the sticky stage, after `StoryHeader`, use `grid grid-cols-12 gap-x-6`; left column `col-span-5 self-start` holds `<StoryRecord bands={bands} active={active} />`; right column `col-span-6 col-start-7 relative border-l hairline pl-6` holds the three absolute chapter articles. Keep the existing vertical placements (10%, 32%, 46%) and fade/slide; make all three enter from the right (`translate3d(84px, 0, 0)`), since the record sits to their left.
 - Drop the `right`/right-alignment branch from `Stage`; keep the coordinates under chapter 02.
 - `StaticStory`: render the three chapters, then `<StoryRecord bands={bands} />` after chapter 03 as a full-width panel.

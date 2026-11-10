@@ -25,16 +25,9 @@ describe('fanSpread', () => {
 });
 
 describe('fanTransform', () => {
-  it('flattens and lifts the active card', () => {
-    const active = fanTransform(2, 2, 6);
-    expect(active).toContain('rotateZ(0deg)');
-    expect(active).toContain('scale(1.06)');
-    expect(active).toContain('-24px');
-  });
-
-  it('keeps inactive cards angled and offset', () => {
-    const left = fanTransform(0, 3, 6);
-    const right = fanTransform(5, 3, 6);
+  it('keeps outer cards angled and offset', () => {
+    const left = fanTransform(0, 6);
+    const right = fanTransform(5, 6);
     expect(left).toMatch(/rotateZ\(-/);
     expect(right).toMatch(/rotateZ\(\d/);
     expect(left).toContain('calc(var(--fan-step) * -');
@@ -42,8 +35,12 @@ describe('fanTransform', () => {
   });
 
   it('gives the two centre cards opposite angles', () => {
-    expect(fanTransform(1, 0, 4)).toMatch(/rotateZ\(-/);
-    expect(fanTransform(2, 0, 4)).toMatch(/rotateZ\(\d/);
+    expect(fanTransform(1, 4)).toMatch(/rotateZ\(-/);
+    expect(fanTransform(2, 4)).toMatch(/rotateZ\(\d/);
+  });
+
+  it('is fixed for a slot, so selection cannot reflow the fan', () => {
+    expect(fanTransform(2, 6)).toBe(fanTransform(2, 6));
   });
 });
 

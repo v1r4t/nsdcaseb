@@ -79,7 +79,6 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
         bearers={bearers}
         activeIndex={activeIndex}
         onSelect={(index) => select(index, true)}
-        onHover={(index) => select(index, false)}
         onAdvance={() => advance(activeIndex, 1, false)}
       />
 

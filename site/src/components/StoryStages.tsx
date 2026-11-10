@@ -49,7 +49,7 @@ const STAGES: Stage[] = [
 ];
 
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
-const PINNED_QUERY = '(min-width: 1024px) and (min-height: 640px)';
+const PINNED_QUERY = '(min-width: 1024px) and (min-height: 760px)';
 
 /** 64–96px of travel; the same amount returns a stage to its margin. */
 const ENTER_SHIFT = 84;
@@ -164,7 +164,7 @@ function PinnedStory({ facts }: { facts: StoryFacts }) {
 
   return (
     <section ref={sectionRef} aria-label="Our story" data-layout="pinned" className="relative h-[220svh]">
-      <div ref={stageRef} className="sticky top-0 h-[100svh] overflow-hidden">
+      <div ref={stageRef} data-story-stage className="sticky top-0 h-[100svh] overflow-hidden">
         <div className="flex h-full flex-col pt-16 md:pt-[88px]">
           <StoryHeader counter={counter} />
 
@@ -227,7 +227,7 @@ function StaticStory({ facts }: { facts: StoryFacts }) {
         </div>
 
         <div className="mt-12">
-          <StoryRecord bands={bands} />
+          <StoryRecord bands={bands} className="max-w-none" />
         </div>
       </div>
     </section>

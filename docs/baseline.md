@@ -51,7 +51,7 @@ footer-muted/footer-accent`, the same font families, and the kit utilities
   on the left and each chapter entering from the right. The record is three
   bands (founded / network / output) fed by D1 content, events, projects and
   media; the active band follows the chapter. Pinned only at ≥1024px wide and
-  ≥640px tall, with motion allowed; there is no globe, no canvas and no `three`
+  ≥760px tall, with motion allowed; there is no globe, no canvas and no `three`
   request. Mobile, short viewports and reduced motion render the chapters plus
   the full record as a static stack with the lightweight `Swoop` entrance.
 - **Landing `/` — the room dolly.** `RoomScene` is a Canvas 2D corridor:

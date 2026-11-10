@@ -5,6 +5,7 @@ interface StoryRecordProps {
   bands: RecordBand[];
   /** Zero-based active band. Omit to render every band at rest. */
   active?: number;
+  className?: string;
 }
 
 /**
@@ -12,21 +13,26 @@ interface StoryRecordProps {
  * All bands are always readable; the active one is ink and seal, the others
  * recede. Purely presentational — `buildRecord` owns the data.
  */
-export default function StoryRecord({ bands, active }: StoryRecordProps) {
+export default function StoryRecord({
+  bands,
+  active,
+  className = 'max-w-[30rem]',
+}: StoryRecordProps) {
   const allAtRest = active === undefined;
+  const current = active !== undefined && bands[active] ? active : undefined;
 
   return (
-    <section aria-label="The record" className="max-w-[30rem] border-t hairline pt-4">
+    <section aria-label="The record" className={`border-t hairline pt-4 ${className}`}>
       <p className="mono text-seal">The record</p>
       <ol className="mt-4">
         {bands.map((band, index) => {
-          const on = allAtRest || index === active;
+          const on = allAtRest || index === current;
           return (
             <li
               key={band.key}
               data-band={band.key}
               data-active={on ? 'true' : 'false'}
-              aria-current={on ? 'step' : undefined}
+              aria-current={index === current ? 'step' : undefined}
               className={`border-b hairline py-5 transition-colors duration-200 ${
                 on ? 'text-ink' : 'text-faint'
               }`}

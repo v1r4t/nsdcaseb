@@ -1,6 +1,6 @@
 # Office-bearer deck — design
 
-> Status: proposed, awaiting approval.
+> Status: shipped.
 > Scope: the People section on the landing (`PeopleList` / `PeoplePreview`).
 > Chosen approach: A, the restrained 3D paper deck.
 
@@ -90,15 +90,16 @@ After the section heading and statement, the section becomes three stacked bands
 - Top-left: mono ordinal (`01`). Top-right: a 6px seal square on the active card.
 - Face: portrait (`object-cover`, `loading="lazy"`) or `MonogramPortrait`.
 - Foot: name in Besler/serif, role in mono, truncated to two lines.
-- Active card: `rotateX(0) rotateZ(0) translateY(-20px) scale(1.06)`, border
-  seal, z-index above the fan. Inactive: `opacity: 0.72`.
+- Active card: bordered seal, lifted 12px, its fan slot unchanged (so hovering
+  never reflows a neighbour under the pointer). Inactive: the portrait fades to
+  70%; the name and role stay at full ink for contrast.
 - Cards are rendered in roster order, so DOM order is reading order.
 
 ### Interaction
 
-- **Pointer:** `onPointerEnter` sets the active card and updates the detail block
-  silently. Click also selects and is the pointer path that updates the polite
-  status line.
+- **Pointer:** click/tap selects a card, updates the detail block and announces
+  the change. Hover is a border affordance only — it never changes the active
+  bearer, so the detail cannot switch under a moving pointer.
 - **Keyboard:** the roster buttons are the controls. Arrow keys move the active
   bearer and focus follows; Enter/Space keep today's behaviour (advance to the
   next bearer), so the existing wrap-around and its tests survive. The deck

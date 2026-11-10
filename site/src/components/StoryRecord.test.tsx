@@ -36,7 +36,7 @@ const html = (active?: number) =>
   );
 
 describe('StoryRecord', () => {
-  it('marks the active band and leaves the others readable', () => {
+  it('marks only the active band', () => {
     const out = html(1);
     expect(out).toContain('data-active="true"');
     expect(out.match(/data-active="false"/g)).toHaveLength(2);
@@ -46,6 +46,11 @@ describe('StoryRecord', () => {
 
   it('renders every band at rest when no active index is given', () => {
     expect(html().match(/data-active="true"/g)).toHaveLength(3);
+  });
+
+  it('marks only the active band as the current step', () => {
+    expect(html(1).match(/aria-current="step"/g)).toHaveLength(1);
+    expect(html().match(/aria-current="step"/g)).toBeNull();
   });
 
   it('is a labelled region with links to the three destinations', () => {
