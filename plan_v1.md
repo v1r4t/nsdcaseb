@@ -1,6 +1,8 @@
 # NSDC Site Upgrade Plan — v1
 
-> Status: planned, not started.
+> Status: shipped. Kept as the historical plan; the checkboxes below are the
+> original task list, not current state. See `docs/baseline.md` for the
+> measured result.
 > Scope: performance, social/SEO, admin console, accessibility, security, tests/CI.
 > Excluded: email delivery, waitlist/guest notifications, event venue, add-to-calendar, event share (track 1).
 

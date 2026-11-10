@@ -104,7 +104,7 @@ describe('fuzzyMatch', () => {
       { start: 2, end: 3 },
       { start: 4, end: 5 },
     ]);
-    expect(match!.score).toBeCloseTo(500 - 0 * 2 - 2 * 8 - 'hello'.length * 0.5, 10);
+    expect(match!.score).toBeCloseTo(500 - 2 * 8 - 'hello'.length * 0.5, 10);
   });
 
   it('merges adjacent subsequence hits into one range', () => {

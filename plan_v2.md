@@ -1,6 +1,8 @@
 # NSDC Site Easter Eggs — Plan v2
 
-> Status: planned, not started.
+> Status: shipped, with one exception — Egg 6 (coordinates → map) was not built;
+> the full-screen menu it targeted has since been replaced. Eggs 1–5 and the
+> optional Konami egg live in `site/src/lib/easter-eggs.ts`.
 > Theme: “The Signal Trail” — a short discoverable chain plus a few independent, touch-friendly eggs.
 > The existing hidden `/admin` door remains untouched. No egg may hint at it.
 

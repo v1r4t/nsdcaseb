@@ -138,7 +138,7 @@ export async function verifyUserEmail(email: string): Promise<void> {
             'wrangler', 'd1', 'execute', 'nsdc-auth', '--local',
             // Windows cmd needs the path quoted; POSIX must receive it bare or
             // the quotes become part of the filename.
-            ...['--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile],
+            '--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile,
             '-c', 'wrangler.staging.jsonc',
           ],
           { cwd: repoRoot, timeout: 90_000, shell: process.platform === 'win32' },
@@ -193,7 +193,7 @@ async function executeLocalD1(sql: string, label: string): Promise<void> {
             'wrangler', 'd1', 'execute', 'nsdc-auth', '--local',
             // Windows cmd needs the path quoted; POSIX must receive it bare or
             // the quotes become part of the filename.
-            ...['--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile],
+            '--file', process.platform === 'win32' ? `"${sqlFile}"` : sqlFile,
             '-c', 'wrangler.staging.jsonc',
           ],
           { cwd: repoRoot, timeout: 90_000, shell: process.platform === 'win32' },

@@ -165,6 +165,7 @@ cancellation.
 
 ```bash
 npm test                 # Vitest unit tests
+npm run lint             # oxlint (warnings fail the gate)
 npm run typecheck:site   # strict TS for the site
 npx tsc -b               # root + worker typecheck
 npm run build:all        # teaser + site builds
@@ -183,7 +184,7 @@ E2E setup notes:
 - Re-runs on the same local database may need cleanup of `rl:` KV buckets and
   test rows — documented in `docs/baseline.md`.
 
-CI (`.github/workflows/ci.yml`): `quality` runs typecheck, both builds and unit
+CI (`.github/workflows/ci.yml`): `quality` runs typecheck, lint, both builds and unit
 tests; `e2e` builds, migrates/seeds a local D1, starts `wrangler dev`, and runs
 Playwright on all three browsers. A manual `deploy-staging` job deploys staging
 after e2e succeeds.

@@ -44,6 +44,8 @@ jobs:
         run: npx tsc -p worker --noEmit
       - name: Typecheck (e2e)
         run: npx tsc -p e2e --noEmit
+      - name: Lint
+        run: npm run lint
       - name: Build (root)
         run: npm run build
       - name: Build (site)

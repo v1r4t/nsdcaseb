@@ -614,7 +614,6 @@ export async function handleEventsApi(request: Request, env: Env): Promise<Respo
 
   // sub === 'register'
   const user = await getSessionUser(env, request);
-  const isGuest = !user;
   if (method === 'POST') {
     const ip = clientIp(request);
     if (
