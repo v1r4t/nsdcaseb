@@ -68,7 +68,11 @@ After the section heading and statement:
   not dismiss it.
 - Close is the initial focus; `useFocusTrap` keeps Tab inside the panel.
 - Escape closes. Body scroll is locked while open.
-- A 300ms opacity/scale entrance; removed under `prefers-reduced-motion`.
+- The card flips 180° on open: the front is the portrait plate, the back
+  carries the name, role/class, links and Close. 700ms; removed under
+  `prefers-reduced-motion`.
+- Cards are larger on the fan (220×370) and lift on hover; the fan slot itself
+  never changes.
 
 ## Accessibility
 

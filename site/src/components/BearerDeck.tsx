@@ -18,7 +18,7 @@ export function fanTransform(index: number, total: number): string {
   const angle = (index - center) * fanSpread(total);
   const step = index - center;
   const y = Math.abs(step) * 5;
-  return `translate(-50%, -50%) rotateZ(${angle.toFixed(2)}deg) translate3d(calc(var(--fan-step) * ${step.toFixed(2)}), ${y.toFixed(1)}px, 0px)`;
+  return `translate(-50%, -50%) translate3d(calc(var(--fan-step) * ${step.toFixed(2)}), ${y.toFixed(1)}px, 0px) rotateZ(${angle.toFixed(2)}deg)`;
 }
 
 interface BearCardProps {
@@ -45,7 +45,7 @@ function BearCard({ bearer, index, onOpen, className = '', style }: BearCardProp
       style={style}
       className={`group cursor-pointer text-left hover:z-40 focus-visible:z-40 ${className}`}
     >
-      <div className="h-full overflow-hidden border border-[color:var(--hairline)] bg-paper p-2 transition-[border-color,transform] duration-300 group-hover:border-ink/40 group-focus-visible:border-seal">
+      <div className="h-full overflow-hidden border border-[color:var(--hairline)] bg-paper p-2 transition-[border-color,transform] duration-300 group-hover:-translate-y-3 group-hover:border-ink/40 group-focus-visible:-translate-y-3 group-focus-visible:border-seal">
         <div className="mono flex items-center justify-between text-faint">
           <span>{String(index + 1).padStart(2, '0')}</span>
           <span
@@ -108,14 +108,14 @@ export default function BearerDeck({ bearers, onOpen }: BearerDeckProps) {
   return (
     <div
       data-deck
-      className="relative mx-auto h-[clamp(340px,40vw,520px)] w-full overflow-hidden [perspective:1200px]"
+      className="relative mx-auto h-[clamp(620px,46vw,760px)] w-full overflow-hidden [perspective:1200px]"
     >
       <div
         className="absolute inset-0 [transform-style:preserve-3d]"
         style={
           {
             transform: 'rotateX(14deg) rotateZ(-8deg)',
-            '--fan-step': 'clamp(76px, 8.5vw, 132px)',
+            '--fan-step': 'clamp(96px, 10vw, 168px)',
           } as CSSProperties
         }
       >
@@ -125,7 +125,7 @@ export default function BearerDeck({ bearers, onOpen }: BearerDeckProps) {
             bearer={bearer}
             index={slot}
             onOpen={onOpen}
-            className="absolute left-1/2 top-1/2 h-[310px] w-[180px]"
+            className="absolute left-1/2 top-1/2 h-[370px] w-[220px]"
             style={{
               transform: fanTransform(slot, bearers.length),
               // Roster order is the stack order: President on top, Mentor at the back.
