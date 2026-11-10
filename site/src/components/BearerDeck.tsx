@@ -93,15 +93,19 @@ function BearCard({ bearer, index, active, onSelect, onHover, className = '', st
       onPointerEnter={() => onHover(index)}
       onClick={() => onSelect(index)}
       style={style}
-      className={`cursor-pointer overflow-hidden border bg-paper p-2 transition-[transform,opacity,border-color] duration-300 ${
-        active ? 'border-seal opacity-100' : 'border-[color:var(--hairline)] opacity-70 hover:opacity-90'
+      className={`cursor-pointer overflow-hidden border bg-paper p-2 transition-[transform,border-color] duration-300 ${
+        active
+          ? 'border-seal'
+          : 'border-[color:var(--hairline)] hover:border-ink/40'
       } ${className}`}
     >
       <div className="mono flex items-center justify-between text-faint">
         <span>{String(index + 1).padStart(2, '0')}</span>
         {active ? <span aria-hidden="true" className="h-1.5 w-1.5 bg-seal" /> : null}
       </div>
-      <div className="mt-2">
+      <div
+        className={`mt-2 transition-opacity duration-300 ${active ? 'opacity-100' : 'opacity-70'}`}
+      >
         <CardFace bearer={bearer} />
       </div>
       <p className="mt-2 truncate font-serif text-base leading-tight tracking-tight text-ink sm:text-lg">
