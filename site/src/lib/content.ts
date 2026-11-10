@@ -179,8 +179,18 @@ function markFallback(): void {
 /** Hang-risk guard: a stalled /api/content must fall back, never hang paint. */
 const FETCH_TIMEOUT_MS = 15_000;
 
-/** GET /api/content, falling back to `FALLBACK_CONTENT` on any failure. */
-export async function fetchContent(): Promise<SiteContent> {
+export interface ContentLoad {
+  content: SiteContent;
+  /** True when the payload was absent, failed, or structurally unusable. */
+  fallback: boolean;
+}
+
+/**
+ * GET /api/content, reporting whether the result is the baked-in fallback.
+ * Callers that must not present fallback rows as fact (the story record) use
+ * `fallback`; callers that only need copy can use `fetchContent`.
+ */
+export async function loadContent(): Promise<ContentLoad> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -192,17 +202,23 @@ export async function fetchContent(): Promise<SiteContent> {
     });
     if (!response.ok) {
       markFallback();
-      return FALLBACK_CONTENT;
+      return { content: FALLBACK_CONTENT, fallback: true };
     }
 
     const payload: unknown = await response.json();
-    return normalize(payload);
+    const content = normalize(payload);
+    return { content, fallback: content === FALLBACK_CONTENT };
   } catch {
     // Offline, CORS, blocked request, a proxy answering with HTML,
     // or our own timeout abort.
     markFallback();
-    return FALLBACK_CONTENT;
+    return { content: FALLBACK_CONTENT, fallback: true };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** GET /api/content; the content only, for callers that never show its status. */
+export async function fetchContent(): Promise<SiteContent> {
+  return (await loadContent()).content;
 }
