@@ -2,29 +2,25 @@ import { useId, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { OfficeBearer } from '../lib/content';
 import Reveal from './Reveal';
-import PeoplePreview from './PeoplePreview';
+import BearerDeck from './BearerDeck';
 
 function indexOf(position: number): string {
   return String(position + 1).padStart(2, '0');
 }
 
 /**
- * PEOPLE — the bearers as an editorial index, paired with a portrait plate.
+ * PEOPLE — the bearers as a deck of portrait cards over an editorial index.
  *
- * The rows stay the index: mono number, name in Bespoke Serif, role in quiet
- * mono, links intact. Pointing at or focusing a row makes it active, and the
- * plate shows that bearer — their portrait, name, role, class, links and index.
- * The plate never previews someone else, so what is being read and what is
- * pictured stay the same person.
- *
- * Advancing is the plate's separate `Next →` button and wraps at the end. The
- * same movement is available from the keyboard: focus a row, then Enter/Space,
- * ArrowRight/Down to advance or ArrowLeft/Up to go back; focus follows the
- * active row. Clicking a row only views it; clicking the portrait does nothing,
- * so looking at a person can never move the index by accident.
+ * The deck is the visual layer: a fan of paper cards, one per bearer, that
+ * lifts on hover and opens that person's facts. It is pointer-only and
+ * aria-hidden; the roster below is the keyboard and screen-reader control set.
+ * Advancing is available from the roster (arrows/Enter) and the detail block's
+ * Next control.
  */
 export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   const [active, setActive] = useState(0);
+  // Only keyboard/click changes are announced; pointer sweeps stay silent.
+  const [announced, setAnnounced] = useState(0);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const hintId = useId();
   const total = bearers.length;
@@ -38,17 +34,20 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   }
 
   const activeIndex = ((active % total) + total) % total;
-  const nextIndex = (activeIndex + 1) % total;
-  const current = bearers[activeIndex];
-  const next = bearers[nextIndex];
+  const announcedBearer = bearers[((announced % total) + total) % total];
 
   const focusRow = (index: number) => {
     rowRefs.current[index]?.focus();
   };
 
+  const select = (index: number, announce = false) => {
+    setActive(index);
+    if (announce) setAnnounced(index);
+  };
+
   const advance = (from: number, delta: number, moveFocus: boolean) => {
     const target = (from + delta + total) % total;
-    setActive(target);
+    select(target, true);
     if (moveFocus) focusRow(target);
   };
 
@@ -75,121 +74,107 @@ export default function PeopleList({ bearers }: { bearers: OfficeBearer[] }) {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-x-6 gap-y-8 md:gap-y-12">
-      {/* Roster first in the DOM: on a phone the list leads and the preview
-          follows it. On desktop the plate is placed in the right column and
-          sticks, so the visual arrangement is unchanged. */}
-      <div className="col-span-12 md:col-span-7 md:col-start-1 md:row-start-1">
-        <ol aria-describedby={hintId} className="border-t hairline">
-          {bearers.map((bearer, i) => {
-            const isActive = activeIndex === i;
-            return (
-              <li key={bearer.id} className="border-b hairline">
-                <Reveal delay={Math.min(i, 5) * 60}>
-                  <div
-                    className="group relative"
-                    onPointerEnter={() => setActive(i)}
-                    onFocus={() => setActive(i)}
-                  >
-                    <div className="flex items-start gap-5 py-6 sm:gap-8 sm:py-7">
-                      <span
-                        aria-hidden="true"
-                        className={`mono w-8 shrink-0 pt-1 transition-colors duration-200 ${
-                          isActive ? 'text-seal' : 'text-faint'
-                        }`}
+    <div>
+      <BearerDeck
+        bearers={bearers}
+        activeIndex={activeIndex}
+        onSelect={(index) => select(index, true)}
+        onHover={(index) => select(index, false)}
+        onAdvance={() => advance(activeIndex, 1, false)}
+      />
+
+      <ol aria-describedby={hintId} className="mt-10 border-t hairline">
+        {bearers.map((bearer, i) => {
+          const isActive = activeIndex === i;
+          return (
+            <li key={bearer.id} className="border-b hairline">
+              <Reveal delay={Math.min(i, 5) * 60}>
+                <div
+                  className="group relative"
+                  onPointerEnter={() => select(i, false)}
+                  onFocus={() => select(i, true)}
+                >
+                  <div className="flex items-start gap-5 py-5 sm:gap-8 sm:py-6">
+                    <span
+                      aria-hidden="true"
+                      className={`mono w-8 shrink-0 pt-1 transition-colors duration-200 ${
+                        isActive ? 'text-seal' : 'text-faint'
+                      }`}
+                    >
+                      {indexOf(i)}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <button
+                        ref={(node) => {
+                          rowRefs.current[i] = node;
+                        }}
+                        type="button"
+                        onClick={() => select(i, true)}
+                        onKeyDown={(event) => onRowKeyDown(event, i)}
+                        data-active={isActive ? 'true' : undefined}
+                        className="group/row block w-full text-left"
                       >
-                        {indexOf(i)}
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <button
-                          ref={(node) => {
-                            rowRefs.current[i] = node;
-                          }}
-                          type="button"
-                          onClick={() => setActive(i)}
-                          onKeyDown={(event) => onRowKeyDown(event, i)}
-                          data-active={isActive ? 'true' : undefined}
-                          className="group/row block w-full text-left"
-                        >
-                          <span className="flex items-baseline gap-3">
-                            <span
-                              aria-hidden="true"
-                              className={`inline-block h-1.5 w-1.5 shrink-0 transition-colors duration-200 ${
-                                isActive ? 'bg-seal' : 'border border-ink/25'
-                              }`}
-                            />
-                            <span className="min-w-0 break-words font-serif text-xl leading-tight tracking-tight text-ink sm:text-3xl">
-                              {bearer.name}
-                            </span>
+                        <span className="flex items-baseline gap-3">
+                          <span
+                            aria-hidden="true"
+                            className={`inline-block h-1.5 w-1.5 shrink-0 transition-colors duration-200 ${
+                              isActive ? 'bg-seal' : 'border border-ink/25'
+                            }`}
+                          />
+                          <span className="min-w-0 break-words font-serif text-xl leading-tight tracking-tight text-ink sm:text-2xl">
+                            {bearer.name}
                           </span>
-                          <span className="mono mt-2 block pl-[18px] text-quiet">
-                            {bearer.role}
-                            {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
-                          </span>
-                          {isActive ? <span className="sr-only">, Active bearer</span> : null}
-                        </button>
+                        </span>
+                        <span className="mono mt-2 block pl-[18px] text-quiet">
+                          {bearer.role}
+                          {bearer.cohort ? <span> · Class of {bearer.cohort}</span> : null}
+                        </span>
+                        {isActive ? <span className="sr-only">, Active bearer</span> : null}
+                      </button>
 
-                        {bearer.links.length > 0 && (
-                          <p className="mono mt-3 flex flex-wrap gap-x-4 gap-y-1 pl-[18px]">
-                            {bearer.links.map((link) => (
-                              <a
-                                key={`${link.label}-${link.url}`}
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`${bearer.name} — ${link.label} (opens in a new tab)`}
-                                className="text-quiet underline decoration-[color:var(--hairline)] underline-offset-4 transition-colors duration-200 hover:text-seal hover:decoration-seal/40"
-                              >
-                                ↗ {link.label}
-                              </a>
-                            ))}
-                          </p>
-                        )}
-                      </div>
-
-                      <span
-                        aria-hidden="true"
-                        className="mono hidden shrink-0 pt-1.5 text-faint md:block"
-                      >
-                        {isActive ? 'Active' : '\u00A0'}
-                      </span>
+                      {bearer.links.length > 0 && (
+                        <p className="mono mt-3 flex flex-wrap gap-x-4 gap-y-1 pl-[18px]">
+                          {bearer.links.map((link) => (
+                            <a
+                              key={`${link.label}-${link.url}`}
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`${bearer.name} — ${link.label} (opens in a new tab)`}
+                              className="text-quiet underline decoration-[color:var(--hairline)] underline-offset-4 transition-colors duration-200 hover:text-seal hover:decoration-seal/40"
+                            >
+                              ↗ {link.label}
+                            </a>
+                          ))}
+                        </p>
+                      )}
                     </div>
+
+                    <span aria-hidden="true" className="mono hidden shrink-0 pt-1.5 text-faint md:block">
+                      {isActive ? 'Active' : '\u00A0'}
+                    </span>
                   </div>
-                </Reveal>
-              </li>
-            );
-          })}
-        </ol>
+                </div>
+              </Reveal>
+            </li>
+          );
+        })}
+      </ol>
 
-        <p id={hintId} className="mono mt-4 text-faint">
-          <span className="md:hidden">Tap a row to view. Tap Next to advance.</span>
-          <span className="hidden md:inline">
-            Hover or focus a row to view that bearer; the arrow keys move through the index and
-            Enter advances, or use Next.
-          </span>
-        </p>
+      <p id={hintId} className="mono mt-4 text-faint">
+        <span className="md:hidden">Tap a row to view the card. Tap Next to advance.</span>
+        <span className="hidden md:inline">
+          Hover or focus a row to view that bearer; the arrow keys move through the index and
+          Enter advances, or use Next.
+        </span>
+      </p>
 
-        <p role="status" className="sr-only">
-          Viewing {current.name}, {current.role}
-          {current.cohort ? `, class of ${current.cohort}` : ''}. Bearer {activeIndex + 1} of{' '}
-          {total}.
-        </p>
-      </div>
-
-      {/* Portrait plate: first on mobile so a tapped row updates a visible plate;
-          right column on desktop. */}
-      <div className="order-first col-span-12 md:order-none md:col-span-4 md:col-start-9 md:row-start-1">
-        <div className="motion-safe:md:sticky motion-safe:md:top-24">
-          <PeoplePreview
-            bearer={current}
-            position={activeIndex}
-            total={total}
-            nextName={next.name}
-            onAdvance={() => advance(activeIndex, 1, false)}
-          />
-        </div>
-      </div>
+      <p role="status" className="sr-only">
+        Viewing {announcedBearer.name}, {announcedBearer.role}
+        {announcedBearer.cohort ? `, class of ${announcedBearer.cohort}` : ''}. Bearer{' '}
+        {((announced % total) + total) % total + 1} of {total}.
+      </p>
     </div>
   );
 }
